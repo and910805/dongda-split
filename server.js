@@ -115,6 +115,27 @@ app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{const name=String
 app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id FROM groups WHERE invite_token=$1',[req.params.token]);if(!rows[0])return res.status(404).json({error:'邀請連結無效'});await pool.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[rows[0].id,req.userId]);res.json({groupId:rows[0].id})}));
 
 async function assertMember(groupId,userId){const {rows}=await pool.query('SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2',[groupId,userId]);return Boolean(rows[0])}
+function minimizeSettlements(allBalances){
+  const active=allBalances.filter(x=>x.balanceCents!==0);
+  if(!active.length)return [];
+  let groups=[active];
+  // 14 人活動可用子集合 DP 找到最多個互不相交的零和群組，因而得到真正最少轉帳數。
+  // 若未來群組超過 18 個尚未結清的人，則退回 O(n log n) 撮合以避免指數成長。
+  if(active.length<=18){
+    const size=1<<active.length,sums=new Array(size).fill(0);
+    for(let mask=1;mask<size;mask++){const bit=mask&-mask,index=Math.log2(bit);sums[mask]=sums[mask^bit]+active[index].balanceCents}
+    const memo=new Map([[0,0]]),choice=new Map();
+    const solve=mask=>{if(memo.has(mask))return memo.get(mask);const first=mask&-mask;let best=-Infinity,bestSubset=0;for(let subset=mask;subset;subset=(subset-1)&mask){if((subset&first)&&sums[subset]===0){const rest=solve(mask^subset);if(rest!==-Infinity&&rest+1>best){best=rest+1;bestSubset=subset}}}memo.set(mask,best);if(bestSubset)choice.set(mask,bestSubset);return best};
+    let mask=size-1;solve(mask);groups=[];while(mask){const subset=choice.get(mask)||mask;const members=[];for(let i=0;i<active.length;i++)if(subset&(1<<i))members.push(active[i]);groups.push(members);mask^=subset}
+  }
+  const transfers=[];
+  for(const members of groups){
+    const debtors=members.filter(x=>x.balanceCents<0).map(x=>({...x,left:-x.balanceCents}));
+    const creditors=members.filter(x=>x.balanceCents>0).map(x=>({...x,left:x.balanceCents}));
+    while(debtors.length&&creditors.length){debtors.sort((a,b)=>b.left-a.left);creditors.sort((a,b)=>b.left-a.left);const debtor=debtors[0],creditor=creditors[0],amount=Math.min(debtor.left,creditor.left);transfers.push({from:debtor,to:creditor,amountCents:amount});debtor.left-=amount;creditor.left-=amount;if(debtor.left===0)debtors.shift();if(creditor.left===0)creditors.shift()}
+  }
+  return transfers;
+}
 app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
   const [groupResult,membersResult,expensesResult,balancesResult]=await Promise.all([
@@ -125,17 +146,24 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   ]);
   if(!groupResult.rows[0])return res.status(404).json({error:'找不到群組'});
   const balances=balancesResult.rows.map(x=>({...x,balanceCents:Number(x.balanceCents)}));
-  const debtors=balances.filter(x=>x.balanceCents<0).map(x=>({...x,left:-x.balanceCents}));
-  const creditors=balances.filter(x=>x.balanceCents>0).map(x=>({...x,left:x.balanceCents}));
-  const settlements=[];let i=0,j=0;while(i<debtors.length&&j<creditors.length){const amount=Math.min(debtors[i].left,creditors[j].left);if(amount>0)settlements.push({from:debtors[i],to:creditors[j],amountCents:amount});debtors[i].left-=amount;creditors[j].left-=amount;if(debtors[i].left===0)i++;if(creditors[j].left===0)j++}
+  const settlements=minimizeSettlements(balances);
   res.json({...groupResult.rows[0],members:membersResult.rows,expenses:expensesResult.rows.map(x=>({...x,amountCents:Number(x.amountCents)})),balances,settlements});
 }));
 app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
   const title=String(req.body?.title||'').trim();const amountCents=Math.round(Number(req.body?.amount)*100);const payerId=String(req.body?.payerId||'');const participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
-  if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents<=0||!payerId||!participantIds.length)return res.status(400).json({error:'請完整填寫支出資料'});
-  const {rows:memberRows}=await pool.query('SELECT user_id::text id FROM group_members WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.map(x=>x.id));if(!allowed.has(payerId)||participantIds.some(id=>!allowed.has(id)))return res.status(400).json({error:'付款人或分攤成員不在群組中'});
-  const client=await pool.connect();try{await client.query('BEGIN');const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[req.params.id,title,amountCents,payerId,req.userId,String(req.body?.category||'其他').slice(0,20)]);const base=Math.floor(amountCents/participantIds.length);let remainder=amountCents-base*participantIds.length;for(const userId of participantIds){const share=base+(remainder-->0?1:0);await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,userId,share])}await client.query('COMMIT');res.status(201).json({id:rows[0].id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents<=0||!payerId)return res.status(400).json({error:'請完整填寫支出資料'});
+  const {rows:memberRows}=await pool.query('SELECT user_id::text id FROM group_members WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.map(x=>x.id));if(!allowed.has(payerId))return res.status(400).json({error:'付款人不在群組中'});
+  let shares=[];
+  if(Array.isArray(req.body?.shares)){
+    const seen=new Set();
+    for(const item of req.body.shares){const userId=String(item?.userId||'');const shareCents=Math.round(Number(item?.amount)*100);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(shareCents)||shareCents<=0)return res.status(400).json({error:'自訂分攤資料不正確'});seen.add(userId);shares.push({userId,shareCents})}
+    if(!shares.length||shares.reduce((sum,x)=>sum+x.shareCents,0)!==amountCents)return res.status(400).json({error:'每人金額加總必須等於支出總額'});
+  }else{
+    if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))return res.status(400).json({error:'請選擇有效的分攤成員'});
+    const base=Math.floor(amountCents/participantIds.length);let remainder=amountCents-base*participantIds.length;shares=participantIds.map(userId=>({userId,shareCents:base+(remainder-->0?1:0)}));
+  }
+  const client=await pool.connect();try{await client.query('BEGIN');const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[req.params.id,title,amountCents,payerId,req.userId,String(req.body?.category||'其他').slice(0,20)]);for(const share of shares){await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,share.userId,share.shareCents])}await client.query('COMMIT');res.status(201).json({id:rows[0].id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 
 app.use(express.static(path.join(__dirname,'dist'),{maxAge:'1h'}));
