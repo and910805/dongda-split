@@ -1,35 +1,39 @@
 import crypto from 'node:crypto';
 
 const signOf = value => value < 0 ? -1 : 1;
+const TWD_CENTS = 100;
+const isWholeTwd = value => Number.isSafeInteger(value) && value !== 0 && value % TWD_CENTS === 0;
 
 export function allocateEqual(totalCents, memberIds, randomize = true) {
   const ids = [...new Set(memberIds)];
-  if (!Number.isSafeInteger(totalCents) || totalCents === 0 || !ids.length) throw new Error('invalid equal split');
+  if (!isWholeTwd(totalCents) || !ids.length) throw new Error('invalid equal split');
   if (randomize) {
     for (let i = ids.length - 1; i > 0; i--) {
       const j = crypto.randomInt(i + 1);
       [ids[i], ids[j]] = [ids[j], ids[i]];
     }
   }
-  const sign = signOf(totalCents), absolute = Math.abs(totalCents);
-  const base = Math.floor(absolute / ids.length), remainder = absolute % ids.length;
-  return ids.map((userId, index) => ({ userId, shareCents: sign * (base + (index < remainder ? 1 : 0)) }));
+  const sign = signOf(totalCents), absoluteDollars = Math.abs(totalCents) / TWD_CENTS;
+  const base = Math.floor(absoluteDollars / ids.length), remainder = absoluteDollars % ids.length;
+  if (base === 0) throw new Error('金額太小，無法讓每位成員至少分攤 1 元');
+  return ids.map((userId, index) => ({ userId, shareCents: sign * (base + (index < remainder ? 1 : 0)) * TWD_CENTS }));
 }
 
 export function allocateByWeights(totalCents, weights) {
   const clean = weights.map(x => ({ userId: String(x.userId), weight: Number(x.weight) }));
-  if (!Number.isSafeInteger(totalCents) || totalCents === 0 || !clean.length || clean.some(x => !Number.isFinite(x.weight) || x.weight <= 0) || new Set(clean.map(x => x.userId)).size !== clean.length) throw new Error('invalid weights');
-  const totalWeight = clean.reduce((sum, x) => sum + x.weight, 0), absolute = Math.abs(totalCents), sign = signOf(totalCents);
-  const result = clean.map(x => { const raw = absolute * x.weight / totalWeight, floor = Math.floor(raw); return { userId: x.userId, shareCents: floor, fraction: raw - floor } });
-  let remainder = absolute - result.reduce((sum, x) => sum + x.shareCents, 0);
+  if (!isWholeTwd(totalCents) || !clean.length || clean.some(x => !Number.isFinite(x.weight) || x.weight <= 0) || new Set(clean.map(x => x.userId)).size !== clean.length) throw new Error('invalid weights');
+  const totalWeight = clean.reduce((sum, x) => sum + x.weight, 0), absoluteDollars = Math.abs(totalCents) / TWD_CENTS, sign = signOf(totalCents);
+  const result = clean.map(x => { const raw = absoluteDollars * x.weight / totalWeight, floor = Math.floor(raw); return { userId: x.userId, shareDollars: floor, fraction: raw - floor } });
+  let remainder = absoluteDollars - result.reduce((sum, x) => sum + x.shareDollars, 0);
   result.sort((a, b) => b.fraction - a.fraction || a.userId.localeCompare(b.userId));
-  for (let i = 0; i < remainder; i++) result[i % result.length].shareCents++;
-  return result.map(({ userId, shareCents }) => ({ userId, shareCents: sign * shareCents }));
+  for (let i = 0; i < remainder; i++) result[i % result.length].shareDollars++;
+  if (result.some(x => x.shareDollars === 0)) throw new Error('金額太小，無法讓每位成員至少分攤 1 元');
+  return result.map(({ userId, shareDollars }) => ({ userId, shareCents: sign * shareDollars * TWD_CENTS }));
 }
 
 export function allocateHybrid(totalCents, participantIds, fixedShares) {
   const ids = [...new Set(participantIds.map(String))], fixed = fixedShares.map(x => ({ userId: String(x.userId), shareCents: Number(x.shareCents) }));
-  if (!ids.length || fixed.some(x => !ids.includes(x.userId) || !Number.isSafeInteger(x.shareCents) || x.shareCents === 0) || new Set(fixed.map(x => x.userId)).size !== fixed.length) throw new Error('invalid hybrid split');
+  if (!isWholeTwd(totalCents) || !ids.length || fixed.some(x => !ids.includes(x.userId) || !isWholeTwd(x.shareCents)) || new Set(fixed.map(x => x.userId)).size !== fixed.length) throw new Error('invalid hybrid split');
   const fixedTotal = fixed.reduce((sum, x) => sum + x.shareCents, 0), remaining = totalCents - fixedTotal, fixedIds = new Set(fixed.map(x => x.userId)), flexible = ids.filter(id => !fixedIds.has(id));
   if (!flexible.length ? remaining !== 0 : remaining === 0 || signOf(remaining) !== signOf(totalCents)) throw new Error('invalid hybrid remainder');
   return [...fixed, ...(flexible.length ? allocateEqual(remaining, flexible) : [])];

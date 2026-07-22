@@ -29,6 +29,7 @@ function unsign(token){try{const [body,sig]=String(token||'').split('.');if(!bod
 function safeReturnTo(value){return typeof value==='string'&&value.startsWith('/')&&!value.startsWith('//')?value:'/app'}
 function requireUser(req,res,next){const session=unsign(req.cookies.dongda_session);if(!session?.userId)return res.status(401).json({error:'請先使用 LINE 登入'});req.userId=session.userId;next()}
 const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+const toWholeTwdCents=value=>{const amount=Number(value);return Number.isSafeInteger(amount)?amount*100:NaN};
 
 async function migrate(){
   await pool.query(`
@@ -105,6 +106,33 @@ async function migrate(){
     END $$;
     INSERT INTO expense_payments(expense_id,user_id,amount_cents)
       SELECT id,payer_id,amount_cents FROM expenses ON CONFLICT DO NOTHING;
+    WITH ranked_shares AS (
+      SELECT es.expense_id,es.user_id,SIGN(es.amount_cents)::bigint AS direction,
+             (ABS(es.amount_cents)/100)::bigint AS base_units,
+             ROW_NUMBER() OVER(PARTITION BY es.expense_id ORDER BY ABS(es.amount_cents)%100 DESC,es.user_id) AS unit_rank,
+             ((ABS(e.amount_cents)/100)-SUM(ABS(es.amount_cents)/100) OVER(PARTITION BY es.expense_id))::bigint AS extra_units
+      FROM expense_shares es JOIN expenses e ON e.id=es.expense_id
+      WHERE e.amount_cents%100=0
+        AND EXISTS(SELECT 1 FROM expense_shares fractional WHERE fractional.expense_id=es.expense_id AND fractional.amount_cents%100<>0)
+    )
+    UPDATE expense_shares es
+      SET amount_cents=ranked.direction*(ranked.base_units+CASE WHEN ranked.unit_rank<=ranked.extra_units THEN 1 ELSE 0 END)*100
+      FROM ranked_shares ranked
+      WHERE es.expense_id=ranked.expense_id AND es.user_id=ranked.user_id;
+    DO $$ BEGIN
+      IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='expenses_whole_twd_check') THEN
+        ALTER TABLE expenses ADD CONSTRAINT expenses_whole_twd_check CHECK (amount_cents%100=0);
+      END IF;
+      IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='expense_payments_whole_twd_check') THEN
+        ALTER TABLE expense_payments ADD CONSTRAINT expense_payments_whole_twd_check CHECK (amount_cents%100=0);
+      END IF;
+      IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='expense_shares_whole_twd_check') THEN
+        ALTER TABLE expense_shares ADD CONSTRAINT expense_shares_whole_twd_check CHECK (amount_cents%100=0);
+      END IF;
+      IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='settlement_payments_whole_twd_check') THEN
+        ALTER TABLE settlement_payments ADD CONSTRAINT settlement_payments_whole_twd_check CHECK (amount_cents%100=0);
+      END IF;
+    END $$;
   `);
 }
 
@@ -173,18 +201,18 @@ app.post('/api/groups/:id/funds',requireUser,(_req,res)=>res.status(410).json({e
 app.post('/api/groups/:id/funds/:fundId/contributions',requireUser,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
 app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
-  const title=String(req.body?.title||'').trim(),rawAmount=Number(req.body?.amount),sign=req.body?.kind==='refund'||rawAmount<0?-1:1,amountCents=sign*Math.round(Math.abs(rawAmount)*100),participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
+  const title=String(req.body?.title||'').trim(),rawAmount=Number(req.body?.amount),sign=req.body?.kind==='refund'||rawAmount<0?-1:1,amountCents=sign*toWholeTwdCents(Math.abs(rawAmount)),participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
   if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents===0)return res.status(400).json({error:'請完整填寫支出資料'});
   const {rows:memberRows}=await pool.query('SELECT user_id::text id,is_virtual FROM group_members JOIN users ON users.id=user_id WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.filter(x=>!x.is_virtual).map(x=>x.id));
   let payments=[];
-  if(Array.isArray(req.body?.payers)){const seen=new Set();for(const item of req.body.payers){const userId=String(item?.userId||''),paymentCents=sign*Math.round(Math.abs(Number(item?.amount))*100);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(paymentCents)||paymentCents===0)return res.status(400).json({error:'共同付款資料不正確'});seen.add(userId);payments.push({userId,paymentCents})}}
+  if(Array.isArray(req.body?.payers)){const seen=new Set();for(const item of req.body.payers){const userId=String(item?.userId||''),paymentCents=sign*toWholeTwdCents(Math.abs(Number(item?.amount)));if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(paymentCents)||paymentCents===0)return res.status(400).json({error:'共同付款金額必須是整數元'});seen.add(userId);payments.push({userId,paymentCents})}}
   else{const userId=String(req.body?.payerId||'');if(!allowed.has(userId))return res.status(400).json({error:'付款人不在群組中'});payments=[{userId,paymentCents:amountCents}]}
   if(!payments.length||payments.reduce((sum,x)=>sum+x.paymentCents,0)!==amountCents)return res.status(400).json({error:'多人付款加總必須等於總額'});
   let shares=[];const mode=String(req.body?.splitMode||'equal');
   try{
-    if(mode==='exact'||Array.isArray(req.body?.shares)){const seen=new Set();shares=(req.body.shares||[]).map(item=>{const userId=String(item?.userId||''),shareCents=sign*Math.round(Math.abs(Number(item?.amount))*100);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(shareCents)||shareCents===0)throw new Error('自訂分攤資料不正確');seen.add(userId);return{userId,shareCents}});if(shares.reduce((sum,x)=>sum+x.shareCents,0)!==amountCents)throw new Error('每人金額加總必須等於支出總額')}
+    if(mode==='exact'||Array.isArray(req.body?.shares)){const seen=new Set();shares=(req.body.shares||[]).map(item=>{const userId=String(item?.userId||''),shareCents=sign*toWholeTwdCents(Math.abs(Number(item?.amount)));if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(shareCents)||shareCents===0)throw new Error('自訂分攤金額必須是整數元');seen.add(userId);return{userId,shareCents}});if(shares.reduce((sum,x)=>sum+x.shareCents,0)!==amountCents)throw new Error('每人金額加總必須等於支出總額')}
     else if(mode==='weights'){const weights=(req.body.weights||[]).map(x=>({userId:String(x.userId),weight:Number(x.weight)}));if(weights.some(x=>!allowed.has(x.userId)))throw new Error('比例分攤成員不正確');shares=allocateByWeights(amountCents,weights)}
-    else if(mode==='hybrid'){const fixed=(req.body.fixedShares||[]).map(x=>({userId:String(x.userId),shareCents:sign*Math.round(Math.abs(Number(x.amount))*100)}));if(participantIds.some(id=>!allowed.has(id)))throw new Error('指定成員不正確');shares=allocateHybrid(amountCents,participantIds,fixed)}
+    else if(mode==='hybrid'){const fixed=(req.body.fixedShares||[]).map(x=>({userId:String(x.userId),shareCents:sign*toWholeTwdCents(Math.abs(Number(x.amount)))}));if(participantIds.some(id=>!allowed.has(id)))throw new Error('指定成員不正確');shares=allocateHybrid(amountCents,participantIds,fixed)}
     else{if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))throw new Error('請選擇有效的分攤成員');shares=allocateEqual(amountCents,participantIds)}
   }catch(error){return res.status(400).json({error:error.message})}
   const client=await pool.connect();try{await client.query('BEGIN');const {rows:[expense]}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[req.params.id,title,amountCents,payments[0].userId,req.userId,String(req.body?.category||'其他').slice(0,20)]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,share.userId,share.shareCents]);await client.query('COMMIT');res.status(201).json({id:expense.id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
@@ -194,18 +222,18 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
   const {rows:[existing]}=await pool.query(`SELECT e.created_by,g.owner_id FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
   if(!existing)return res.status(404).json({error:'找不到這筆支出'});
   if(existing.created_by!==req.userId&&existing.owner_id!==req.userId)return res.status(403).json({error:'只有記帳人或群組建立者能修改'});
-  const title=String(req.body?.title||'').trim(),rawAmount=Number(req.body?.amount),sign=req.body?.kind==='refund'||rawAmount<0?-1:1,amountCents=sign*Math.round(Math.abs(rawAmount)*100),participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
+  const title=String(req.body?.title||'').trim(),rawAmount=Number(req.body?.amount),sign=req.body?.kind==='refund'||rawAmount<0?-1:1,amountCents=sign*toWholeTwdCents(Math.abs(rawAmount)),participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
   if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents===0)return res.status(400).json({error:'請完整填寫支出資料'});
   const {rows:memberRows}=await pool.query('SELECT user_id::text id,is_virtual FROM group_members JOIN users ON users.id=user_id WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.filter(x=>!x.is_virtual).map(x=>x.id));
   let payments=[];
-  if(Array.isArray(req.body?.payers)){const seen=new Set();for(const item of req.body.payers){const userId=String(item?.userId||''),paymentCents=sign*Math.round(Math.abs(Number(item?.amount))*100);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(paymentCents)||paymentCents===0)return res.status(400).json({error:'共同付款資料不正確'});seen.add(userId);payments.push({userId,paymentCents})}}
+  if(Array.isArray(req.body?.payers)){const seen=new Set();for(const item of req.body.payers){const userId=String(item?.userId||''),paymentCents=sign*toWholeTwdCents(Math.abs(Number(item?.amount)));if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(paymentCents)||paymentCents===0)return res.status(400).json({error:'共同付款金額必須是整數元'});seen.add(userId);payments.push({userId,paymentCents})}}
   else{const userId=String(req.body?.payerId||'');if(!allowed.has(userId))return res.status(400).json({error:'付款人不在群組中'});payments=[{userId,paymentCents:amountCents}]}
   if(!payments.length||payments.reduce((sum,x)=>sum+x.paymentCents,0)!==amountCents)return res.status(400).json({error:'多人付款加總必須等於總額'});
   let shares=[];const mode=String(req.body?.splitMode||'equal');
   try{
-    if(mode==='exact'||Array.isArray(req.body?.shares)){const seen=new Set();shares=(req.body.shares||[]).map(item=>{const userId=String(item?.userId||''),shareCents=sign*Math.round(Math.abs(Number(item?.amount))*100);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(shareCents)||shareCents===0)throw new Error('自訂分攤資料不正確');seen.add(userId);return{userId,shareCents}});if(shares.reduce((sum,x)=>sum+x.shareCents,0)!==amountCents)throw new Error('每人金額加總必須等於支出總額')}
+    if(mode==='exact'||Array.isArray(req.body?.shares)){const seen=new Set();shares=(req.body.shares||[]).map(item=>{const userId=String(item?.userId||''),shareCents=sign*toWholeTwdCents(Math.abs(Number(item?.amount)));if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(shareCents)||shareCents===0)throw new Error('自訂分攤金額必須是整數元');seen.add(userId);return{userId,shareCents}});if(shares.reduce((sum,x)=>sum+x.shareCents,0)!==amountCents)throw new Error('每人金額加總必須等於支出總額')}
     else if(mode==='weights'){const weights=(req.body.weights||[]).map(x=>({userId:String(x.userId),weight:Number(x.weight)}));if(weights.some(x=>!allowed.has(x.userId)))throw new Error('比例分攤成員不正確');shares=allocateByWeights(amountCents,weights)}
-    else if(mode==='hybrid'){const fixed=(req.body.fixedShares||[]).map(x=>({userId:String(x.userId),shareCents:sign*Math.round(Math.abs(Number(x.amount))*100)}));if(participantIds.some(id=>!allowed.has(id)))throw new Error('指定成員不正確');shares=allocateHybrid(amountCents,participantIds,fixed)}
+    else if(mode==='hybrid'){const fixed=(req.body.fixedShares||[]).map(x=>({userId:String(x.userId),shareCents:sign*toWholeTwdCents(Math.abs(Number(x.amount)))}));if(participantIds.some(id=>!allowed.has(id)))throw new Error('指定成員不正確');shares=allocateHybrid(amountCents,participantIds,fixed)}
     else{if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))throw new Error('請選擇有效的分攤成員');shares=allocateEqual(amountCents,participantIds)}
   }catch(error){return res.status(400).json({error:error.message})}
   const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4 WHERE id=$5`,[title,amountCents,payments[0].userId,String(req.body?.category||'其他').slice(0,20),req.params.expenseId]);await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,share.userId,share.shareCents]);await client.query('COMMIT');res.json({id:req.params.expenseId})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
@@ -219,28 +247,28 @@ app.delete('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(re
   res.json({ok:true});
 }));
 app.post('/api/groups/:id/settlements',requireUser,asyncRoute(async(req,res)=>{
-  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});const requestedFrom=String(req.body?.fromUserId||req.userId),toUserId=String(req.body?.toUserId||''),amountCents=Math.round(Number(req.body?.amount)*100);if(!toUserId||toUserId===requestedFrom||!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'轉帳資料不正確'});
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});const requestedFrom=String(req.body?.fromUserId||req.userId),toUserId=String(req.body?.toUserId||''),amountCents=toWholeTwdCents(req.body?.amount);if(!toUserId||toUserId===requestedFrom||!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'轉帳金額必須是整數元'});
   const client=await pool.connect();try{await client.query('BEGIN');const {rows:[group]}=await client.query('SELECT owner_id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);const {rows}=await client.query(BALANCE_SQL,[req.params.id]);const from=rows.find(x=>x.id===requestedFrom),to=rows.find(x=>x.id===toUserId);if(!from||!to){await client.query('ROLLBACK');return res.status(400).json({error:'付款人或收款人不在群組中'})}if(requestedFrom!==req.userId&&!(from.isFund&&group.owner_id===req.userId)){await client.query('ROLLBACK');return res.status(403).json({error:'只有本人或群組建立者能確認這筆轉帳'})}const maximum=Math.min(-Number(from.balanceCents),Number(to.balanceCents));if(maximum<=0||amountCents>maximum){await client.query('ROLLBACK');return res.status(400).json({error:'轉帳金額超過目前應付金額'})}await client.query('INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by) VALUES($1,$2,$3,$4,$5)',[req.params.id,requestedFrom,toUserId,amountCents,req.userId]);await client.query('COMMIT');res.status(201).json({ok:true})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.post('/api/groups/:id/expenses-v1',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
-  const title=String(req.body?.title||'').trim();const amountCents=Math.round(Number(req.body?.amount)*100);const payerId=String(req.body?.payerId||'');const participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
+  const title=String(req.body?.title||'').trim();const amountCents=toWholeTwdCents(req.body?.amount);const payerId=String(req.body?.payerId||'');const participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
   if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents<=0||!payerId)return res.status(400).json({error:'請完整填寫支出資料'});
   const {rows:memberRows}=await pool.query('SELECT user_id::text id FROM group_members WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.map(x=>x.id));if(!allowed.has(payerId))return res.status(400).json({error:'付款人不在群組中'});
   let shares=[];
   if(Array.isArray(req.body?.shares)){
     const seen=new Set();
-    for(const item of req.body.shares){const userId=String(item?.userId||'');const shareCents=Math.round(Number(item?.amount)*100);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(shareCents)||shareCents<=0)return res.status(400).json({error:'自訂分攤資料不正確'});seen.add(userId);shares.push({userId,shareCents})}
+    for(const item of req.body.shares){const userId=String(item?.userId||'');const shareCents=toWholeTwdCents(item?.amount);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(shareCents)||shareCents<=0)return res.status(400).json({error:'自訂分攤金額必須是整數元'});seen.add(userId);shares.push({userId,shareCents})}
     if(!shares.length||shares.reduce((sum,x)=>sum+x.shareCents,0)!==amountCents)return res.status(400).json({error:'每人金額加總必須等於支出總額'});
   }else{
     if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))return res.status(400).json({error:'請選擇有效的分攤成員'});
-    const base=Math.floor(amountCents/participantIds.length);let remainder=amountCents-base*participantIds.length;shares=participantIds.map(userId=>({userId,shareCents:base+(remainder-->0?1:0)}));
+    shares=allocateEqual(amountCents,participantIds);
   }
   const client=await pool.connect();try{await client.query('BEGIN');const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[req.params.id,title,amountCents,payerId,req.userId,String(req.body?.category||'其他').slice(0,20)]);for(const share of shares){await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,share.userId,share.shareCents])}await client.query('COMMIT');res.status(201).json({id:rows[0].id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.post('/api/groups/:id/settlements-v1',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
-  const toUserId=String(req.body?.toUserId||''),amountCents=Math.round(Number(req.body?.amount)*100);
+  const toUserId=String(req.body?.toUserId||''),amountCents=toWholeTwdCents(req.body?.amount);
   if(!toUserId||toUserId===req.userId||!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'轉帳資料不正確'});
   const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);const {rows}=await client.query(BALANCE_SQL,[req.params.id]);const from=rows.find(x=>x.id===req.userId),to=rows.find(x=>x.id===toUserId);if(!from||!to)return res.status(400).json({error:'收款人不在群組中'});const maximum=Math.min(-Number(from.balanceCents),Number(to.balanceCents));if(maximum<=0||amountCents>maximum){await client.query('ROLLBACK');return res.status(400).json({error:'轉帳金額超過目前應付金額'})}await client.query('INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by) VALUES($1,$2,$3,$4,$2)',[req.params.id,req.userId,toUserId,amountCents]);await client.query('COMMIT');res.status(201).json({ok:true})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));

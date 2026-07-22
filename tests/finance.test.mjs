@@ -29,7 +29,12 @@ test('退款以負數平均沖回成員負擔',()=>{
 });
 
 test('1,000 元三人均分，只有一人承擔一元尾差',()=>{
-  const rows=allocateEqual(100_000,['a','b','c'],false);assert.deepEqual(rows.map(x=>x.shareCents).sort((a,b)=>a-b),[33_333,33_333,33_334]);assert.equal(sum(rows),100_000);
+  const rows=allocateEqual(100_000,['a','b','c'],false);assert.deepEqual(rows.map(x=>x.shareCents).sort((a,b)=>a-b),[33_300,33_300,33_400]);assert.equal(sum(rows),100_000);assert.ok(rows.every(x=>x.shareCents%100===0));
+});
+
+test('所有自動分攤都只產生整數元',()=>{
+  const equal=allocateEqual(100_100,['a','b','c'],false),weighted=allocateByWeights(100_100,[{userId:'a',weight:1},{userId:'b',weight:2},{userId:'c',weight:3}]),hybrid=allocateHybrid(100_100,['a','b','c'],[{userId:'a',shareCents:10_000}]);
+  for(const rows of [equal,weighted,hybrid]){assert.equal(sum(rows),100_100);assert.ok(rows.every(x=>x.shareCents%100===0))}
 });
 
 test('直接代購只產生 A 與 B 一筆轉帳',()=>{
