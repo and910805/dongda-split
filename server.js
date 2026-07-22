@@ -73,6 +73,16 @@ async function migrate(){
       amount_cents BIGINT NOT NULL CHECK (amount_cents>=0),
       PRIMARY KEY(expense_id,user_id)
     );
+    CREATE TABLE IF NOT EXISTS settlement_payments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      from_user_id UUID NOT NULL REFERENCES users(id),
+      to_user_id UUID NOT NULL REFERENCES users(id),
+      amount_cents BIGINT NOT NULL CHECK (amount_cents>0),
+      created_by UUID NOT NULL REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      CHECK (from_user_id<>to_user_id)
+    );
     CREATE INDEX IF NOT EXISTS expenses_group_created_idx ON expenses(group_id,created_at DESC);
   `);
 }
@@ -115,6 +125,7 @@ app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{const name=String
 app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id FROM groups WHERE invite_token=$1',[req.params.token]);if(!rows[0])return res.status(404).json({error:'邀請連結無效'});await pool.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[rows[0].id,req.userId]);res.json({groupId:rows[0].id})}));
 
 async function assertMember(groupId,userId){const {rows}=await pool.query('SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2',[groupId,userId]);return Boolean(rows[0])}
+const BALANCE_SQL=`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",(COALESCE(p.paid,0)-COALESCE(o.owed,0)+COALESCE(sout.sent,0)-COALESCE(sin.received,0))::bigint::text AS "balanceCents" FROM group_members gm JOIN users u ON u.id=gm.user_id LEFT JOIN (SELECT payer_id,SUM(amount_cents) paid FROM expenses WHERE group_id=$1 GROUP BY payer_id)p ON p.payer_id=u.id LEFT JOIN (SELECT es.user_id,SUM(es.amount_cents) owed FROM expense_shares es JOIN expenses e ON e.id=es.expense_id WHERE e.group_id=$1 GROUP BY es.user_id)o ON o.user_id=u.id LEFT JOIN (SELECT from_user_id,SUM(amount_cents) sent FROM settlement_payments WHERE group_id=$1 GROUP BY from_user_id)sout ON sout.from_user_id=u.id LEFT JOIN (SELECT to_user_id,SUM(amount_cents) received FROM settlement_payments WHERE group_id=$1 GROUP BY to_user_id)sin ON sin.to_user_id=u.id WHERE gm.group_id=$1 ORDER BY gm.joined_at`;
 function minimizeSettlements(allBalances){
   const active=allBalances.filter(x=>x.balanceCents!==0);
   if(!active.length)return [];
@@ -142,7 +153,7 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
     pool.query('SELECT id,name,description,currency,invite_token AS "inviteToken",owner_id AS "ownerId" FROM groups WHERE id=$1',[req.params.id]),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",gm.role FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id]),
     pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.expense_date AS "expenseDate",e.created_at AS "createdAt",u.id AS "payerId",u.display_name AS "payerName",COUNT(es.user_id)::int AS "shareCount" FROM expenses e JOIN users u ON u.id=e.payer_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id,u.id ORDER BY e.created_at DESC LIMIT 100`,[req.params.id]),
-    pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",(COALESCE(p.paid,0)-COALESCE(o.owed,0))::bigint::text AS "balanceCents" FROM group_members gm JOIN users u ON u.id=gm.user_id LEFT JOIN (SELECT payer_id,SUM(amount_cents) paid FROM expenses WHERE group_id=$1 GROUP BY payer_id)p ON p.payer_id=u.id LEFT JOIN (SELECT es.user_id,SUM(es.amount_cents) owed FROM expense_shares es JOIN expenses e ON e.id=es.expense_id WHERE e.group_id=$1 GROUP BY es.user_id)o ON o.user_id=u.id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id])
+    pool.query(BALANCE_SQL,[req.params.id])
   ]);
   if(!groupResult.rows[0])return res.status(404).json({error:'找不到群組'});
   const balances=balancesResult.rows.map(x=>({...x,balanceCents:Number(x.balanceCents)}));
@@ -164,6 +175,12 @@ app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
     const base=Math.floor(amountCents/participantIds.length);let remainder=amountCents-base*participantIds.length;shares=participantIds.map(userId=>({userId,shareCents:base+(remainder-->0?1:0)}));
   }
   const client=await pool.connect();try{await client.query('BEGIN');const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[req.params.id,title,amountCents,payerId,req.userId,String(req.body?.category||'其他').slice(0,20)]);for(const share of shares){await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,share.userId,share.shareCents])}await client.query('COMMIT');res.status(201).json({id:rows[0].id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}));
+app.post('/api/groups/:id/settlements',requireUser,asyncRoute(async(req,res)=>{
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  const toUserId=String(req.body?.toUserId||''),amountCents=Math.round(Number(req.body?.amount)*100);
+  if(!toUserId||toUserId===req.userId||!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'轉帳資料不正確'});
+  const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);const {rows}=await client.query(BALANCE_SQL,[req.params.id]);const from=rows.find(x=>x.id===req.userId),to=rows.find(x=>x.id===toUserId);if(!from||!to)return res.status(400).json({error:'收款人不在群組中'});const maximum=Math.min(-Number(from.balanceCents),Number(to.balanceCents));if(maximum<=0||amountCents>maximum){await client.query('ROLLBACK');return res.status(400).json({error:'轉帳金額超過目前應付金額'})}await client.query('INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by) VALUES($1,$2,$3,$4,$2)',[req.params.id,req.userId,toUserId,amountCents]);await client.query('COMMIT');res.status(201).json({ok:true})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 
 app.use(express.static(path.join(__dirname,'dist'),{maxAge:'1h'}));
