@@ -2,6 +2,7 @@ import React, {useMemo, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {ArrowRight, BarChart3, Bell, Check, ChevronRight, CircleDollarSign, Menu, Plus, ReceiptText, Search, Sparkles, Users, WalletCards, X} from 'lucide-react';
 import './style.css';
+import './mobile.css';
 import ProductApp from './ProductApp.jsx';
 
 const people=[{name:'小羅',img:'/xiaoluo-avatar.png',color:'#1f9d69'},{name:'安安',initial:'安',color:'#ef8b5a'},{name:'阿哲',initial:'哲',color:'#6c72d9'}];
