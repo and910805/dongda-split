@@ -160,22 +160,13 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   const settlements=minimizeSettlements(balances);
   res.json({...groupResult.rows[0],members:membersResult.rows,expenses:expensesResult.rows.map(x=>({...x,amountCents:Number(x.amountCents),payments:(x.payments||[]).map(p=>({...p,amountCents:Number(p.amountCents)})),shares:(x.shares||[]).map(s=>({...s,amountCents:Number(s.amountCents)}))})),balances,settlements});
 }));
-app.post('/api/groups/:id/funds',requireUser,asyncRoute(async(req,res)=>{
-  const {rows:[group]}=await pool.query('SELECT owner_id FROM groups WHERE id=$1',[req.params.id]);if(!group||group.owner_id!==req.userId)return res.status(403).json({error:'只有群組建立者能建立公費帳戶'});
-  const {rows:[existing]}=await pool.query(`SELECT u.id,u.display_name AS "displayName",true AS "isFund" FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 AND u.is_virtual=true LIMIT 1`,[req.params.id]);if(existing)return res.json(existing);
-  const client=await pool.connect();try{await client.query('BEGIN');const fundKey=`fund:${req.params.id}:${crypto.randomBytes(8).toString('hex')}`;const {rows:[fund]}=await client.query(`INSERT INTO users(line_user_id,display_name,is_virtual) VALUES($1,$2,true) RETURNING id,display_name AS "displayName",true AS "isFund"`,[fundKey,String(req.body?.name||'公費').trim().slice(0,40)||'公費']);await client.query("INSERT INTO group_members(group_id,user_id,role) VALUES($1,$2,'fund')",[req.params.id,fund.id]);await client.query('COMMIT');res.status(201).json(fund)}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
-}));
-app.post('/api/groups/:id/funds/:fundId/contributions',requireUser,asyncRoute(async(req,res)=>{
-  const fromUserId=String(req.body?.fromUserId||req.userId),amountCents=Math.round(Number(req.body?.amount)*100);if(!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'入金金額必須大於零'});
-  const {rows:[group]}=await pool.query('SELECT owner_id FROM groups WHERE id=$1',[req.params.id]);if(!group)return res.status(404).json({error:'找不到群組'});if(fromUserId!==req.userId&&group.owner_id!==req.userId)return res.status(403).json({error:'只能記錄自己的公費入金'});
-  const {rows}=await pool.query(`SELECT u.id,u.is_virtual FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 AND u.id=ANY($2::uuid[])`,[req.params.id,[fromUserId,req.params.fundId]]);if(rows.length!==2||!rows.find(x=>x.id===req.params.fundId)?.is_virtual||rows.find(x=>x.id===fromUserId)?.is_virtual)return res.status(400).json({error:'公費或入金成員不正確'});
-  await pool.query('INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by) VALUES($1,$2,$3,$4,$5)',[req.params.id,fromUserId,req.params.fundId,amountCents,req.userId]);res.status(201).json({ok:true});
-}));
+app.post('/api/groups/:id/funds',requireUser,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
+app.post('/api/groups/:id/funds/:fundId/contributions',requireUser,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
 app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
   const title=String(req.body?.title||'').trim(),rawAmount=Number(req.body?.amount),sign=req.body?.kind==='refund'||rawAmount<0?-1:1,amountCents=sign*Math.round(Math.abs(rawAmount)*100),participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
   if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents===0)return res.status(400).json({error:'請完整填寫支出資料'});
-  const {rows:memberRows}=await pool.query('SELECT user_id::text id,is_virtual FROM group_members JOIN users ON users.id=user_id WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.map(x=>x.id));
+  const {rows:memberRows}=await pool.query('SELECT user_id::text id,is_virtual FROM group_members JOIN users ON users.id=user_id WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.filter(x=>!x.is_virtual).map(x=>x.id));
   let payments=[];
   if(Array.isArray(req.body?.payers)){const seen=new Set();for(const item of req.body.payers){const userId=String(item?.userId||''),paymentCents=sign*Math.round(Math.abs(Number(item?.amount))*100);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(paymentCents)||paymentCents===0)return res.status(400).json({error:'共同付款資料不正確'});seen.add(userId);payments.push({userId,paymentCents})}}
   else{const userId=String(req.body?.payerId||'');if(!allowed.has(userId))return res.status(400).json({error:'付款人不在群組中'});payments=[{userId,paymentCents:amountCents}]}
@@ -196,7 +187,7 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
   if(existing.created_by!==req.userId&&existing.owner_id!==req.userId)return res.status(403).json({error:'只有記帳人或群組建立者能修改'});
   const title=String(req.body?.title||'').trim(),rawAmount=Number(req.body?.amount),sign=req.body?.kind==='refund'||rawAmount<0?-1:1,amountCents=sign*Math.round(Math.abs(rawAmount)*100),participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
   if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents===0)return res.status(400).json({error:'請完整填寫支出資料'});
-  const {rows:memberRows}=await pool.query('SELECT user_id::text id,is_virtual FROM group_members JOIN users ON users.id=user_id WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.map(x=>x.id));
+  const {rows:memberRows}=await pool.query('SELECT user_id::text id,is_virtual FROM group_members JOIN users ON users.id=user_id WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.filter(x=>!x.is_virtual).map(x=>x.id));
   let payments=[];
   if(Array.isArray(req.body?.payers)){const seen=new Set();for(const item of req.body.payers){const userId=String(item?.userId||''),paymentCents=sign*Math.round(Math.abs(Number(item?.amount))*100);if(!allowed.has(userId)||seen.has(userId)||!Number.isSafeInteger(paymentCents)||paymentCents===0)return res.status(400).json({error:'共同付款資料不正確'});seen.add(userId);payments.push({userId,paymentCents})}}
   else{const userId=String(req.body?.payerId||'');if(!allowed.has(userId))return res.status(400).json({error:'付款人不在群組中'});payments=[{userId,paymentCents:amountCents}]}
@@ -209,6 +200,14 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
     else{if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))throw new Error('請選擇有效的分攤成員');shares=allocateEqual(amountCents,participantIds)}
   }catch(error){return res.status(400).json({error:error.message})}
   const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4 WHERE id=$5`,[title,amountCents,payments[0].userId,String(req.body?.category||'其他').slice(0,20),req.params.expenseId]);await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,share.userId,share.shareCents]);await client.query('COMMIT');res.json({id:req.params.expenseId})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}));
+app.delete('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req,res)=>{
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  const {rows:[expense]}=await pool.query(`SELECT e.id,e.created_by,g.owner_id FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
+  if(!expense)return res.status(404).json({error:'找不到這筆支出'});
+  if(expense.created_by!==req.userId&&expense.owner_id!==req.userId)return res.status(403).json({error:'只有記帳人或群組建立者能刪除'});
+  await pool.query('DELETE FROM expenses WHERE id=$1',[req.params.expenseId]);
+  res.json({ok:true});
 }));
 app.post('/api/groups/:id/settlements',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});const requestedFrom=String(req.body?.fromUserId||req.userId),toUserId=String(req.body?.toUserId||''),amountCents=Math.round(Number(req.body?.amount)*100);if(!toUserId||toUserId===requestedFrom||!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'轉帳資料不正確'});
