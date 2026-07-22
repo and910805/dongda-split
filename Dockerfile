@@ -12,7 +12,7 @@ ENV NODE_ENV=production
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile
-COPY server.js finance.mjs ./
+COPY server.js finance.mjs demo-seed.mjs ./
 COPY --from=build /app/dist ./dist
 EXPOSE 8080
 CMD ["node", "server.js"]
