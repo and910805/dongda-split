@@ -39,3 +39,29 @@ test('直接代購只產生 A 與 B 一筆轉帳',()=>{
 test('零和子群最佳化會保留可獨立結清的群組',()=>{
   const transfers=minimizeSettlements([{id:'a',balanceCents:500},{id:'b',balanceCents:-500},{id:'c',balanceCents:400},{id:'d',balanceCents:-400}]);assert.equal(transfers.length,2);
 });
+
+const payCounts = transfers => transfers.reduce((map,t)=>map.set(t.from.id,(map.get(t.from.id)||0)+1),new Map());
+
+test('小額付款人都能一次付清，尾數由欠最多的人吸收',()=>{
+  // c 欠 1,000 元；a、b、d 各欠 100 元。三個小額付款人應各自一筆結清。
+  const transfers=minimizeSettlements([{id:'a',balanceCents:-10_000},{id:'b',balanceCents:-10_000},{id:'d',balanceCents:-10_000},{id:'c',balanceCents:-100_000},{id:'x',balanceCents:70_000},{id:'y',balanceCents:60_000}]);
+  const counts=payCounts(transfers);
+  assert.equal(counts.get('a'),1);assert.equal(counts.get('b'),1);assert.equal(counts.get('d'),1);
+  assert.ok(!counts.has('x')&&!counts.has('y'),'收款人不應該需要轉帳');
+});
+
+test('隨機情境都能完全結清，且收款人永遠不必轉帳',()=>{
+  for(let seed=0;seed<400;seed++){
+    const size=3+seed%12,balances=[];let total=0;
+    for(let i=0;i<size-1;i++){const value=((seed*7+i*13)%2?1:-1)*(((seed*31+i*17)%900)+1)*100;balances.push({id:`u${i}`,balanceCents:value});total+=value}
+    balances.push({id:`u${size-1}`,balanceCents:-total});
+    if(balances.some(x=>x.balanceCents===0))continue;
+    const transfers=minimizeSettlements(balances);
+    const net=new Map(balances.map(x=>[x.id,x.balanceCents]));
+    for(const t of transfers){net.set(t.from.id,net.get(t.from.id)+t.amountCents);net.set(t.to.id,net.get(t.to.id)-t.amountCents)}
+    assert.ok([...net.values()].every(v=>v===0),`seed ${seed} 未完全結清`);
+    assert.ok(transfers.every(t=>t.amountCents>0),`seed ${seed} 出現非正數金額`);
+    const creditors=new Set(balances.filter(x=>x.balanceCents>0).map(x=>x.id));
+    assert.ok(transfers.every(t=>!creditors.has(t.from.id)),`seed ${seed} 讓收款人轉了帳`);
+  }
+});
