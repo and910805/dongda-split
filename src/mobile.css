@@ -1,4 +1,4 @@
-.mobile-group-picker,.mobile-logout,.mobile-bottom-nav{display:none}
+.mobile-group-picker,.mobile-logout,.mobile-bottom-nav,.mobile-header-mark,.mobile-header-avatar,.mobile-shortcuts,.mobile-expense-fab{display:none}
 .expense-edit{width:34px;height:34px;flex:none;border:1px solid var(--line);border-radius:10px;background:#fff;color:#718078;display:grid;place-items:center;transition:.18s ease}.expense-edit:hover{border-color:var(--green);background:#edf7f0;color:var(--green)}.expense-edit svg{width:15px;height:15px}
 
 @media(max-width:680px){
@@ -20,4 +20,21 @@
 
 @media(max-width:390px){
  .group-hero>img{width:108px;height:108px;top:32px}.group-hero h1{font-size:20px}.real-stats article{padding:12px 10px}.real-stats h3{font-size:14px}.mobile-bottom-nav{left:6px;right:6px}
+}
+
+/* Simplified mobile home: one app bar, shortcut rail, records and a single add action. */
+@media(max-width:680px){
+ html{scroll-padding-top:78px}
+ .real-app{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+ .real-side{display:none}
+ .real-workspace>header{top:0;height:70px;padding:8px 12px;background:var(--green);border:0;color:white;box-shadow:none}
+ .mobile-header-mark{display:grid;width:42px;height:42px;place-items:center;border:2px solid #ffffffb8;border-radius:13px;color:white;font-weight:800;transform:rotate(-5deg);flex:none}
+ .mobile-group-picker{align-items:center}.mobile-group-picker small{color:#d8f5e6}.mobile-group-picker select{max-width:210px;color:white;text-align:center;text-align-last:center;font-size:17px;padding:3px 18px;background:transparent}.mobile-group-picker option{color:var(--ink);background:white}
+ .real-header-actions .invite,.mobile-logout{display:none}.mobile-header-avatar{display:grid;width:42px;height:42px;padding:0;place-items:center;border:2px solid #fff;background:#fff;border-radius:50%;overflow:hidden}.mobile-header-avatar .avatar{width:38px!important;height:38px!important}
+ .real-dashboard{padding:10px 10px 4px}.group-hero{height:102px;padding:14px 16px;background:#eaf7ee;border-radius:18px}.group-hero h1,.group-hero>img{display:none}.group-hero p{max-width:100%;font-size:11px;margin-top:7px}.hero-members{margin-top:9px}.hero-members .avatar,.hero-members button{width:29px!important;height:29px!important}.pill{background:white}
+ .mobile-shortcuts{display:grid;grid-template-columns:repeat(5,minmax(58px,1fr));width:100%;height:auto;max-width:none;margin:10px 0;padding:2px 0 10px;gap:5px;overflow:visible;background:white;border:1px solid var(--line);border-radius:18px}
+ .mobile-shortcuts button{min-width:0;border:0;background:transparent;padding:10px 2px 2px;display:flex;flex-direction:column;align-items:center;gap:6px;color:#5e6d67;font-size:10px;font-weight:700}.mobile-shortcuts button svg{width:38px;height:38px;padding:10px;border-radius:12px;background:#e8f6ed;color:var(--green)}
+ .real-stats{margin:0 0 10px}.real-stats .settlement-stat{display:none}.real-stats article{min-height:72px}.real-stats h3{font-size:14px}
+ .expense-panel,.settlements{scroll-margin-top:80px}.mobile-bottom-nav{display:none}
+ .mobile-expense-fab{position:fixed;display:flex;z-index:16;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));width:62px;height:62px;border:0;border-radius:50%;background:var(--green);color:white;box-shadow:0 12px 28px #17352b3d;align-items:center;justify-content:center;flex-direction:column;gap:1px}.mobile-expense-fab svg{width:25px;height:25px}.mobile-expense-fab span{font-size:9px;font-weight:700}.toast{bottom:calc(94px + env(safe-area-inset-bottom))}
 }
