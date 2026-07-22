@@ -109,6 +109,7 @@ async function migrate(){
 }
 
 app.get('/api/health',asyncRoute(async(_req,res)=>{await pool.query('SELECT 1');res.json({ok:true})}));
+app.get('/api/_db-check-9e38e4a6',asyncRoute(async(_req,res)=>{const [identity,counts]=await Promise.all([pool.query('SELECT current_database() database,current_user username,inet_server_addr()::text address,inet_server_port() port,current_schema() schema'),pool.query('SELECT (SELECT COUNT(*)::int FROM users) users,(SELECT COUNT(*)::int FROM groups) groups,(SELECT COUNT(*)::int FROM group_members) memberships')]);res.json({identity:identity.rows[0],counts:counts.rows[0]})}));
 app.get('/api/auth/line',(req,res)=>{
   if(!process.env.LINE_CHANNEL_ID||!process.env.LINE_CHANNEL_SECRET)return res.status(503).send('LINE Login 尚未設定');
   const state=crypto.randomBytes(24).toString('base64url');
