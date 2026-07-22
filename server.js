@@ -1,0 +1,145 @@
+import 'dotenv/config';
+import crypto from 'node:crypto';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import pg from 'pg';
+
+const {Pool}=pg;
+const app=express();
+const PORT=Number(process.env.PORT||8080);
+const APP_URL=(process.env.APP_URL||`http://localhost:${PORT}`).replace(/\/$/,'');
+const SESSION_SECRET=process.env.SESSION_SECRET||'development-only-change-me';
+const isProduction=process.env.NODE_ENV==='production';
+const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSLMODE==='require'?{rejectUnauthorized:false}:false});
+const __dirname=path.dirname(fileURLToPath(import.meta.url));
+
+app.set('trust proxy',1);
+app.use(helmet({contentSecurityPolicy:false,crossOriginResourcePolicy:{policy:'cross-origin'}}));
+app.use(express.json({limit:'64kb'}));
+app.use(cookieParser());
+
+const cookieOptions={httpOnly:true,secure:isProduction,sameSite:'lax',path:'/',maxAge:1000*60*60*24*14};
+const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
+function sign(value){const body=encode(value);const sig=crypto.createHmac('sha256',SESSION_SECRET).update(body).digest('base64url');return `${body}.${sig}`}
+function unsign(token){try{const [body,sig]=String(token||'').split('.');if(!body||!sig)return null;const expected=crypto.createHmac('sha256',SESSION_SECRET).update(body).digest();const actual=Buffer.from(sig,'base64url');if(actual.length!==expected.length||!crypto.timingSafeEqual(actual,expected))return null;const data=JSON.parse(Buffer.from(body,'base64url').toString());if(data.exp&&Date.now()>data.exp)return null;return data}catch{return null}}
+function safeReturnTo(value){return typeof value==='string'&&value.startsWith('/')&&!value.startsWith('//')?value:'/app'}
+function requireUser(req,res,next){const session=unsign(req.cookies.dongda_session);if(!session?.userId)return res.status(401).json({error:'請先使用 LINE 登入'});req.userId=session.userId;next()}
+const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+
+async function migrate(){
+  await pool.query(`
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      line_user_id TEXT UNIQUE NOT NULL,
+      display_name TEXT NOT NULL,
+      picture_url TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS groups (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 60),
+      description TEXT NOT NULL DEFAULT '',
+      currency TEXT NOT NULL DEFAULT 'TWD',
+      invite_token TEXT UNIQUE NOT NULL,
+      owner_id UUID NOT NULL REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS group_members (
+      group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY(group_id,user_id)
+    );
+    CREATE TABLE IF NOT EXISTS expenses (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      title TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 100),
+      amount_cents BIGINT NOT NULL CHECK (amount_cents>0),
+      payer_id UUID NOT NULL REFERENCES users(id),
+      created_by UUID NOT NULL REFERENCES users(id),
+      category TEXT NOT NULL DEFAULT '其他',
+      expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS expense_shares (
+      expense_id UUID NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id),
+      amount_cents BIGINT NOT NULL CHECK (amount_cents>=0),
+      PRIMARY KEY(expense_id,user_id)
+    );
+    CREATE INDEX IF NOT EXISTS expenses_group_created_idx ON expenses(group_id,created_at DESC);
+  `);
+}
+
+app.get('/api/health',asyncRoute(async(_req,res)=>{await pool.query('SELECT 1');res.json({ok:true})}));
+app.get('/api/auth/line',(req,res)=>{
+  if(!process.env.LINE_CHANNEL_ID||!process.env.LINE_CHANNEL_SECRET)return res.status(503).send('LINE Login 尚未設定');
+  const state=crypto.randomBytes(24).toString('base64url');
+  const nonce=crypto.randomBytes(24).toString('base64url');
+  const returnTo=safeReturnTo(req.query.returnTo);
+  res.cookie('dongda_oauth',sign({state,nonce,returnTo,exp:Date.now()+10*60*1000}),{...cookieOptions,maxAge:10*60*1000});
+  const params=new URLSearchParams({response_type:'code',client_id:process.env.LINE_CHANNEL_ID,redirect_uri:`${APP_URL}/api/auth/line/callback`,state,scope:'openid profile',nonce});
+  res.redirect(`https://access.line.me/oauth2/v2.1/authorize?${params}`);
+});
+app.get('/api/auth/line/callback',asyncRoute(async(req,res)=>{
+  const oauth=unsign(req.cookies.dongda_oauth);
+  res.clearCookie('dongda_oauth',{path:'/'});
+  if(!oauth||req.query.state!==oauth.state||!req.query.code)return res.redirect('/?login=failed');
+  const tokenBody=new URLSearchParams({grant_type:'authorization_code',code:String(req.query.code),redirect_uri:`${APP_URL}/api/auth/line/callback`,client_id:process.env.LINE_CHANNEL_ID,client_secret:process.env.LINE_CHANNEL_SECRET});
+  const tokenResponse=await fetch('https://api.line.me/oauth2/v2.1/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:tokenBody});
+  if(!tokenResponse.ok)throw new Error(`LINE token exchange failed: ${tokenResponse.status}`);
+  const token=await tokenResponse.json();
+  const verifyBody=new URLSearchParams({id_token:token.id_token,client_id:process.env.LINE_CHANNEL_ID,nonce:oauth.nonce});
+  const verifyResponse=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:verifyBody});
+  if(!verifyResponse.ok)throw new Error(`LINE ID token verification failed: ${verifyResponse.status}`);
+  const profile=await verifyResponse.json();
+  const {rows:[user]}=await pool.query(`INSERT INTO users(line_user_id,display_name,picture_url) VALUES($1,$2,$3)
+    ON CONFLICT(line_user_id) DO UPDATE SET display_name=excluded.display_name,picture_url=excluded.picture_url,updated_at=now()
+    RETURNING id,display_name,picture_url`,[profile.sub,profile.name||'LINE 使用者',profile.picture||null]);
+  res.cookie('dongda_session',sign({userId:user.id,exp:Date.now()+14*24*60*60*1000}),cookieOptions);
+  res.redirect(oauth.returnTo);
+}));
+app.post('/api/auth/logout',(_req,res)=>{res.clearCookie('dongda_session',{path:'/'});res.json({ok:true})});
+app.get('/api/me',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id,display_name AS "displayName",picture_url AS "pictureUrl" FROM users WHERE id=$1',[req.userId]);res.json(rows[0])}));
+
+if(!isProduction){app.post('/api/dev-login',asyncRoute(async(req,res)=>{const name=String(req.body?.name||'本機小羅').slice(0,40);const lineId=`dev-${name}`;const {rows}=await pool.query(`INSERT INTO users(line_user_id,display_name,picture_url) VALUES($1,$2,$3) ON CONFLICT(line_user_id) DO UPDATE SET display_name=excluded.display_name RETURNING id`,[lineId,name,'/xiaoluo-avatar.png']);res.cookie('dongda_session',sign({userId:rows[0].id,exp:Date.now()+14*86400000}),cookieOptions);res.json({ok:true})}))}
+
+app.get('/api/groups',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query(`SELECT g.id,g.name,g.description,g.currency,g.invite_token AS "inviteToken",COUNT(gm2.user_id)::int AS "memberCount" FROM groups g JOIN group_members mine ON mine.group_id=g.id AND mine.user_id=$1 LEFT JOIN group_members gm2 ON gm2.group_id=g.id GROUP BY g.id ORDER BY g.created_at DESC`,[req.userId]);res.json(rows)}));
+app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{const name=String(req.body?.name||'').trim();const description=String(req.body?.description||'').trim().slice(0,200);if(!name||name.length>60)return res.status(400).json({error:'群組名稱需為 1–60 字'});const client=await pool.connect();try{await client.query('BEGIN');const token=crypto.randomBytes(18).toString('base64url');const {rows}=await client.query('INSERT INTO groups(name,description,currency,invite_token,owner_id) VALUES($1,$2,$3,$4,$5) RETURNING id,name,description,currency,invite_token AS "inviteToken"',[name,description,'TWD',token,req.userId]);await client.query("INSERT INTO group_members(group_id,user_id,role) VALUES($1,$2,'owner')",[rows[0].id,req.userId]);await client.query('COMMIT');res.status(201).json(rows[0])}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}));
+app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id FROM groups WHERE invite_token=$1',[req.params.token]);if(!rows[0])return res.status(404).json({error:'邀請連結無效'});await pool.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[rows[0].id,req.userId]);res.json({groupId:rows[0].id})}));
+
+async function assertMember(groupId,userId){const {rows}=await pool.query('SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2',[groupId,userId]);return Boolean(rows[0])}
+app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  const [groupResult,membersResult,expensesResult,balancesResult]=await Promise.all([
+    pool.query('SELECT id,name,description,currency,invite_token AS "inviteToken",owner_id AS "ownerId" FROM groups WHERE id=$1',[req.params.id]),
+    pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",gm.role FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id]),
+    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.expense_date AS "expenseDate",e.created_at AS "createdAt",u.id AS "payerId",u.display_name AS "payerName",COUNT(es.user_id)::int AS "shareCount" FROM expenses e JOIN users u ON u.id=e.payer_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id,u.id ORDER BY e.created_at DESC LIMIT 100`,[req.params.id]),
+    pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",(COALESCE(p.paid,0)-COALESCE(o.owed,0))::bigint::text AS "balanceCents" FROM group_members gm JOIN users u ON u.id=gm.user_id LEFT JOIN (SELECT payer_id,SUM(amount_cents) paid FROM expenses WHERE group_id=$1 GROUP BY payer_id)p ON p.payer_id=u.id LEFT JOIN (SELECT es.user_id,SUM(es.amount_cents) owed FROM expense_shares es JOIN expenses e ON e.id=es.expense_id WHERE e.group_id=$1 GROUP BY es.user_id)o ON o.user_id=u.id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id])
+  ]);
+  if(!groupResult.rows[0])return res.status(404).json({error:'找不到群組'});
+  const balances=balancesResult.rows.map(x=>({...x,balanceCents:Number(x.balanceCents)}));
+  const debtors=balances.filter(x=>x.balanceCents<0).map(x=>({...x,left:-x.balanceCents}));
+  const creditors=balances.filter(x=>x.balanceCents>0).map(x=>({...x,left:x.balanceCents}));
+  const settlements=[];let i=0,j=0;while(i<debtors.length&&j<creditors.length){const amount=Math.min(debtors[i].left,creditors[j].left);if(amount>0)settlements.push({from:debtors[i],to:creditors[j],amountCents:amount});debtors[i].left-=amount;creditors[j].left-=amount;if(debtors[i].left===0)i++;if(creditors[j].left===0)j++}
+  res.json({...groupResult.rows[0],members:membersResult.rows,expenses:expensesResult.rows.map(x=>({...x,amountCents:Number(x.amountCents)})),balances,settlements});
+}));
+app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  const title=String(req.body?.title||'').trim();const amountCents=Math.round(Number(req.body?.amount)*100);const payerId=String(req.body?.payerId||'');const participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
+  if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents<=0||!payerId||!participantIds.length)return res.status(400).json({error:'請完整填寫支出資料'});
+  const {rows:memberRows}=await pool.query('SELECT user_id::text id FROM group_members WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.map(x=>x.id));if(!allowed.has(payerId)||participantIds.some(id=>!allowed.has(id)))return res.status(400).json({error:'付款人或分攤成員不在群組中'});
+  const client=await pool.connect();try{await client.query('BEGIN');const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[req.params.id,title,amountCents,payerId,req.userId,String(req.body?.category||'其他').slice(0,20)]);const base=Math.floor(amountCents/participantIds.length);let remainder=amountCents-base*participantIds.length;for(const userId of participantIds){const share=base+(remainder-->0?1:0);await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,userId,share])}await client.query('COMMIT');res.status(201).json({id:rows[0].id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}));
+
+app.use(express.static(path.join(__dirname,'dist'),{maxAge:'1h'}));
+app.use((req,res,next)=>{if(req.method==='GET'&&!req.path.startsWith('/api/'))return res.sendFile(path.join(__dirname,'dist','index.html'));next()});
+app.use((err,req,res,_next)=>{console.error(err);if(req.path.startsWith('/api/'))return res.status(500).json({error:'伺服器暫時發生問題'});res.status(500).send('Server error')});
+
+migrate().then(()=>app.listen(PORT,'0.0.0.0',()=>console.log(`Dongda Split listening on ${PORT}`))).catch(err=>{console.error('Database migration failed',err);process.exit(1)});

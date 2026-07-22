@@ -1,27 +1,40 @@
 # 東大小羅 Dongda Split
 
-一個以旅行情境設計的響應式分帳網站。包含品牌首頁、群組儀表板、餘額摘要與互動式新增支出流程。
+給小型旅行或活動群組使用的多人分帳網站。使用者透過 LINE Login 登入，可建立群組、分享邀請連結、共同記錄支出並查看自動簡化的結算建議。
 
-## 本機開發
+## 功能
+
+- LINE Login（不需要 LINE Bot 或官方帳號）
+- 建立多個分帳群組
+- 每個群組產生專屬邀請連結
+- 成員點擊連結、登入後自動加入
+- 指定付款人、分類與參與分攤者
+- PostgreSQL 永久保存資料
+- 即時計算每位成員的應收／應付
+- 計算最少轉帳次數
+- 手機與桌面響應式介面
+
+## 環境變數
+
+複製 `.env.example` 為 `.env`，填入 PostgreSQL 與 LINE Login 設定。`.env` 已被 Git 忽略。
+
+LINE Developers Callback URL：
+
+```text
+https://你的網域/api/auth/line/callback
+```
+
+## 本機啟動
 
 ```bash
 corepack enable
 pnpm install
-pnpm dev
-```
-
-## 正式建置
-
-```bash
 pnpm build
-pnpm preview
+pnpm start
 ```
 
-## Zeabur 部署
+非 production 環境提供 `POST /api/dev-login`，供本機自動化測試使用；正式環境不會載入此端點。
 
-Repository 內含 `Dockerfile`，Zeabur 從 GitHub 匯入後可直接建置與部署，服務監聽 8080 port。
+## Zeabur
 
-目前是純前端展示版本，資料存在 React 記憶體中，重新整理頁面會恢復範例資料，因此不需要外部資料庫。
-
-若要支援正式多人使用、登入、群組邀請與永久保存帳本，建議加入 PostgreSQL，並由後端 API 存取資料庫；不要讓瀏覽器直接連線資料庫。
-
+Repository 內含多階段 `Dockerfile`。Zeabur 從 GitHub 匯入後會建置 Vite 前端，再由 Node.js 同源提供靜態網站、LINE OAuth callback 與 API，監聽平台提供的 `PORT`（預設 8080）。服務啟動時會以安全的 `CREATE TABLE IF NOT EXISTS` 自動建立資料表。

@@ -2,6 +2,7 @@ import React, {useMemo, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {ArrowRight, BarChart3, Bell, Check, ChevronRight, CircleDollarSign, Menu, Plus, ReceiptText, Search, Sparkles, Users, WalletCards, X} from 'lucide-react';
 import './style.css';
+import ProductApp from './ProductApp.jsx';
 
 const people=[{name:'小羅',img:'/xiaoluo-avatar.png',color:'#1f9d69'},{name:'安安',initial:'安',color:'#ef8b5a'},{name:'阿哲',initial:'哲',color:'#6c72d9'}];
 const seed=[
@@ -33,4 +34,4 @@ function App(){const [inside,setInside]=useState(false),[records,setRecords]=use
  <section className="activity"><div className="section-head"><div><h2>最近支出</h2><p>東大探險隊的共同花費</p></div><button className="primary" onClick={()=>setModal(true)}><Plus/> 新增支出</button></div><div className="filters"><button className="active">全部</button><button>餐飲</button><button>住宿</button><button>交通</button></div><div className="record-list">{records.map(r=><article key={r.id}><span className="record-icon">{r.cat==='餐飲'?'🍜':r.cat==='住宿'?'🏠':r.cat==='交通'?'🚗':'🧾'}</span><div className="record-name"><b>{r.title}</b><small>{r.date} · {r.payer} 先付</small></div><div className="member-dots">{people.map((p,i)=><Avatar p={p} key={i} size={26}/>)}</div><div className="record-price"><b>NT$ {r.amount.toLocaleString()}</b><small>每人 NT$ {Math.round(r.amount/r.members).toLocaleString()}</small></div><button className="more">•••</button></article>)}</div></section></main></div>
  {modal&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setModal(false)}><form className="modal" onSubmit={add}><div className="modal-head"><div><span className="eyebrow">新增共同花費</span><h2>這次是誰先付？</h2></div><button type="button" className="round" onClick={()=>setModal(false)}><X/></button></div><label>項目名稱<input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：東大門夜市晚餐"/></label><label>金額<div className="money"><span>NT$</span><input type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0"/></div></label><label>付款人<select value={payer} onChange={e=>setPayer(e.target.value)}>{people.map(p=><option key={p.name}>{p.name}</option>)}</select></label><div className="split-info"><Users/> 將由 3 位旅伴平均分攤</div><button className="primary wide">儲存支出 <ArrowRight/></button></form></div>}
  </div>}
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(<ProductApp Home={Home}/>);
