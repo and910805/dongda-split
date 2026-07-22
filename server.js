@@ -160,6 +160,13 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   const settlements=minimizeSettlements(balances);
   res.json({...groupResult.rows[0],members:membersResult.rows,expenses:expensesResult.rows.map(x=>({...x,amountCents:Number(x.amountCents),payments:(x.payments||[]).map(p=>({...p,amountCents:Number(p.amountCents)})),shares:(x.shares||[]).map(s=>({...s,amountCents:Number(s.amountCents)}))})),balances,settlements});
 }));
+app.delete('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
+  const {rows:[group]}=await pool.query('SELECT id,owner_id FROM groups WHERE id=$1',[req.params.id]);
+  if(!group)return res.status(404).json({error:'找不到群組'});
+  if(group.owner_id!==req.userId)return res.status(403).json({error:'只有群組建立者能刪除群組'});
+  await pool.query('DELETE FROM groups WHERE id=$1',[req.params.id]);
+  res.json({ok:true});
+}));
 app.post('/api/groups/:id/funds',requireUser,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
 app.post('/api/groups/:id/funds/:fundId/contributions',requireUser,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
 app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
