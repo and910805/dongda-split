@@ -42,7 +42,7 @@
 }
 .site .hero-copy{z-index:4;max-width:610px;padding-top:86px}
 .site .hero .eyebrow{padding:8px 13px;border-radius:999px;background:#e9f3e9;color:#158857;letter-spacing:.04em}
-.site .hero h1{margin:24px 0 26px;font-size:clamp(48px,3.35vw,58px);line-height:1.16;letter-spacing:-.055em}
+.site .hero h1{margin:24px 0 26px;font-size:clamp(52px,3.6vw,62px);line-height:1.14;letter-spacing:-.055em}
 .site .hero h1 em{color:#148a57}
 .site .hero-copy>p{max-width:540px;color:#435b52;font-size:17px;line-height:1.85}
 .site .hero-actions{margin:31px 0 0}
