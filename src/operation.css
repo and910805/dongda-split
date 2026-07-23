@@ -8,7 +8,7 @@
   --operation-border-strong: #cbd8d1;
   --operation-text: #182f27;
   --operation-muted: #667870;
-  --operation-green: #078b57;
+  --operation-green: #067a4d;
   --operation-green-dark: #066d46;
   --operation-green-soft: #e7f5ed;
   display: flex;
@@ -19,6 +19,18 @@
 
 .real-app button {
   touch-action: manipulation;
+}
+
+.real-app .primary {
+  border-color: var(--operation-green);
+  color: #fff;
+  background: var(--operation-green);
+}
+
+.real-app .primary:hover {
+  border-color: var(--operation-green-dark);
+  color: #fff;
+  background: var(--operation-green-dark);
 }
 
 .real-side {
@@ -161,7 +173,7 @@
 .side-footer .logout {
   display: flex;
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   gap: 9px;
   padding: 0 8px;
@@ -189,7 +201,7 @@
   font-weight: 500;
 }
 
-.real-workspace {
+.real-app > .real-workspace {
   width: calc(100% - var(--operation-sidebar));
   min-width: 0;
   margin-left: var(--operation-sidebar);
@@ -240,7 +252,7 @@
 .header-secondary,
 .header-primary {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -382,7 +394,7 @@
 
 .group-admin-menu > summary {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   gap: 7px;
   padding: 0 12px;
@@ -392,6 +404,21 @@
   background: #fff;
   font-size: 13px;
   font-weight: 700;
+}
+
+.group-overview-side .group-admin-menu > div {
+  width: 220px;
+  min-width: 220px;
+  padding: 8px;
+}
+
+.group-admin-menu > div p {
+  margin: 4px 8px 10px;
+  font-size: 12px;
+}
+
+.group-admin-menu > div button {
+  min-height: 44px;
 }
 
 .real-stats {
@@ -646,8 +673,8 @@
 
 .expense-row-actions button {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -702,7 +729,7 @@
 
 .empty-list .empty-primary {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   gap: 7px;
   padding: 0 12px;
@@ -748,9 +775,9 @@
 .settlement-help-button,
 .history-refresh {
   display: grid;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 1px solid var(--operation-border);
   border-radius: 50%;
@@ -910,7 +937,7 @@
   }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   .real-app {
     display: block;
     padding-bottom: calc(78px + env(safe-area-inset-bottom));
@@ -920,7 +947,7 @@
     display: none;
   }
 
-  .real-workspace {
+  .real-app > .real-workspace {
     width: 100%;
     margin-left: 0;
   }
@@ -965,6 +992,7 @@
 
   .mobile-group-picker select {
     width: min(100%,230px);
+    min-height: 44px;
     border: 0;
     color: #fff;
     background: transparent;
@@ -1008,6 +1036,12 @@
     height: 38px !important;
   }
 
+  .mobile-new-group:focus-visible,
+  .mobile-header-avatar:focus-visible,
+  .mobile-group-picker select:focus-visible {
+    outline-color: #fff;
+  }
+
   .real-dashboard {
     padding: 12px;
   }
@@ -1044,6 +1078,32 @@
   .group-admin-menu > summary {
     min-height: 44px;
     justify-content: center;
+  }
+
+  .group-admin-menu[open] {
+    padding-bottom: 2px;
+  }
+
+  .group-overview-side .group-admin-menu > div {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    margin-top: 8px;
+    padding: 8px;
+    border-color: var(--operation-border);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .group-admin-menu > div p {
+    margin: 4px 8px 10px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .group-admin-menu > div button {
+    min-height: 44px;
   }
 
   .group-meta {
@@ -1165,6 +1225,12 @@
   .expense-row-actions {
     grid-column: 2;
     grid-row: 2;
+  }
+
+  .record-list .expense-row-actions .expense-edit,
+  .record-list .expense-row-actions .expense-delete {
+    width: 44px;
+    height: 44px;
   }
 
   .repayment-log article {

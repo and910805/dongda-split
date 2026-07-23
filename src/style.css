@@ -420,3 +420,37 @@
 }
 @keyframes bird-reduced-fade{0%,100%{opacity:.12}50%{opacity:.36}}
 @keyframes airplane-reduced-fade{0%,100%{opacity:.25}50%{opacity:.55}}
+
+.site>nav .navlinks a,
+.site .footer-links a{
+ display:inline-flex;
+ min-height:44px;
+ align-items:center;
+ padding:0 6px;
+}
+.site>nav .ghost{
+ border-radius:9px;
+ transition:color .18s ease,background-color .18s ease,transform .18s ease;
+}
+.site>nav .ghost:hover{
+ color:#075f3d;
+ background:#e8f3ed;
+}
+.site>nav .ghost:active{
+ transform:translateY(1px);
+}
+.site>nav .primary,
+.site .hero-actions .primary{
+ background:#0b784a;
+}
+.site>nav .primary:hover,
+.site .hero-actions .primary:hover{
+ background:#075f3d;
+}
+.site button:focus-visible,
+.site a:focus-visible{
+ outline-color:#075f3d;
+}
+@media(prefers-reduced-motion:reduce){
+ .site>nav .ghost{transition:none}
+}

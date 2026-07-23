@@ -68,9 +68,14 @@
 .overlay input:focus-visible,
 .overlay select:focus-visible,
 .overlay textarea:focus-visible {
-  outline: 3px solid rgba(22, 138, 89, .2);
+  outline: 3px solid #066d46;
   outline-offset: 2px;
   border-color: var(--focus);
+}
+
+.real-app button:active:not(:disabled),
+.overlay button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .real-app button:disabled,
@@ -1142,9 +1147,9 @@
 
 .modal-x {
   display: grid;
-  flex: 0 0 38px;
-  width: 38px;
-  height: 38px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 1px solid transparent;
   border-radius: 10px;
@@ -1169,6 +1174,7 @@
 }
 
 .type-toggle,
+.kind-toggle,
 .mini-toggle,
 .split-tabs {
   display: grid;
@@ -1185,9 +1191,10 @@
 }
 
 .type-toggle button,
+.kind-toggle button,
 .mini-toggle button,
 .split-tabs button {
-  min-height: 38px;
+  min-height: 44px;
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--text-muted);
@@ -1196,6 +1203,7 @@
 }
 
 .type-toggle button:hover,
+.kind-toggle button:hover,
 .mini-toggle button:hover,
 .split-tabs button:hover {
   color: var(--text);
@@ -1203,12 +1211,18 @@
 }
 
 .type-toggle button.active,
+.kind-toggle button.active,
 .mini-toggle button.active,
 .split-tabs button.active {
   border-color: #c8ddd0;
   color: var(--green-dark);
   background: #fff;
   box-shadow: 0 1px 3px rgba(23, 52, 42, .08);
+}
+
+.kind-toggle button.active.refund {
+  border-color: #e0b7aa;
+  color: #93442d;
 }
 
 .form-grid {
@@ -1360,6 +1374,7 @@
 
 .advanced-participants > div > button {
   display: grid;
+  min-height: 44px;
   min-width: 0;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 9px;
@@ -1455,7 +1470,30 @@
 
 .form-actions .primary,
 .form-actions .secondary-button {
+  min-height: 44px;
   min-width: 120px;
+}
+
+.line-share,
+.copy-link {
+  min-height: 44px;
+}
+
+.line-share {
+  background: #08763e;
+}
+
+.line-share:hover {
+  background: #065f33;
+}
+
+.copy-link {
+  color: #066d46;
+}
+
+.copy-link:hover {
+  color: #054f34;
+  background: #dbeee2;
 }
 
 .invite-url {
