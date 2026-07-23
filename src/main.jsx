@@ -47,6 +47,12 @@ function HeroBirds(){return <div className="hero-birds" aria-hidden="true">
   <svg className="hero-bird hero-bird-two" viewBox="0 0 28 14" focusable="false"><path className="bird-wing bird-wing-left" d="M2 11C6 6 10 5 14 9"/><path className="bird-wing bird-wing-right" d="M14 9C18 5 22 6 26 11"/></svg>
   <svg className="hero-bird hero-bird-three" viewBox="0 0 24 12" focusable="false"><path className="bird-wing bird-wing-left" d="M2 10C5 6 8 5 12 8"/><path className="bird-wing bird-wing-right" d="M12 8C16 5 19 6 22 10"/></svg>
  </div>}
+function HeroAirplane(){return <div className="hero-airplane" aria-hidden="true"><svg viewBox="0 0 220 64" focusable="false">
+  <defs><linearGradient id="airplane-contrail" x1="0" x2="1"><stop offset="0" stopColor="#a9bbb6" stopOpacity=".7"/><stop offset="1" stopColor="#dce5e1" stopOpacity="0"/></linearGradient></defs>
+  <path className="airplane-contrail" d="M163 35C181 36 200 39 219 42"/>
+  <path className="airplane-body" d="M17 32C27 27 52 25 84 25L109 10L120 11L110 26L145 29L161 21L168 22L162 32L164 35L168 44L161 45L145 37L109 39L120 54L110 55L84 39L44 38C29 38 20 36 17 32Z"/>
+  <path className="airplane-detail" d="M39 31L142 33M112 17L105 28M112 47L105 37"/>
+ </svg></div>}
 function HeroWaves(){return <div className="hero-waves" aria-hidden="true"><svg viewBox="0 0 2000 190" preserveAspectRatio="none" focusable="false">
   <path className="hero-wave hero-wave-back" d="M-180 64C120 154 400 158 698 95C1015 28 1278 26 1572 84C1795 128 1970 120 2180 72V220H-180Z"/>
   <path className="hero-wave hero-wave-front" d="M-180 132C126 48 417 39 721 116C995 186 1284 182 1576 108C1804 51 1986 53 2180 101V220H-180Z"/>
@@ -58,8 +64,9 @@ function Home({enter}){return <div className="site">
     <section className="hero">
       <div className="hero-stage">
       <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>已有 2,840+ 位旅伴使用旅帳<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
-      <div className="hero-visual" aria-label="旅帳 TripTab 的 iPhone 分帳畫面預覽">
-        <div className="ticket"><span>TAITUNG TRIP</span><b>台東三日小旅行</b><small>3 位旅伴 · TWD</small><i aria-hidden="true"></i></div>
+      <div className="hero-visual" aria-label="旅帳 TripTab 的日本行程 iPhone 分帳畫面預覽">
+        <HeroAirplane/>
+        <div className="ticket"><span>TOKYO · FUJI</span><b>東京富士五日遊</b><small>3 位旅伴 · JPY</small><i aria-hidden="true"></i></div>
         <div className="phone">
           <span className="phone-side phone-silent" aria-hidden="true"></span>
           <span className="phone-side phone-volume-up" aria-hidden="true"></span>
@@ -74,11 +81,11 @@ function Home({enter}){return <div className="site">
             </div>
             <div className="phone-content">
               <div className="phone-head"><Brand/><Avatar p={people[0]} size={34}/></div>
-              <p className="muted">本次旅程結算</p>
-              <h2>你應收 <strong>NT$ 1,260</strong></h2>
-              <div className="mini-card"><span className="mini-type food" aria-hidden="true">食</span><div><b>東大門夜市</b><small>萬安先付</small></div><strong>NT$ 1,280</strong></div>
-              <div className="mini-card"><span className="mini-type stay" aria-hidden="true">住</span><div><b>海邊民宿</b><small>哲宇先付</small></div><strong>NT$ 3,600</strong></div>
-              <div className="mini-card"><span className="mini-type ride" aria-hidden="true">行</span><div><b>租車費用</b><small>你先付</small></div><strong>NT$ 2,400</strong></div>
+              <p className="muted">東京五日行程結算</p>
+              <h2>你應收 <strong>¥ 12,600</strong></h2>
+              <div className="mini-card"><span className="mini-type food" aria-hidden="true">食</span><div><b>築地市場早餐</b><small>安安先付</small></div><strong>¥ 8,400</strong></div>
+              <div className="mini-card"><span className="mini-type stay" aria-hidden="true">住</span><div><b>新宿飯店住宿</b><small>阿哲先付</small></div><strong>¥ 62,000</strong></div>
+              <div className="mini-card"><span className="mini-type ride" aria-hidden="true">行</span><div><b>富士山一日遊</b><small>你先付</small></div><strong>¥ 36,000</strong></div>
               <button className="phone-add" onClick={enter}><Plus/> 新增共同支出</button>
             </div>
             <span className="home-indicator" aria-hidden="true"></span>

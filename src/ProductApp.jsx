@@ -7,16 +7,20 @@ const api=async(url,options={})=>{const response=await fetch(url,{...options,hea
 const money=cents=>`NT$ ${Math.round(Number(cents||0)/100).toLocaleString()}`;
 function Person({person,size=36}){return person?.isFund?<span className="avatar fund-avatar" style={{width:size,height:size}} aria-label={person.displayName||'公費'}><WalletCards/></span>:person?.pictureUrl?<img className="avatar" src={person.pictureUrl} alt={person.displayName||'成員頭像'} style={{width:size,height:size}} referrerPolicy="no-referrer"/>:<span className="avatar initial" style={{width:size,height:size,background:'#1f9d69'}} aria-label={person?.displayName||'成員'}>{person?.displayName?.slice(0,1)||'旅'}</span>}
 function ExpenseCategory({expense}){const label=expense.amountCents<0?'退款':expense.category||'其他';return <span className={`record-icon category-${label}`} aria-label={`分類：${label}`}><ReceiptText/><small>{label.slice(0,1)}</small></span>}
+function DevAccessBar({login,loading,error}){return <aside className="dev-access-bar" aria-label="本機開發工具"><div><small>LOCAL DEVELOPMENT</small><b>本機開發模式</b></div><button type="button" onClick={login} disabled={loading}>{loading?<LoaderCircle/>:<ArrowRight/>}{loading?'登入中…':'直接進入功能'}</button>{error&&<p role="alert">{error}</p>}</aside>}
 
 export default function ProductApp({Home}){
   const [me,setMe]=useState(null),[groups,setGroups]=useState([]),[activeId,setActiveId]=useState(null),[group,setGroup]=useState(null),[loading,setLoading]=useState(true),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[notice,setNotice]=useState(''),[showCreate,setShowCreate]=useState(false),[showExpense,setShowExpense]=useState(false),[editingExpense,setEditingExpense]=useState(null),[showInvite,setShowInvite]=useState(false);
+  const [devLoginLoading,setDevLoginLoading]=useState(false),[devLoginError,setDevLoginError]=useState('');
   const inviteToken=location.pathname.startsWith('/invite/')?location.pathname.split('/')[2]:null;
+  const isLocalDevelopment=['localhost','127.0.0.1','::1','[::1]'].includes(location.hostname);
   const refreshGroups=useCallback(async()=>{const list=await api('/api/groups');setGroups(list);setActiveId(current=>current||list[0]?.id||null);return list},[]);
   useEffect(()=>{api('/api/me').then(async user=>{setMe(user);const list=await refreshGroups();if(inviteToken){const joined=await api(`/api/invites/${encodeURIComponent(inviteToken)}/join`,{method:'POST'});setActiveId(joined.groupId);await refreshGroups();history.replaceState({},'', '/app');setNotice('已成功加入群組！')}}).catch(error=>{if(error.status===401&&inviteToken){const returnTo=location.pathname;location.replace(`/api/auth/line?returnTo=${encodeURIComponent(returnTo)}`);return}if(error.status!==401)setNotice(error.message)}).finally(()=>setLoading(false))},[]);
   const refreshGroup=useCallback(async()=>{if(!activeId){setGroup(null);setGroupError('');return}setGroupLoading(true);setGroupError('');try{setGroup(await api(`/api/groups/${activeId}`))}catch(error){setGroup(null);setGroupError(error.message);throw error}finally{setGroupLoading(false)}},[activeId]);
   useEffect(()=>{if(me&&activeId)refreshGroup().catch(()=>{})},[me,activeId,refreshGroup]);
   useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),4000);return()=>clearTimeout(timer)},[notice]);
   const login=()=>{const returnTo=inviteToken?location.pathname:'/app';location.href=`/api/auth/line?returnTo=${encodeURIComponent(returnTo)}`};
+  const devLogin=async()=>{setDevLoginLoading(true);setDevLoginError('');try{await api('/api/dev-login',{method:'POST'});const [user,list]=await Promise.all([api('/api/me'),api('/api/groups')]);setGroups(list);setActiveId(list[0]?.id||null);setMe(user);history.replaceState({},'','/app')}catch(error){setDevLoginError(`本機登入失敗：${error.message}`)}finally{setDevLoginLoading(false)}};
   const logout=async()=>{await api('/api/auth/logout',{method:'POST'});setMe(null);setGroups([]);setGroup(null);history.replaceState({},'','/')};
   const created=async data=>{setShowCreate(false);await refreshGroups();setActiveId(data.id);history.replaceState({},'','/app')};
   const expenseAdded=async()=>{setShowExpense(false);setEditingExpense(null);await refreshGroup()};
@@ -24,7 +28,7 @@ export default function ProductApp({Home}){
   const openNewExpense=()=>{setEditingExpense(null);setShowExpense(true)};
   if(loading)return <div className="page-loading"><LoaderCircle/><p>正在整理帳本…</p></div>;
   if(!me&&inviteToken)return <div className="page-loading"><LoaderCircle/><p>正在前往 LINE 登入並加入群組…</p></div>;
-  if(!me)return <Home enter={login}/>;
+  if(!me)return <><Home enter={login}/>{isLocalDevelopment&&<DevAccessBar login={devLogin} loading={devLoginLoading} error={devLoginError}/>}</>;
   return <div className="real-app">
     <aside className="real-side" aria-label="主要導覽">
       <BrandLogo/>

@@ -35,7 +35,7 @@
 .site>nav a:hover{color:#148a57}
 .site button:focus-visible,.site a:focus-visible{outline:3px solid #73d4a6;outline-offset:3px}
 
-.site .hero{isolation:isolate;display:flex;width:100%;height:calc(100vh - var(--site-nav-height));height:calc(100dvh - var(--site-nav-height));min-height:0;max-width:none;margin:0;padding:0;align-items:flex-start;justify-content:center;background:var(--hero-surface) url('/hero-coast-expanded.png?v=20260723-expanded-coast') center bottom/cover no-repeat}
+.site .hero{isolation:isolate;display:flex;width:100%;height:calc(100vh - var(--site-nav-height));height:calc(100dvh - var(--site-nav-height));min-height:0;max-width:none;margin:0;padding:0;align-items:flex-start;justify-content:center;background:var(--hero-surface) url('/hero-fuji-sakura.png?v=20260723-fuji-sakura') center bottom/cover no-repeat}
 .site .hero-stage{position:relative;z-index:3;display:grid;width:1440px;height:804px;flex:0 0 1440px;grid-template-columns:minmax(420px,.92fr) minmax(520px,1.08fr);gap:48px;padding:52px clamp(32px,4.1vw,72px) 72px;transform-origin:top center}
 @supports (scale:calc(100dvh / 100px)){
  .site .hero-stage{--hero-stage-scale:min(calc(100vw / 1440px),calc((100dvh - var(--site-nav-height)) / 804px));transform:scale(var(--hero-stage-scale))}
@@ -100,6 +100,13 @@
 .site .float-note{right:10px;bottom:57px;min-width:202px;padding:14px 16px;border:1px solid #e5ebe7;box-shadow:0 16px 36px #17352b20}
 .site .float-note b{font-size:13px}
 
+.site .hero-airplane{position:absolute;top:18px;right:-28px;z-index:1;width:170px;opacity:0;pointer-events:none;filter:drop-shadow(0 3px 4px #3154471f);animation:airplane-flight 17.5s cubic-bezier(.32,.04,.28,1) -3.8s infinite;will-change:transform,opacity}
+.site .hero-airplane svg{display:block;width:100%;height:auto;overflow:visible}
+.site .airplane-body{fill:#f7faf8;stroke:#60736d;stroke-width:1.25;stroke-linejoin:round}
+.site .airplane-detail{fill:none;stroke:#7f918b;stroke-width:1;stroke-linecap:round}
+.site .airplane-contrail{fill:none;stroke:url('#airplane-contrail');stroke-width:3;stroke-linecap:round}
+@keyframes airplane-flight{0%,7%{opacity:0;transform:translate3d(28px,-8px,0) scale(.98)}16%{opacity:.72}58%{opacity:.64}84%{opacity:.18}100%{opacity:0;transform:translate3d(-148px,52px,0) scale(.64)}}
+
 .site .hero-waves{position:absolute;right:-8%;bottom:-7px;left:-8%;z-index:1;height:clamp(100px,14vw,176px);overflow:hidden;pointer-events:none}
 .site .hero-waves svg{display:block;width:116%;height:100%;overflow:visible;transform:translateX(-7%)}
 .site .hero-wave{transform-box:fill-box;transform-origin:50% 100%;will-change:transform}
@@ -120,13 +127,13 @@
 @keyframes bird-flight{0%,9%{opacity:0;transform:translate3d(-7px,10px,0) scale(1.04)}19%{opacity:.58}55%{opacity:.45}82%{opacity:.17}100%{opacity:0;transform:translate3d(var(--bird-x),var(--bird-y),0) scale(var(--bird-scale))}}
 @keyframes bird-wing{0%,100%{transform:rotate(0) scaleY(1)}50%{transform:rotate(-2deg) scaleY(.68)}}
 
-.site .hero-foliage{--foliage-stem:#376f58;--foliage-dark:#0f5a46;--foliage-mid:#2f8061;--foliage-light:#6aa47a;position:absolute;right:-54px;bottom:-26px;z-index:2;width:clamp(300px,24vw,410px);height:auto;pointer-events:none;opacity:.38;filter:drop-shadow(0 12px 20px #0d493512);transform-origin:100% 100%;animation:foliage-drift 7.8s cubic-bezier(.42,.06,.46,.98) -2.4s infinite;will-change:transform}
+.site .hero-foliage{--foliage-stem:#846a63;--foliage-dark:#e6a6b2;--foliage-mid:#efbdc6;--foliage-light:#f8dce1;position:absolute;right:-54px;bottom:-26px;z-index:2;width:clamp(300px,24vw,410px);height:auto;pointer-events:none;opacity:.2;filter:drop-shadow(0 10px 18px #905c6814);transform-origin:100% 100%;animation:foliage-drift 7.8s cubic-bezier(.42,.06,.46,.98) -2.4s infinite;will-change:transform}
 .site .hero-foliage svg{display:block;width:100%;height:auto;overflow:visible}
 .site .foliage-stem{fill:none;stroke:var(--foliage-stem);stroke-width:4;stroke-linecap:round;opacity:.78}
 .site .foliage-leaf{fill:var(--foliage-mid);transform-box:fill-box;transform-origin:4% 52%;will-change:transform;animation:foliage-flutter 4.7s cubic-bezier(.42,.08,.44,.96) infinite}
 .site .foliage-leaf-1{fill:var(--foliage-dark);animation-duration:4.2s;animation-delay:-1.9s}
 .site .foliage-leaf-2{fill:var(--foliage-mid);animation-duration:5.1s;animation-delay:-4.4s}
-.site .foliage-leaf-3{fill:#1b6d53;animation-duration:3.9s;animation-delay:-3.1s}
+.site .foliage-leaf-3{fill:#f3cbd2;animation-duration:3.9s;animation-delay:-3.1s}
 .site .foliage-leaf-4{fill:var(--foliage-light);animation-duration:5.6s;animation-delay:-5.8s}
 .site .foliage-vein{fill:none;stroke:#d5e7d4;stroke-width:1.2;stroke-linecap:round;opacity:.38}
 .site .foliage-branch{transform-box:fill-box;transform-origin:100% 100%;will-change:transform;animation:foliage-sway 7s cubic-bezier(.43,.04,.43,.98) infinite}
@@ -242,6 +249,18 @@
 .site .footer-links a:hover{color:#fff}
 .site>footer>span{font-size:11px}
 
+.dev-access-bar{position:fixed;z-index:1000;left:18px;bottom:18px;display:grid;grid-template-columns:auto auto;gap:3px 14px;align-items:center;padding:10px 10px 10px 14px;border:1px solid #ffffff24;border-radius:14px;color:#fff;background:#10362b;box-shadow:0 16px 38px #0d2c2340}
+.dev-access-bar div{display:flex;min-width:130px;flex-direction:column;gap:1px}
+.dev-access-bar small{color:#92b8aa;font-size:9px;font-weight:700;letter-spacing:.12em}
+.dev-access-bar b{font-size:13px}
+.dev-access-bar button{display:inline-flex;min-height:44px;align-items:center;justify-content:center;gap:7px;padding:0 14px;border:1px solid #ffffff28;border-radius:10px;color:#10362b;background:#fff;font-size:12px;font-weight:800;transition:background-color .18s ease,opacity .18s ease}
+.dev-access-bar button:hover{background:#edf6f1}
+.dev-access-bar button:focus-visible{outline:3px solid #73d4a6;outline-offset:3px}
+.dev-access-bar button:disabled{cursor:wait;opacity:.7}
+.dev-access-bar button svg{width:16px;height:16px}
+.dev-access-bar button:disabled svg{animation:spin 1s linear infinite}
+.dev-access-bar p{grid-column:1/-1;max-width:280px;margin:4px 0 0;color:#ffd8d5;font-size:11px;line-height:1.5}
+
 @media(min-width:1500px){
  .site .hero-copy{transform:translateX(-28px)}
 }
@@ -260,6 +279,7 @@
  .site .phone{top:4px;left:50%;width:318px;transform:translateX(-38%) rotate(2.3deg)}
  .site .ticket{top:145px;left:2%}
  .site .float-note{right:2%;bottom:112px}
+ .site .hero-airplane{top:22px;right:1%;width:140px}
  .site .hero-birds{top:auto;right:2%;bottom:27%;width:195px;height:108px}
  .site .hero-foliage{right:-54px;bottom:-20px;width:420px;opacity:.86}
  .site .case-grid{grid-template-columns:1fr}
@@ -332,6 +352,7 @@
  .site .float-note svg{width:20px}
  .site .float-note b{font-size:10px}
  .site .float-note small{font-size:8px}
+ .site .hero-airplane{top:12px;right:-12px;width:105px;opacity:.62}
  .site .hero-birds{top:auto;right:0;bottom:295px;width:145px;height:92px;opacity:.82}
  .site .hero-foliage{right:-88px;bottom:-16px;width:330px;opacity:.76}
  .site .proof{position:relative;z-index:5;background:#fff}
@@ -379,6 +400,8 @@
  .site>footer{grid-template-columns:1fr;gap:18px;justify-items:start;padding:32px 18px}
  .site>footer p{order:2}
  .site>footer>span{order:3}
+ .dev-access-bar{right:12px;bottom:calc(12px + env(safe-area-inset-bottom));left:12px;grid-template-columns:minmax(0,1fr) auto}
+ .dev-access-bar div{min-width:0}
 }
 
 @media(prefers-reduced-motion:reduce){
@@ -388,8 +411,10 @@
  .site .hero-bird:nth-child(2){animation-delay:-2.7s!important}
  .site .hero-bird:nth-child(3){animation-delay:-5.4s!important}
  .site .bird-wing{animation:none!important}
+ .site .hero-airplane{animation:airplane-reduced-fade 9s ease-in-out infinite!important;transform:none!important}
  .site .hero-wave,.site .hero-wave-edge{animation:none!important}
  .site .hero-foliage{animation:foliage-reduced-sway 7.2s ease-in-out infinite!important}
  .site .foliage-branch,.site .foliage-leaf{animation:none!important}
 }
 @keyframes bird-reduced-fade{0%,100%{opacity:.12}50%{opacity:.36}}
+@keyframes airplane-reduced-fade{0%,100%{opacity:.25}50%{opacity:.55}}
