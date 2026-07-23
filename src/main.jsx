@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {ArrowRight, BarChart3, Bell, Check, ChevronRight, CircleDollarSign, Menu, Plus, ReceiptText, Search, Sparkles, Users, WalletCards, X} from 'lucide-react';
 import './style.css';
@@ -47,21 +47,19 @@ function HeroBirds(){return <div className="hero-birds" aria-hidden="true">
   <svg className="hero-bird hero-bird-two" viewBox="0 0 28 14" focusable="false"><path className="bird-wing bird-wing-left" d="M2 11C6 6 10 5 14 9"/><path className="bird-wing bird-wing-right" d="M14 9C18 5 22 6 26 11"/></svg>
   <svg className="hero-bird hero-bird-three" viewBox="0 0 24 12" focusable="false"><path className="bird-wing bird-wing-left" d="M2 10C5 6 8 5 12 8"/><path className="bird-wing bird-wing-right" d="M12 8C16 5 19 6 22 10"/></svg>
  </div>}
-function HeroAirplane(){return <div className="hero-airplane" aria-hidden="true"><svg viewBox="0 0 220 64" focusable="false">
-  <defs><linearGradient id="airplane-contrail" x1="0" x2="1"><stop offset="0" stopColor="#a9bbb6" stopOpacity=".7"/><stop offset="1" stopColor="#dce5e1" stopOpacity="0"/></linearGradient></defs>
-  <path className="airplane-contrail" d="M163 35C181 36 200 39 219 42"/>
-  <path className="airplane-body" d="M17 32C27 27 52 25 84 25L109 10L120 11L110 26L145 29L161 21L168 22L162 32L164 35L168 44L161 45L145 37L109 39L120 54L110 55L84 39L44 38C29 38 20 36 17 32Z"/>
-  <path className="airplane-detail" d="M39 31L142 33M112 17L105 28M112 47L105 37"/>
- </svg></div>}
+const heroBackground='/hero-fuji-sakura.png?v=20260723-fuji-sakura';
+const heroAirplane='/hero-airplane-watercolor.png?v=20260723-watercolor-plane';
+function waitForImage(src){return new Promise(resolve=>{const image=new Image();let finished=false;const done=()=>{if(finished)return;finished=true;resolve()};image.onload=()=>image.decode?image.decode().catch(()=>{}).then(done):done();image.onerror=done;image.src=src;if(image.complete)image.onload()})}
+function HeroAirplane(){return <div className="hero-airplane" aria-hidden="true"><span className="airplane-contrail"></span><img src={heroAirplane} alt="" width="720" height="249" decoding="async"/></div>}
 function HeroWaves(){return <div className="hero-waves" aria-hidden="true"><svg viewBox="0 0 2000 190" preserveAspectRatio="none" focusable="false">
   <path className="hero-wave hero-wave-back" d="M-180 64C120 154 400 158 698 95C1015 28 1278 26 1572 84C1795 128 1970 120 2180 72V220H-180Z"/>
   <path className="hero-wave hero-wave-front" d="M-180 132C126 48 417 39 721 116C995 186 1284 182 1576 108C1804 51 1986 53 2180 101V220H-180Z"/>
   <path className="hero-wave-edge" d="M-180 128C126 44 417 35 721 112C995 182 1284 178 1576 104C1804 47 1986 49 2180 97"/>
  </svg></div>}
-function Home({enter}){return <div className="site">
+function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(()=>{let active=true;Promise.all([waitForImage(heroBackground),waitForImage(heroAirplane)]).then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>active&&setHeroReady(true))));return()=>{active=false}},[]);return <div className="site">
   <nav><Brand/><div className="navlinks"><a href="#features">主打功能</a><a href="#how">使用方式</a><a href="#cases">適用情境</a><a href="#faq">常見問題</a></div><button className="ghost" onClick={enter}>LINE 登入</button><button className="primary small" onClick={enter}>開始分帳 <ArrowRight size={17}/></button></nav>
   <main>
-    <section className="hero">
+    <section className={`hero ${heroReady?'hero-ready':'hero-loading'}`}>
       <div className="hero-stage">
       <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>已有 2,840+ 位旅伴使用旅帳<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
       <div className="hero-visual" aria-label="旅帳 TripTab 的日本行程 iPhone 分帳畫面預覽">
