@@ -277,4 +277,4 @@ app.use(express.static(path.join(__dirname,'dist'),{maxAge:'1h'}));
 app.use((req,res,next)=>{if(req.method==='GET'&&!req.path.startsWith('/api/'))return res.sendFile(path.join(__dirname,'dist','index.html'));next()});
 app.use((err,req,res,_next)=>{console.error(err);if(req.path.startsWith('/api/'))return res.status(500).json({error:'伺服器暫時發生問題'});res.status(500).send('Server error')});
 
-migrate().then(()=>app.listen(PORT,'0.0.0.0',()=>console.log(`Dongda Split listening on ${PORT}`))).catch(err=>{console.error('Database migration failed',err);process.exit(1)});
+migrate().then(()=>app.listen(PORT,'0.0.0.0',()=>console.log(`旅帳 TripTab listening on ${PORT}`))).catch(err=>{console.error('Database migration failed',err);process.exit(1)});

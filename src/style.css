@@ -11,3 +11,192 @@
 .settlement-row{flex-wrap:wrap}.settlement-row button{width:100%;border:0;background:#e6f4ea;color:var(--green);border-radius:9px;padding:8px;font-size:11px;font-weight:700}.settlement-row button:disabled{opacity:.55}.settlement-row em{width:100%;font-size:10px;color:#94a099;text-align:right;font-style:normal}
 .fund-avatar{background:#f5e8ba!important;color:#7a5a16!important}.expense-actions{display:flex;gap:8px}.fund-button{border:1px solid #e0d19c;background:#fff9e7;color:#806320;border-radius:11px;padding:10px 13px;font-weight:700}.advanced-modal{width:min(590px,100%);max-height:92vh;overflow:auto}.kind-toggle,.mini-toggle,.split-tabs{display:flex;background:#eef3ef;border-radius:11px;padding:4px;gap:3px}.kind-toggle button,.mini-toggle button,.split-tabs button{flex:1;border:0;background:transparent;border-radius:8px;padding:8px;color:#718078;font-size:11px;font-weight:700}.kind-toggle button.active,.mini-toggle button.active,.split-tabs button.active{background:white;color:var(--green);box-shadow:0 3px 10px #294c3b15}.kind-toggle button.active.refund{color:#d16a48}.subheading{display:flex;align-items:center;justify-content:space-between;margin:17px 0 8px;font-size:12px}.mini-toggle{width:190px}.advanced-modal>form>select,.fund-balance+form select{width:100%;border:1px solid var(--line);border-radius:11px;padding:12px;background:#fff}.split-tabs{display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:13px}.amount-rows,.advanced-participants{display:grid;gap:7px;max-height:220px;overflow:auto}.amount-rows>div,.advanced-participants>div{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:11px;padding:7px;background:#fff}.amount-rows>div>span{flex:1}.amount-rows label{display:flex!important;align-items:center;margin:0!important;color:#78877f;font-weight:400!important}.amount-rows input{width:90px!important;border:0!important;margin:0!important;padding:7px!important;text-align:right}.amount-rows>p{position:sticky;bottom:0;margin:0;background:#fff3e7;color:#a26831;padding:8px;border-radius:8px;text-align:right;font-size:11px}.amount-rows>p.ok{background:#e8f5ec;color:var(--green)}.advanced-participants{grid-template-columns:repeat(2,1fr)}.advanced-participants.with-values{grid-template-columns:1fr}.advanced-participants>div{display:block;padding:0;overflow:hidden}.advanced-participants>div.selected{border-color:var(--green);background:#edf7f0}.advanced-participants>div>button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;padding:8px;text-align:left}.advanced-participants>div>button span{flex:1}.advanced-participants>div>button svg{width:16px;color:var(--green)}.advanced-participants>div>label{display:flex!important;align-items:center;justify-content:space-between;border-top:1px solid #dce9df;margin:0!important;padding-left:10px;color:#718078;font-weight:400!important}.advanced-participants>div>label input{width:150px;border:0!important;margin:0!important;text-align:right;box-shadow:none!important}.fund-big-icon{width:48px;height:48px;color:#a77e22;background:#fff5d5;padding:11px;border-radius:14px;margin-bottom:14px}.fund-balance{background:#17352b;color:white;border-radius:15px;padding:18px;margin:18px 0}.fund-balance{display:flex;align-items:center;justify-content:space-between}.fund-balance small{color:#b8c7c1}.fund-balance b{font-size:21px}@media(max-width:600px){.advanced-modal{padding:22px 16px}.split-tabs{grid-template-columns:1fr 1fr}.advanced-participants{grid-template-columns:1fr}.expense-actions{flex-direction:column}.fund-button{padding:8px;font-size:11px}}
 .toast{border:0;cursor:pointer;animation:toast-life 4s ease both}.toast:focus-visible{outline:3px solid #75d4aa;outline-offset:3px}@keyframes toast-life{0%{opacity:0;transform:translateY(10px)}8%,88%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(4px)}}@media(prefers-reduced-motion:reduce){.toast{animation:none}}
+
+/* 旅帳 TripTab 首頁：山海旅行插畫封面 */
+.brand-lockup{display:flex;align-items:baseline;gap:7px}
+.brand-lockup b{line-height:1}
+.brand-lockup small{color:#6f8179;font-size:10px;font-weight:700;letter-spacing:.09em}
+.brand.light .brand-lockup small{color:#9fb1aa}
+.site{background:#fffdf8}
+.site>nav{position:relative;z-index:10;width:100%;height:96px;max-width:1440px;padding:0 clamp(24px,5vw,80px);background:#fffdf8}
+.site>nav .brand{font-size:22px;letter-spacing:.02em}
+.site>nav .brandmark{width:42px;height:42px;border-radius:13px;background:#148a57;transform:none;box-shadow:0 9px 20px #0e70402b}
+.site>nav .brandmark span{font-size:15px;transform:none}
+.site>nav .primary.small{min-height:46px;padding:0 18px;border-radius:12px}
+.site>nav .ghost{min-height:44px;padding:0 12px}
+.site>nav a,.site>nav button{transition:color .2s ease,background-color .2s ease,box-shadow .2s ease,transform .2s ease}
+.site>nav a:hover{color:#148a57}
+.site button:focus-visible,.site a:focus-visible{outline:3px solid #73d4a6;outline-offset:3px}
+
+.site .hero{isolation:isolate;min-height:calc(100vh - 96px);max-width:none;margin:0;padding:72px max(32px,calc((100vw - 1440px)/2 + 72px)) 112px;grid-template-columns:minmax(420px,.92fr) minmax(520px,1.08fr);gap:48px;background:#fffdf8 url('/hero-coast-bg.png') center bottom/cover no-repeat}
+.site .hero-copy{z-index:4;max-width:610px;padding-top:52px}
+.site .hero .eyebrow{padding:8px 13px;border-radius:999px;background:#e9f3e9;color:#158857;letter-spacing:.04em}
+.site .hero h1{margin:24px 0 26px;font-size:clamp(52px,4.15vw,72px);line-height:1.16;letter-spacing:-.055em}
+.site .hero h1 em{color:#148a57}
+.site .hero-copy>p{max-width:540px;color:#435b52;font-size:17px;line-height:1.85}
+.site .hero-actions{margin:31px 0 0}
+.site .hero-actions .primary{min-height:54px;padding:0 22px;background:#148a57;box-shadow:0 14px 28px #0e70402b}
+.site .hero-actions .primary:hover,.site>nav .primary:hover{background:#0e7548;box-shadow:0 16px 30px #0e704038;transform:translateY(-2px)}
+.site .hero-actions .primary:active,.site>nav .primary:active{transform:translateY(0)}
+.site .hero-actions>span{color:#4e655c}
+.site .social{margin-top:34px}
+.site .social b{font-size:14px;line-height:1.5}
+.site .social small{font-size:11px}
+
+.site .hero-visual{z-index:3;min-height:740px}
+.site .hero-visual .sun{display:none}
+.site .phone{isolation:isolate;position:absolute;top:0;left:16%;z-index:2;width:350px;aspect-ratio:71.5/149.6;overflow:visible;padding:0;border:0;border-radius:60px;background:linear-gradient(145deg,#5b625f 0%,#171b19 18%,#090b0a 82%,#39413e 100%);outline:1px solid #737b78;box-shadow:inset 0 0 0 1px #a3aaa72b,0 3px 0 #050706,0 44px 88px #052b2068;transform:rotate(2.1deg)}
+.site .phone:before{position:absolute;inset:1px;z-index:1;border:1px solid #89918d42;border-radius:59px;content:'';pointer-events:none}
+.site .phone-screen{position:absolute;inset:7px;z-index:2;overflow:hidden;border-radius:53px;background:#fbfdfb;box-shadow:inset 0 0 0 1px #ffffffd9}
+.site .phone-content{display:flex;height:100%;flex-direction:column;padding:59px 18px 94px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang TC','Noto Sans TC','Helvetica Neue',sans-serif}
+.site .phone-side{position:absolute;z-index:0;width:5px;border-radius:4px 0 0 4px;background:linear-gradient(90deg,#252b28,#0b0e0d);box-shadow:inset 1px 0 #69716d}
+.site .phone-silent{top:105px;left:-5px;height:30px}
+.site .phone-volume-up{top:157px;left:-5px;height:64px}
+.site .phone-volume-down{top:232px;left:-5px;height:64px}
+.site .phone-power{top:174px;right:-5px;height:94px;border-radius:0 4px 4px 0;background:linear-gradient(90deg,#0b0e0d,#252b28);box-shadow:inset -1px 0 #69716d}
+.site .phone-camera-control{top:486px;right:-4px;width:4px;height:58px;border-radius:0 4px 4px 0;background:linear-gradient(90deg,#0b0e0d,#303633);box-shadow:inset -1px 0 #707873}
+.site .ios-statusbar{position:absolute;top:11px;right:18px;left:18px;height:33px;display:flex;align-items:center;justify-content:space-between;color:#111716;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;font-size:11px;font-weight:700;letter-spacing:-.01em}
+.site .ios-statusbar time{width:58px;padding-left:4px;font-variant-numeric:tabular-nums;line-height:1}
+.site .dynamic-island{position:absolute;top:0;left:50%;width:110px;height:31px;border-radius:18px;background:#050707;box-shadow:inset 0 -1px 1px #29302e;transform:translateX(-50%)}
+.site .dynamic-island i{position:absolute;top:11px;right:12px;width:8px;height:8px;border-radius:50%;background:#092e45;box-shadow:inset 0 0 0 2px #07161d,0 0 2px #285a76}
+.site .ios-system-icons{display:flex;width:59px;height:14px;align-items:center;justify-content:flex-end}
+.site .ios-system-icons svg{display:block;width:59px;height:14px;overflow:visible;fill:currentColor}
+.site .phone-head{min-height:38px;align-items:center}
+.site .phone-head .brand{gap:8px;color:#17352b}
+.site .phone-head .brandmark{width:31px;height:31px;border-radius:10px;background:#148a57;box-shadow:none;transform:none}
+.site .phone-head .brandmark span{font-size:13px;transform:none}
+.site .phone-head .brand-lockup{gap:4px}
+.site .phone-head .brand-lockup b{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','PingFang TC','Noto Sans TC','Helvetica Neue',sans-serif;font-size:14px;letter-spacing:-.02em}
+.site .phone-head .brand-lockup small{font-size:7px;letter-spacing:.04em}
+.site .phone-head .avatar{border:2px solid #dce8e0;box-shadow:0 2px 8px #17352b1c}
+.site .phone .muted{margin:18px 0 4px;color:#7f9088;font-size:10px;font-weight:600;letter-spacing:.02em}
+.site .phone h2{margin:0 0 17px;color:#148a57;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','PingFang TC','Noto Sans TC','Helvetica Neue',sans-serif;font-size:22px;letter-spacing:-.035em}
+.site .phone h2 strong{font-size:26px;font-variant-numeric:tabular-nums}
+.site .mini-card{min-height:64px;padding:11px 12px;background:#fff;border-color:#dbe5df;border-radius:16px;box-shadow:0 3px 12px #17352b08}
+.site .mini-card div{min-width:0}
+.site .mini-card div b,.site .mini-card div small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.site .mini-card div b{font-size:13px}
+.site .mini-card strong{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.site .mini-type{display:grid!important;width:34px;height:34px;flex:0 0 auto;place-items:center;border-radius:11px;background:#fff0df;color:#9f5729;font-size:12px!important;font-weight:800}
+.site .mini-type.stay{background:#e7f0ec;color:#376656}
+.site .mini-type.ride{background:#e8edf8;color:#4a6391}
+.site .phone-add{position:absolute;right:18px;bottom:35px;left:18px;width:auto;min-height:48px;margin:0;border-radius:15px;background:#148a57;font-weight:700;box-shadow:0 9px 20px #0e704027}
+.site .phone-add:hover{background:#0e7548}
+.site .phone-add:active{transform:scale(.985)}
+.site .home-indicator{position:absolute;bottom:10px;left:50%;width:118px;height:5px;border-radius:99px;background:#111716;transform:translateX(-50%)}
+.site .ticket{top:150px;left:-58px;width:176px;min-height:176px;padding:22px;border-radius:18px;box-shadow:0 20px 45px #193b2e2b;transform:rotate(-7deg)}
+.site .ticket b{font-size:17px;line-height:1.25}
+.site .ticket i{display:block;width:105px;height:42px;margin:16px auto 0;background:#56b77a;clip-path:polygon(0 100%,18% 56%,34% 74%,55% 18%,72% 60%,84% 46%,100% 100%)}
+.site .float-note{right:-10px;bottom:92px;min-width:218px;padding:16px 18px;border:1px solid #e5ebe7;box-shadow:0 18px 42px #17352b26}
+.site .float-note b{font-size:13px}
+
+.site .use-cases{text-align:center}
+.site .use-cases .lead{max-width:620px;margin:0 auto}
+.site .case-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px;text-align:left}
+.site .case-grid article{padding:30px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 16px 40px #17352b0b}
+.site .case-grid h3{margin:19px 0 9px;font-size:21px}
+.site .case-grid p{margin:0;color:#65756e;line-height:1.75}
+.site .faq{max-width:920px;padding-top:72px}
+.site .faq>h2{text-align:center}
+.site .faq>.eyebrow{display:flex;justify-content:center}
+.site .faq-list{display:grid;gap:12px;margin-top:40px}
+.site .faq-list details{border:1px solid var(--line);border-radius:16px;background:#fff;padding:0 20px}
+.site .faq-list summary{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:20px;cursor:pointer;font-weight:700;list-style:none}
+.site .faq-list summary::-webkit-details-marker{display:none}
+.site .faq-list summary:after{content:'＋';color:#148a57;font-size:21px;font-weight:500}
+.site .faq-list details[open] summary:after{content:'－'}
+.site .faq-list summary:focus-visible{outline:3px solid #73d4a6;outline-offset:4px}
+.site .faq-list p{margin:0;padding:0 34px 20px 0;color:#607169;line-height:1.75}
+
+@media(max-width:1080px){
+ .site .hero{grid-template-columns:minmax(370px,.9fr) minmax(440px,1.1fr);gap:20px;padding-right:28px;padding-left:36px}
+ .site .hero-visual{min-height:700px}
+ .site .phone{left:12%;width:330px}
+ .site .ticket{left:-35px;z-index:1}
+ .site .float-note{bottom:130px}
+}
+
+@media(max-width:900px){
+ .site>nav{height:76px;padding:0 24px}
+ .site .hero{min-height:auto;grid-template-columns:1fr;gap:0;padding:36px 24px 40px;background-size:auto 58%;background-position:right bottom}
+ .site .hero-copy{max-width:660px;margin:0 auto;padding-top:12px;text-align:left}
+ .site .hero-copy>p{margin:0}
+ .site .hero-actions,.site .social{justify-content:flex-start}
+ .site .hero h1{font-size:clamp(44px,7.2vw,60px)}
+ .site .hero-visual{width:min(620px,100%);height:675px;min-height:675px;margin:15px auto 0;transform:none}
+ .site .phone{top:4px;left:50%;width:318px;transform:translateX(-38%) rotate(2.3deg)}
+ .site .ticket{top:145px;left:2%}
+ .site .float-note{right:2%;bottom:112px}
+ .site .case-grid{grid-template-columns:1fr}
+}
+
+@media(max-width:600px){
+ .site>nav{height:70px;padding:0 17px}
+ .site>nav .brand{font-size:18px}
+ .site>nav .brandmark{width:36px;height:36px;border-radius:11px}
+ .site>nav .primary.small{min-height:43px;padding:0 13px;font-size:12px}
+ .site .hero{padding:24px 18px 38px;background-size:auto 455px;background-position:75% bottom}
+ .site .hero-copy{text-align:left}
+ .site .hero .eyebrow{padding:7px 10px;font-size:11px}
+ .site .hero h1{margin:18px 0;font-size:39px;line-height:1.2}
+ .site .hero-copy>p{font-size:15px;line-height:1.75}
+ .site .hero-actions{align-items:flex-start;flex-direction:column;gap:12px;margin-top:24px}
+ .site .hero-actions .primary{width:100%;min-height:50px}
+ .site .social{gap:12px;margin-top:24px}
+ .site .social b{font-size:12px}
+ .site .social small{font-size:10px}
+ .site .hero-visual{height:575px;min-height:575px;margin-top:8px;transform:none}
+ .site .phone{top:4px;left:50%;width:272px;border-radius:47px;transform:translateX(-42%) rotate(2.2deg)}
+ .site .phone:before{border-radius:46px}
+ .site .phone-screen{inset:5px;border-radius:42px}
+ .site .phone-content{padding:46px 11px 78px}
+ .site .phone-silent{top:82px;left:-4px;height:23px}
+ .site .phone-volume-up{top:121px;left:-4px;height:48px}
+ .site .phone-volume-down{top:177px;left:-4px;height:48px}
+ .site .phone-power{top:132px;right:-4px;height:71px}
+ .site .phone-camera-control{top:376px;right:-3px;width:3px;height:44px}
+ .site .ios-statusbar{top:7px;right:11px;left:11px;height:25px;font-size:9.5px}
+ .site .ios-statusbar time{width:43px;padding-left:2px}
+ .site .dynamic-island{width:84px;height:23px}
+ .site .dynamic-island i{top:8px;right:9px;width:7px;height:7px}
+ .site .ios-system-icons,.site .ios-system-icons svg{width:48px;height:11px}
+ .site .phone-head{min-height:31px}
+ .site .phone-head .brand{gap:6px}
+ .site .phone-head .brandmark{width:27px;height:27px;border-radius:9px}
+ .site .phone-head .brandmark span{font-size:11px}
+ .site .phone-head .brand-lockup{gap:3px}
+ .site .phone-head .brand-lockup b{font-size:12px}
+ .site .phone-head .brand-lockup small{font-size:6px}
+ .site .phone-head .avatar{width:29px!important;height:29px!important}
+ .site .phone h2{margin-bottom:11px;font-size:17px}
+ .site .phone h2 strong{font-size:20px}
+ .site .phone .muted{margin-top:12px;font-size:7px}
+ .site .mini-card{min-height:53px;margin:6px 0;padding:8px}
+ .site .mini-card div b{font-size:10px}
+ .site .mini-card div small,.site .mini-card strong{font-size:8px}
+ .site .mini-type{width:29px;height:29px}
+ .site .phone-add{right:11px;bottom:27px;left:11px;min-height:41px;border-radius:13px;font-size:11px}
+ .site .home-indicator{bottom:8px;width:92px;height:4px}
+ .site .ticket{top:108px;left:-2px;z-index:1;width:128px;min-height:132px;padding:14px}
+ .site .ticket b{font-size:12px}
+ .site .ticket i{width:78px;height:30px;margin-top:10px}
+ .site .float-note{top:378px;right:-2px;bottom:auto;min-width:167px;padding:11px}
+ .site .float-note svg{width:20px}
+ .site .float-note b{font-size:10px}
+ .site .float-note small{font-size:8px}
+ .site .proof{position:relative;z-index:5;background:#fff}
+ .site .case-grid{margin-top:30px}
+ .site .case-grid article{padding:24px}
+ .site .faq{padding-top:55px}
+ .site .faq>h2{text-align:left}
+ .site .faq>.eyebrow{justify-content:flex-start}
+ .site .faq-list{margin-top:28px}
+ .site .faq-list details{padding:0 16px}
+ .site .faq-list summary{min-height:60px;font-size:14px}
+ .site .faq-list p{padding-right:20px;font-size:14px}
+}
+
+@media(prefers-reduced-motion:reduce){
+ .site *{scroll-behavior:auto!important}
+ .site>nav a,.site>nav button,.site .hero-actions .primary{transition:none}
+}

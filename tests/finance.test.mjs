@@ -48,7 +48,7 @@ test('零和子群最佳化會保留可獨立結清的群組',()=>{
 const payCounts = transfers => transfers.reduce((map,t)=>map.set(t.from.id,(map.get(t.from.id)||0)+1),new Map());
 
 test('小額付款人都能一次付清，尾數由欠最多的人吸收',()=>{
-  // c 欠 1,000 元；a、b、d 各欠 100 元。三個小額付款人應各自一筆結清。
+  // c 欠 1,000 元；a、b、d 各欠 100 元，三個小額付款人應各自一筆結清
   const transfers=minimizeSettlements([{id:'a',balanceCents:-10_000},{id:'b',balanceCents:-10_000},{id:'d',balanceCents:-10_000},{id:'c',balanceCents:-100_000},{id:'x',balanceCents:70_000},{id:'y',balanceCents:60_000}]);
   const counts=payCounts(transfers);
   assert.equal(counts.get('a'),1);assert.equal(counts.get('b'),1);assert.equal(counts.get('d'),1);
