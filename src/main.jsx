@@ -63,7 +63,7 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
     <section className={`hero ${heroReady?'hero-ready':'hero-loading'}`}>
       <div className="hero-stage">
       <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>已有 2,840+ 位旅伴使用旅帳<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
-      <div className="hero-visual" aria-label="旅帳 TripTab 的日本行程 iPhone 分帳畫面預覽">
+      <div className="hero-visual" role="img" aria-label="旅帳 TripTab 的日本行程 iPhone 分帳畫面預覽">
         <HeroAirplane/>
         <div className="ticket"><span>TOKYO · FUJI</span><b>東京富士五日遊</b><small>3 位旅伴 · JPY</small><i aria-hidden="true"></i></div>
         <div className="phone">
@@ -85,7 +85,7 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
               <div className="mini-card"><span className="mini-type food" aria-hidden="true">食</span><div><b>築地市場早餐</b><small>安安先付</small></div><strong>¥ 8,400</strong></div>
               <div className="mini-card"><span className="mini-type stay" aria-hidden="true">住</span><div><b>新宿飯店住宿</b><small>阿哲先付</small></div><strong>¥ 62,000</strong></div>
               <div className="mini-card"><span className="mini-type ride" aria-hidden="true">行</span><div><b>富士山一日遊</b><small>你先付</small></div><strong>¥ 36,000</strong></div>
-              <button className="phone-add" onClick={enter}><Plus/> 新增共同支出</button>
+              <div className="phone-add" aria-hidden="true"><Plus/> 新增共同支出</div>
             </div>
             <span className="home-indicator" aria-hidden="true"></span>
           </div>

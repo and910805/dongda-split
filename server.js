@@ -30,6 +30,12 @@ function safeReturnTo(value){return typeof value==='string'&&value.startsWith('/
 function requireUser(req,res,next){const session=unsign(req.cookies.dongda_session);if(!session?.userId)return res.status(401).json({error:'請先使用 LINE 登入'});req.userId=session.userId;next()}
 const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const toWholeTwdCents=value=>{const amount=Number(value);return Number.isSafeInteger(amount)?amount*100:NaN};
+function splitMetaFromRequest(mode,body,participantIds){
+  if(mode==='exact')return{shares:(body?.shares||[]).map(item=>({userId:String(item.userId),amount:Number(item.amount)}))};
+  if(mode==='hybrid')return{participantIds,fixedShares:(body?.fixedShares||[]).map(item=>({userId:String(item.userId),amount:Number(item.amount)}))};
+  if(mode==='weights')return{weights:(body?.weights||[]).map(item=>({userId:String(item.userId),weight:Number(item.weight)}))};
+  return{participantIds};
+}
 
 async function migrate(){
   await pool.query(`
@@ -68,6 +74,7 @@ async function migrate(){
       created_by UUID NOT NULL REFERENCES users(id),
       category TEXT NOT NULL DEFAULT '其他',
       split_mode TEXT NOT NULL DEFAULT 'equal',
+      split_meta JSONB NOT NULL DEFAULT '{}'::jsonb,
       expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -96,6 +103,7 @@ async function migrate(){
     CREATE INDEX IF NOT EXISTS expenses_group_created_idx ON expenses(group_id,created_at DESC);
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_virtual BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_mode TEXT NOT NULL DEFAULT 'equal';
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_meta JSONB NOT NULL DEFAULT '{}'::jsonb;
     DO $$ BEGIN
       IF EXISTS(SELECT 1 FROM pg_constraint WHERE conname='expenses_amount_cents_check' AND pg_get_constraintdef(oid) NOT LIKE '%<> 0%') THEN
         ALTER TABLE expenses DROP CONSTRAINT expenses_amount_cents_check;
@@ -182,7 +190,7 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   const [groupResult,membersResult,expensesResult,balancesResult,settlementHistoryResult]=await Promise.all([
     pool.query('SELECT id,name,description,currency,invite_token AS "inviteToken",owner_id AS "ownerId" FROM groups WHERE id=$1',[req.params.id]),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_virtual AS "isFund",gm.role FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id]),
-    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.split_mode AS "splitMode",e.expense_date AS "expenseDate",e.created_at AS "createdAt",e.created_by AS "createdBy",STRING_AGG(DISTINCT pu.display_name,'、') AS "payerName",COUNT(DISTINCT es.user_id)::int AS "shareCount",COUNT(DISTINCT ep.user_id)::int AS "payerCount",JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',ep.user_id,'amountCents',ep.amount_cents)) AS payments,JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',es.user_id,'amountCents',es.amount_cents)) FILTER (WHERE es.user_id IS NOT NULL) AS shares FROM expenses e JOIN expense_payments ep ON ep.expense_id=e.id JOIN users pu ON pu.id=ep.user_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id ORDER BY e.created_at DESC LIMIT 100`,[req.params.id]),
+    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.split_mode AS "splitMode",e.split_meta AS "splitMeta",e.expense_date AS "expenseDate",e.created_at AS "createdAt",e.created_by AS "createdBy",STRING_AGG(DISTINCT pu.display_name,'、') AS "payerName",COUNT(DISTINCT es.user_id)::int AS "shareCount",COUNT(DISTINCT ep.user_id)::int AS "payerCount",JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',ep.user_id,'amountCents',ep.amount_cents)) AS payments,JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',es.user_id,'amountCents',es.amount_cents)) FILTER (WHERE es.user_id IS NOT NULL) AS shares FROM expenses e JOIN expense_payments ep ON ep.expense_id=e.id JOIN users pu ON pu.id=ep.user_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id ORDER BY e.created_at DESC LIMIT 100`,[req.params.id]),
     pool.query(BALANCE_SQL,[req.params.id]),
     pool.query(`SELECT sp.id,sp.amount_cents::bigint::text AS "amountCents",sp.created_at AS "createdAt",JSONB_BUILD_OBJECT('id',fu.id,'displayName',fu.display_name,'pictureUrl',fu.picture_url,'isFund',fu.is_virtual) AS "from",JSONB_BUILD_OBJECT('id',tu.id,'displayName',tu.display_name,'pictureUrl',tu.picture_url,'isFund',tu.is_virtual) AS "to",JSONB_BUILD_OBJECT('id',cu.id,'displayName',cu.display_name) AS "confirmedBy" FROM settlement_payments sp JOIN users fu ON fu.id=sp.from_user_id JOIN users tu ON tu.id=sp.to_user_id JOIN users cu ON cu.id=sp.created_by WHERE sp.group_id=$1 ORDER BY sp.created_at DESC LIMIT 100`,[req.params.id])
   ]);
@@ -217,7 +225,8 @@ app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
     else if(mode==='hybrid'){const fixed=(req.body.fixedShares||[]).map(x=>({userId:String(x.userId),shareCents:sign*toWholeTwdCents(Math.abs(Number(x.amount)))}));if(participantIds.some(id=>!allowed.has(id)))throw new Error('指定成員不正確');shares=allocateHybrid(amountCents,participantIds,fixed)}
     else{if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))throw new Error('請選擇有效的分攤成員');shares=allocateEqual(amountCents,participantIds)}
   }catch(error){return res.status(400).json({error:error.message})}
-  const client=await pool.connect();try{await client.query('BEGIN');const {rows:[expense]}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category,split_mode) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`,[req.params.id,title,amountCents,payments[0].userId,req.userId,String(req.body?.category||'其他').slice(0,20),mode]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,share.userId,share.shareCents]);await client.query('COMMIT');res.status(201).json({id:expense.id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  const splitMeta=splitMetaFromRequest(mode,req.body,participantIds);
+  const client=await pool.connect();try{await client.query('BEGIN');const {rows:[expense]}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING id`,[req.params.id,title,amountCents,payments[0].userId,req.userId,String(req.body?.category||'其他').slice(0,20),mode,JSON.stringify(splitMeta)]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,share.userId,share.shareCents]);await client.query('COMMIT');res.status(201).json({id:expense.id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
@@ -238,7 +247,8 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
     else if(mode==='hybrid'){const fixed=(req.body.fixedShares||[]).map(x=>({userId:String(x.userId),shareCents:sign*toWholeTwdCents(Math.abs(Number(x.amount)))}));if(participantIds.some(id=>!allowed.has(id)))throw new Error('指定成員不正確');shares=allocateHybrid(amountCents,participantIds,fixed)}
     else{if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))throw new Error('請選擇有效的分攤成員');shares=allocateEqual(amountCents,participantIds)}
   }catch(error){return res.status(400).json({error:error.message})}
-  const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,split_mode=$5 WHERE id=$6`,[title,amountCents,payments[0].userId,String(req.body?.category||'其他').slice(0,20),mode,req.params.expenseId]);await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,share.userId,share.shareCents]);await client.query('COMMIT');res.json({id:req.params.expenseId})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  const splitMeta=splitMetaFromRequest(mode,req.body,participantIds);
+  const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,split_mode=$5,split_meta=$6::jsonb WHERE id=$7`,[title,amountCents,payments[0].userId,String(req.body?.category||'其他').slice(0,20),mode,JSON.stringify(splitMeta),req.params.expenseId]);await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,share.userId,share.shareCents]);await client.query('COMMIT');res.json({id:req.params.expenseId})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.delete('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
