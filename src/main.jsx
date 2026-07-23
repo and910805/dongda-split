@@ -4,6 +4,7 @@ import {ArrowRight, BarChart3, Bell, Check, ChevronRight, CircleDollarSign, Menu
 import './style.css';
 import './mobile.css';
 import './dashboard.css';
+import './operation.css';
 import ProductApp from './ProductApp.jsx';
 import {BrandLogo as Brand} from './BrandLogo.jsx';
 
@@ -80,7 +81,7 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
             <div className="phone-content">
               <div className="phone-head"><Brand/><Avatar p={people[0]} size={34}/></div>
               <p className="muted">東京五日行程結算</p>
-              <h2>你應收 <strong>¥ 12,600</strong></h2>
+              <h2>你應收 <strong>¥ 12,600(日幣)</strong></h2>
               <div className="mini-card"><span className="mini-type food" aria-hidden="true">食</span><div><b>築地市場早餐</b><small>安安先付</small></div><strong>¥ 8,400</strong></div>
               <div className="mini-card"><span className="mini-type stay" aria-hidden="true">住</span><div><b>新宿飯店住宿</b><small>阿哲先付</small></div><strong>¥ 62,000</strong></div>
               <div className="mini-card"><span className="mini-type ride" aria-hidden="true">行</span><div><b>富士山一日遊</b><small>你先付</small></div><strong>¥ 36,000</strong></div>
