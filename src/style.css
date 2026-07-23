@@ -43,18 +43,22 @@
 .site .social b{font-size:14px;line-height:1.5}
 .site .social small{font-size:11px}
 
-.site .hero-visual{z-index:3;min-height:600px}
+.site .hero-visual{z-index:3;min-height:740px}
 .site .hero-visual .sun{display:none}
-.site .phone{isolation:isolate;top:16px;left:10%;width:395px;min-height:552px;overflow:visible;padding:52px 19px 38px;border:10px solid #111716;border-radius:54px;background:#fbfdfb;outline:1px solid #61706b;box-shadow:inset 0 0 0 1px #ffffffcc,0 4px 0 #07110e,0 40px 82px #052b206b;transform:rotate(2.4deg)}
-.site .phone-side{position:absolute;z-index:-1;width:5px;border-radius:4px 0 0 4px;background:#111716;box-shadow:inset 1px 0 #53605c}
-.site .phone-silent{top:98px;left:-15px;height:31px}
-.site .phone-volume-up{top:151px;left:-15px;height:61px}
-.site .phone-volume-down{top:224px;left:-15px;height:61px}
-.site .phone-power{top:165px;right:-15px;height:92px;border-radius:0 4px 4px 0;box-shadow:inset -1px 0 #53605c}
-.site .ios-statusbar{position:absolute;top:9px;right:16px;left:16px;height:31px;display:flex;align-items:center;justify-content:space-between;color:#111716;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;font-size:11px;font-weight:700;letter-spacing:-.01em}
+.site .phone{isolation:isolate;position:absolute;top:0;left:16%;z-index:2;width:350px;aspect-ratio:71.5/149.6;overflow:visible;padding:0;border:0;border-radius:60px;background:linear-gradient(145deg,#5b625f 0%,#171b19 18%,#090b0a 82%,#39413e 100%);outline:1px solid #737b78;box-shadow:inset 0 0 0 1px #a3aaa72b,0 3px 0 #050706,0 44px 88px #052b2068;transform:rotate(2.1deg)}
+.site .phone:before{position:absolute;inset:1px;z-index:1;border:1px solid #89918d42;border-radius:59px;content:'';pointer-events:none}
+.site .phone-screen{position:absolute;inset:7px;z-index:2;overflow:hidden;border-radius:53px;background:#fbfdfb;box-shadow:inset 0 0 0 1px #ffffffd9}
+.site .phone-content{display:flex;height:100%;flex-direction:column;padding:59px 18px 94px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang TC','Noto Sans TC','Helvetica Neue',sans-serif}
+.site .phone-side{position:absolute;z-index:0;width:5px;border-radius:4px 0 0 4px;background:linear-gradient(90deg,#252b28,#0b0e0d);box-shadow:inset 1px 0 #69716d}
+.site .phone-silent{top:105px;left:-5px;height:30px}
+.site .phone-volume-up{top:157px;left:-5px;height:64px}
+.site .phone-volume-down{top:232px;left:-5px;height:64px}
+.site .phone-power{top:174px;right:-5px;height:94px;border-radius:0 4px 4px 0;background:linear-gradient(90deg,#0b0e0d,#252b28);box-shadow:inset -1px 0 #69716d}
+.site .phone-camera-control{top:486px;right:-4px;width:4px;height:58px;border-radius:0 4px 4px 0;background:linear-gradient(90deg,#0b0e0d,#303633);box-shadow:inset -1px 0 #707873}
+.site .ios-statusbar{position:absolute;top:11px;right:18px;left:18px;height:33px;display:flex;align-items:center;justify-content:space-between;color:#111716;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;font-size:11px;font-weight:700;letter-spacing:-.01em}
 .site .ios-statusbar time{width:52px;padding-left:4px;font-variant-numeric:tabular-nums}
-.site .dynamic-island{position:absolute;top:0;left:50%;width:108px;height:29px;border-radius:18px;background:#050707;box-shadow:inset 0 -1px 1px #29302e;transform:translateX(-50%)}
-.site .dynamic-island i{position:absolute;top:10px;right:12px;width:8px;height:8px;border-radius:50%;background:#092e45;box-shadow:inset 0 0 0 2px #07161d,0 0 2px #285a76}
+.site .dynamic-island{position:absolute;top:0;left:50%;width:110px;height:31px;border-radius:18px;background:#050707;box-shadow:inset 0 -1px 1px #29302e;transform:translateX(-50%)}
+.site .dynamic-island i{position:absolute;top:11px;right:12px;width:8px;height:8px;border-radius:50%;background:#092e45;box-shadow:inset 0 0 0 2px #07161d,0 0 2px #285a76}
 .site .ios-system-icons{display:flex;width:56px;align-items:center;justify-content:flex-end;gap:5px}
 .site .ios-cellular{width:14px;height:11px;background:linear-gradient(to top,#111716 0 100%) 0 8px/2px 3px no-repeat,linear-gradient(to top,#111716 0 100%) 4px 6px/2px 5px no-repeat,linear-gradient(to top,#111716 0 100%) 8px 3px/2px 8px no-repeat,linear-gradient(to top,#111716 0 100%) 12px 0/2px 11px no-repeat}
 .site .ios-wifi{width:13px;height:10px;border-top:2px solid #111716;border-radius:50% 50% 0 0;position:relative}
@@ -65,29 +69,32 @@
 .site .ios-battery:after{position:absolute;top:2px;right:-3px;width:2px;height:4px;border-radius:0 2px 2px 0;background:#111716;content:''}
 .site .ios-battery b{position:absolute;inset:1.5px;border-radius:1px;background:#111716}
 .site .phone-head{min-height:38px;align-items:center}
-.site .phone-brand{display:flex;align-items:center;gap:8px;color:#17352b}
-.site .phone-brand>span{display:grid;width:31px;height:31px;place-items:center;border-radius:10px;color:#fff;background:#148a57}
-.site .phone-brand svg{width:16px;height:16px}
-.site .phone-brand b{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;font-size:14px;letter-spacing:-.02em}
+.site .phone-head .brand{gap:8px;color:#17352b}
+.site .phone-head .brandmark{width:31px;height:31px;border-radius:10px;background:#148a57;box-shadow:none;transform:none}
+.site .phone-head .brandmark span{font-size:13px;transform:none}
+.site .phone-head .brand-lockup{gap:4px}
+.site .phone-head .brand-lockup b{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','PingFang TC','Noto Sans TC','Helvetica Neue',sans-serif;font-size:14px;letter-spacing:-.02em}
+.site .phone-head .brand-lockup small{font-size:7px;letter-spacing:.04em}
 .site .phone-head .avatar{border:2px solid #dce8e0;box-shadow:0 2px 8px #17352b1c}
-.site .phone .muted{margin:17px 0 4px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-size:9px;font-weight:700;letter-spacing:.11em}
-.site .phone h2{margin:0 0 16px;color:#148a57;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;font-size:22px;letter-spacing:-.035em}
+.site .phone .muted{margin:18px 0 4px;color:#7f9088;font-size:10px;font-weight:600;letter-spacing:.02em}
+.site .phone h2{margin:0 0 17px;color:#148a57;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','PingFang TC','Noto Sans TC','Helvetica Neue',sans-serif;font-size:22px;letter-spacing:-.035em}
 .site .phone h2 strong{font-size:26px;font-variant-numeric:tabular-nums}
-.site .mini-card{min-height:64px;padding:11px 12px;background:#fff;border-color:#dbe5df;border-radius:16px}
+.site .mini-card{min-height:64px;padding:11px 12px;background:#fff;border-color:#dbe5df;border-radius:16px;box-shadow:0 3px 12px #17352b08}
 .site .mini-card div{min-width:0}
 .site .mini-card div b,.site .mini-card div small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.site .mini-card div b{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-size:12px}
-.site .mini-card strong{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.site .mini-card div b{font-size:13px}
+.site .mini-card strong{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .site .mini-type{display:grid!important;width:34px;height:34px;flex:0 0 auto;place-items:center;border-radius:11px;background:#fff0df;color:#9f5729;font-size:12px!important;font-weight:800}
-.site .mini-type svg{width:16px;height:16px}
 .site .mini-type.stay{background:#e7f0ec;color:#376656}
 .site .mini-type.ride{background:#e8edf8;color:#4a6391}
-.site .phone-add{min-height:46px;margin-top:13px;border-radius:14px;background:#148a57;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-weight:700}
-.site .home-indicator{position:absolute;bottom:11px;left:50%;width:118px;height:5px;border-radius:99px;background:#111716;transform:translateX(-50%)}
-.site .ticket{top:125px;left:-70px;width:176px;min-height:176px;padding:22px;border-radius:18px;box-shadow:0 20px 45px #193b2e2b;transform:rotate(-7deg)}
+.site .phone-add{position:absolute;right:18px;bottom:35px;left:18px;width:auto;min-height:48px;margin:0;border-radius:15px;background:#148a57;font-weight:700;box-shadow:0 9px 20px #0e704027}
+.site .phone-add:hover{background:#0e7548}
+.site .phone-add:active{transform:scale(.985)}
+.site .home-indicator{position:absolute;bottom:10px;left:50%;width:118px;height:5px;border-radius:99px;background:#111716;transform:translateX(-50%)}
+.site .ticket{top:150px;left:-58px;width:176px;min-height:176px;padding:22px;border-radius:18px;box-shadow:0 20px 45px #193b2e2b;transform:rotate(-7deg)}
 .site .ticket b{font-size:17px;line-height:1.25}
 .site .ticket i{display:block;width:105px;height:42px;margin:16px auto 0;background:#56b77a;clip-path:polygon(0 100%,18% 56%,34% 74%,55% 18%,72% 60%,84% 46%,100% 100%)}
-.site .float-note{right:0;bottom:74px;min-width:218px;padding:16px 18px;border:1px solid #e5ebe7;box-shadow:0 18px 42px #17352b26}
+.site .float-note{right:-10px;bottom:92px;min-width:218px;padding:16px 18px;border:1px solid #e5ebe7;box-shadow:0 18px 42px #17352b26}
 .site .float-note b{font-size:13px}
 
 .site .use-cases{text-align:center}
@@ -110,8 +117,10 @@
 
 @media(max-width:1080px){
  .site .hero{grid-template-columns:minmax(370px,.9fr) minmax(440px,1.1fr);gap:20px;padding-right:28px;padding-left:36px}
- .site .phone{left:8%;width:365px}
- .site .ticket{left:-35px}
+ .site .hero-visual{min-height:700px}
+ .site .phone{left:12%;width:330px}
+ .site .ticket{left:-35px;z-index:1}
+ .site .float-note{bottom:130px}
 }
 
 @media(max-width:900px){
@@ -121,10 +130,10 @@
  .site .hero-copy>p{margin:0}
  .site .hero-actions,.site .social{justify-content:flex-start}
  .site .hero h1{font-size:clamp(44px,7.2vw,60px)}
- .site .hero-visual{width:min(620px,100%);height:550px;min-height:550px;margin:15px auto 0;transform:none}
- .site .phone{top:35px;left:50%;width:375px;transform:translateX(-38%) rotate(3deg)}
- .site .ticket{top:135px;left:2%}
- .site .float-note{right:2%;bottom:72px}
+ .site .hero-visual{width:min(620px,100%);height:675px;min-height:675px;margin:15px auto 0;transform:none}
+ .site .phone{top:4px;left:50%;width:318px;transform:translateX(-38%) rotate(2.3deg)}
+ .site .ticket{top:145px;left:2%}
+ .site .float-note{right:2%;bottom:112px}
  .site .case-grid{grid-template-columns:1fr}
 }
 
@@ -143,21 +152,28 @@
  .site .social{gap:12px;margin-top:24px}
  .site .social b{font-size:12px}
  .site .social small{font-size:10px}
- .site .hero-visual{height:455px;min-height:455px;margin-top:8px;transform:none}
- .site .phone{top:26px;left:49%;width:305px;min-height:432px;padding:43px 13px 29px;border-width:7px;border-radius:42px;transform:translateX(-43%) rotate(2.5deg)}
- .site .phone-silent{top:76px;left:-12px;height:24px}
- .site .phone-volume-up{top:116px;left:-12px;height:47px}
- .site .phone-volume-down{top:172px;left:-12px;height:47px}
- .site .phone-power{top:127px;right:-12px;height:70px}
+ .site .hero-visual{height:575px;min-height:575px;margin-top:8px;transform:none}
+ .site .phone{top:4px;left:50%;width:272px;border-radius:47px;transform:translateX(-42%) rotate(2.2deg)}
+ .site .phone:before{border-radius:46px}
+ .site .phone-screen{inset:5px;border-radius:42px}
+ .site .phone-content{padding:46px 11px 78px}
+ .site .phone-silent{top:82px;left:-4px;height:23px}
+ .site .phone-volume-up{top:121px;left:-4px;height:48px}
+ .site .phone-volume-down{top:177px;left:-4px;height:48px}
+ .site .phone-power{top:132px;right:-4px;height:71px}
+ .site .phone-camera-control{top:376px;right:-3px;width:3px;height:44px}
  .site .ios-statusbar{top:7px;right:11px;left:11px;height:25px;font-size:9px}
  .site .ios-statusbar time{width:42px}
  .site .dynamic-island{width:84px;height:23px}
  .site .dynamic-island i{top:8px;right:9px;width:7px;height:7px}
  .site .ios-system-icons{width:47px;gap:4px;transform:scale(.82);transform-origin:right center}
  .site .phone-head{min-height:31px}
- .site .phone-brand{gap:6px}
- .site .phone-brand>span{width:27px;height:27px;border-radius:9px}
- .site .phone-brand b{font-size:12px}
+ .site .phone-head .brand{gap:6px}
+ .site .phone-head .brandmark{width:27px;height:27px;border-radius:9px}
+ .site .phone-head .brandmark span{font-size:11px}
+ .site .phone-head .brand-lockup{gap:3px}
+ .site .phone-head .brand-lockup b{font-size:12px}
+ .site .phone-head .brand-lockup small{font-size:6px}
  .site .phone-head .avatar{width:29px!important;height:29px!important}
  .site .phone h2{margin-bottom:11px;font-size:17px}
  .site .phone h2 strong{font-size:20px}
@@ -166,13 +182,12 @@
  .site .mini-card div b{font-size:10px}
  .site .mini-card div small,.site .mini-card strong{font-size:8px}
  .site .mini-type{width:29px;height:29px}
- .site .mini-type svg{width:14px;height:14px}
- .site .phone-add{min-height:39px;margin-top:9px;border-radius:12px;font-size:11px}
+ .site .phone-add{right:11px;bottom:27px;left:11px;min-height:41px;border-radius:13px;font-size:11px}
  .site .home-indicator{bottom:8px;width:92px;height:4px}
- .site .ticket{top:98px;left:-2px;width:128px;min-height:132px;padding:14px}
+ .site .ticket{top:108px;left:-2px;z-index:1;width:128px;min-height:132px;padding:14px}
  .site .ticket b{font-size:12px}
  .site .ticket i{width:78px;height:30px;margin-top:10px}
- .site .float-note{right:-2px;bottom:28px;min-width:167px;padding:11px}
+ .site .float-note{top:378px;right:-2px;bottom:auto;min-width:167px;padding:11px}
  .site .float-note svg{width:20px}
  .site .float-note b{font-size:10px}
  .site .float-note small{font-size:8px}

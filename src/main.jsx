@@ -1,6 +1,6 @@
 import React, {useMemo, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {ArrowRight, BarChart3, BedDouble, Bell, Car, Check, ChevronRight, CircleDollarSign, Menu, Plus, ReceiptText, Search, Sparkles, Users, Utensils, WalletCards, X} from 'lucide-react';
+import {ArrowRight, BarChart3, Bell, Check, ChevronRight, CircleDollarSign, Menu, Plus, ReceiptText, Search, Sparkles, Users, WalletCards, X} from 'lucide-react';
 import './style.css';
 import './mobile.css';
 import './dashboard.css';
@@ -19,28 +19,33 @@ function Home({enter}){return <div className="site">
   <main>
     <section className="hero">
       <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受，<br/><em>帳目各自清楚。</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少。<br/>不用整理試算表，也不用在群組裡反覆對帳。</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight size={18}/></button><span><Check size={17}/> 免下載 App・不用信用卡</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>已有 2,840+ 位旅伴使用旅帳<br/><small>從第一筆支出到最後一次結清，都交給旅帳。</small></b></div></div>
-      <div className="hero-visual" aria-label="TripTab expense dashboard shown inside an iPhone">
-        <div className="ticket"><span>TAITUNG TRIP</span><b>East Coast Escape</b><small>3 travelers · TWD</small><i aria-hidden="true"></i></div>
+      <div className="hero-visual" aria-label="旅帳 TripTab 的 iPhone 分帳畫面預覽">
+        <div className="ticket"><span>TAITUNG TRIP</span><b>台東三日小旅行</b><small>3 位旅伴 · TWD</small><i aria-hidden="true"></i></div>
         <div className="phone">
           <span className="phone-side phone-silent" aria-hidden="true"></span>
           <span className="phone-side phone-volume-up" aria-hidden="true"></span>
           <span className="phone-side phone-volume-down" aria-hidden="true"></span>
           <span className="phone-side phone-power" aria-hidden="true"></span>
-          <div className="ios-statusbar" aria-hidden="true">
-            <time>9:41</time>
-            <span className="dynamic-island"><i></i></span>
-            <span className="ios-system-icons"><i className="ios-cellular"></i><i className="ios-wifi"></i><i className="ios-battery"><b></b></i></span>
+          <span className="phone-side phone-camera-control" aria-hidden="true"></span>
+          <div className="phone-screen">
+            <div className="ios-statusbar" aria-hidden="true">
+              <time>9:41</time>
+              <span className="dynamic-island"><i></i></span>
+              <span className="ios-system-icons"><i className="ios-cellular"></i><i className="ios-wifi"></i><i className="ios-battery"><b></b></i></span>
+            </div>
+            <div className="phone-content">
+              <div className="phone-head"><Brand/><Avatar p={people[0]} size={34}/></div>
+              <p className="muted">本次旅程結算</p>
+              <h2>你應收 <strong>NT$ 1,260</strong></h2>
+              <div className="mini-card"><span className="mini-type food" aria-hidden="true">食</span><div><b>東大門夜市</b><small>萬安先付</small></div><strong>NT$ 1,280</strong></div>
+              <div className="mini-card"><span className="mini-type stay" aria-hidden="true">住</span><div><b>海邊民宿</b><small>哲宇先付</small></div><strong>NT$ 3,600</strong></div>
+              <div className="mini-card"><span className="mini-type ride" aria-hidden="true">行</span><div><b>租車費用</b><small>你先付</small></div><strong>NT$ 2,400</strong></div>
+              <button className="phone-add" onClick={enter}><Plus/> 新增共同支出</button>
+            </div>
+            <span className="home-indicator" aria-hidden="true"></span>
           </div>
-          <div className="phone-head"><div className="phone-brand"><span><ReceiptText/></span><b>TripTab</b></div><Avatar p={people[0]} size={34}/></div>
-          <p className="muted">TRIP SUMMARY</p>
-          <h2>You're owed <strong>NT$ 1,260</strong></h2>
-          <div className="mini-card"><span className="mini-type food"><Utensils/></span><div><b>Dongdamen Night Market</b><small>Paid by Amber</small></div><strong>NT$ 1,280</strong></div>
-          <div className="mini-card"><span className="mini-type stay"><BedDouble/></span><div><b>Seaside Guesthouse</b><small>Paid by Theo</small></div><strong>NT$ 3,600</strong></div>
-          <div className="mini-card"><span className="mini-type ride"><Car/></span><div><b>Car rental</b><small>Paid by you</small></div><strong>NT$ 2,400</strong></div>
-          <button className="phone-add" onClick={enter}><Plus/> Add shared expense</button>
-          <span className="home-indicator" aria-hidden="true"></span>
         </div>
-        <div className="float-note"><CircleDollarSign/><div><small>Transfers optimized</small><b>Only 2 payments needed</b></div></div>
+        <div className="float-note"><CircleDollarSign/><div><small>已自動簡化轉帳</small><b>只需要轉帳 2 次</b></div></div>
       </div>
     </section>
     <section className="proof"><span>不用再開計算機</span><span>不用催朋友匯款</span><span>不用下載 App</span><span>多幣別也能分</span></section>
