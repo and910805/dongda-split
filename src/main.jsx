@@ -14,6 +14,11 @@ const seed=[
 ];
 function Brand({light=false}){return <div className={'brand '+(light?'light':'')}><span className="brandmark"><span>旅</span></span><span className="brand-lockup"><b>旅帳</b><small>TripTab</small></span></div>}
 function Avatar({p,size=38}){return p.img?<img className="avatar" style={{width:size,height:size}} src={p.img}/>:<span className="avatar initial" style={{width:size,height:size,background:p.color}}>{p.initial}</span>}
+function IosStatusIcons(){return <span className="ios-system-icons" aria-hidden="true"><svg viewBox="0 0 67 14" focusable="false">
+  <g className="status-cellular"><rect x="0" y="9" width="2.5" height="4" rx="1"/><rect x="4.25" y="7" width="2.5" height="6" rx="1"/><rect x="8.5" y="4" width="2.5" height="9" rx="1"/><rect x="12.75" y="1" width="2.5" height="12" rx="1"/></g>
+  <g className="status-wifi"><path d="M19.5 5.1C24.2.9 31.8.9 36.5 5.1l-1.7 1.8c-3.7-3.2-9.9-3.2-13.6 0l-1.7-1.8Z"/><path d="M23 8.4c2.7-2.4 7.3-2.4 10 0l-1.7 1.8c-1.8-1.5-4.8-1.5-6.6 0L23 8.4Z"/><circle cx="28" cy="12.15" r="1.3"/></g>
+  <g className="status-battery"><rect x="43.5" y="2" width="19.5" height="10" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5"/><rect x="45.5" y="4" width="15.2" height="6" rx="1.5"/><path d="M64.5 5.1c1.1.35 1.75 1 1.75 1.9s-.65 1.55-1.75 1.9V5.1Z" opacity=".42"/></g>
+ </svg></span>}
 function Home({enter}){return <div className="site">
   <nav><Brand/><div className="navlinks"><a href="#features">主打功能</a><a href="#how">使用方式</a><a href="#cases">適用情境</a><a href="#faq">常見問題</a></div><button className="ghost" onClick={enter}>登入</button><button className="primary small" onClick={enter}>開始分帳 <ArrowRight size={17}/></button></nav>
   <main>
@@ -31,7 +36,7 @@ function Home({enter}){return <div className="site">
             <div className="ios-statusbar" aria-hidden="true">
               <time>9:41</time>
               <span className="dynamic-island"><i></i></span>
-              <span className="ios-system-icons"><i className="ios-cellular"></i><i className="ios-wifi"></i><i className="ios-battery"><b></b></i></span>
+              <IosStatusIcons/>
             </div>
             <div className="phone-content">
               <div className="phone-head"><Brand/><Avatar p={people[0]} size={34}/></div>

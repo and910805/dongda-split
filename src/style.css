@@ -56,18 +56,11 @@
 .site .phone-power{top:174px;right:-5px;height:94px;border-radius:0 4px 4px 0;background:linear-gradient(90deg,#0b0e0d,#252b28);box-shadow:inset -1px 0 #69716d}
 .site .phone-camera-control{top:486px;right:-4px;width:4px;height:58px;border-radius:0 4px 4px 0;background:linear-gradient(90deg,#0b0e0d,#303633);box-shadow:inset -1px 0 #707873}
 .site .ios-statusbar{position:absolute;top:11px;right:18px;left:18px;height:33px;display:flex;align-items:center;justify-content:space-between;color:#111716;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;font-size:11px;font-weight:700;letter-spacing:-.01em}
-.site .ios-statusbar time{width:52px;padding-left:4px;font-variant-numeric:tabular-nums}
+.site .ios-statusbar time{width:58px;padding-left:4px;font-variant-numeric:tabular-nums;line-height:1}
 .site .dynamic-island{position:absolute;top:0;left:50%;width:110px;height:31px;border-radius:18px;background:#050707;box-shadow:inset 0 -1px 1px #29302e;transform:translateX(-50%)}
 .site .dynamic-island i{position:absolute;top:11px;right:12px;width:8px;height:8px;border-radius:50%;background:#092e45;box-shadow:inset 0 0 0 2px #07161d,0 0 2px #285a76}
-.site .ios-system-icons{display:flex;width:56px;align-items:center;justify-content:flex-end;gap:5px}
-.site .ios-cellular{width:14px;height:11px;background:linear-gradient(to top,#111716 0 100%) 0 8px/2px 3px no-repeat,linear-gradient(to top,#111716 0 100%) 4px 6px/2px 5px no-repeat,linear-gradient(to top,#111716 0 100%) 8px 3px/2px 8px no-repeat,linear-gradient(to top,#111716 0 100%) 12px 0/2px 11px no-repeat}
-.site .ios-wifi{width:13px;height:10px;border-top:2px solid #111716;border-radius:50% 50% 0 0;position:relative}
-.site .ios-wifi:before,.site .ios-wifi:after{position:absolute;left:50%;content:'';border-top:2px solid #111716;border-radius:50%;transform:translateX(-50%)}
-.site .ios-wifi:before{top:2px;width:8px;height:6px}
-.site .ios-wifi:after{top:6px;width:3px;height:3px;background:#111716}
-.site .ios-battery{position:relative;width:20px;height:10px;border:1.5px solid #111716;border-radius:3px}
-.site .ios-battery:after{position:absolute;top:2px;right:-3px;width:2px;height:4px;border-radius:0 2px 2px 0;background:#111716;content:''}
-.site .ios-battery b{position:absolute;inset:1.5px;border-radius:1px;background:#111716}
+.site .ios-system-icons{display:flex;width:59px;height:14px;align-items:center;justify-content:flex-end}
+.site .ios-system-icons svg{display:block;width:59px;height:14px;overflow:visible;fill:currentColor}
 .site .phone-head{min-height:38px;align-items:center}
 .site .phone-head .brand{gap:8px;color:#17352b}
 .site .phone-head .brandmark{width:31px;height:31px;border-radius:10px;background:#148a57;box-shadow:none;transform:none}
@@ -162,11 +155,11 @@
  .site .phone-volume-down{top:177px;left:-4px;height:48px}
  .site .phone-power{top:132px;right:-4px;height:71px}
  .site .phone-camera-control{top:376px;right:-3px;width:3px;height:44px}
- .site .ios-statusbar{top:7px;right:11px;left:11px;height:25px;font-size:9px}
- .site .ios-statusbar time{width:42px}
+ .site .ios-statusbar{top:7px;right:11px;left:11px;height:25px;font-size:9.5px}
+ .site .ios-statusbar time{width:43px;padding-left:2px}
  .site .dynamic-island{width:84px;height:23px}
  .site .dynamic-island i{top:8px;right:9px;width:7px;height:7px}
- .site .ios-system-icons{width:47px;gap:4px;transform:scale(.82);transform-origin:right center}
+ .site .ios-system-icons,.site .ios-system-icons svg{width:48px;height:11px}
  .site .phone-head{min-height:31px}
  .site .phone-head .brand{gap:6px}
  .site .phone-head .brandmark{width:27px;height:27px;border-radius:9px}
