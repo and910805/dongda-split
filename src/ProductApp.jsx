@@ -1,10 +1,10 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {AlertCircle,ArrowRight,Check,CircleHelp,Clipboard,DoorOpen,History,Link2,LoaderCircle,LogOut,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,Trash2,Users,WalletCards,X} from 'lucide-react';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
+import {BrandLogo,BrandMark} from './BrandLogo.jsx';
 
 const api=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});if(response.status===401)throw Object.assign(new Error('unauthorized'),{status:401});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'操作失敗');return data};
 const money=cents=>`NT$ ${Math.round(Number(cents||0)/100).toLocaleString()}`;
-function Logo(){return <div className="brand"><span className="brandmark"><span>旅</span></span><span className="brand-lockup"><b>旅帳</b><small>TripTab</small></span></div>}
 function Person({person,size=36}){return person?.isFund?<span className="avatar fund-avatar" style={{width:size,height:size}} aria-label={person.displayName||'公費'}><WalletCards/></span>:person?.pictureUrl?<img className="avatar" src={person.pictureUrl} alt={person.displayName||'成員頭像'} style={{width:size,height:size}} referrerPolicy="no-referrer"/>:<span className="avatar initial" style={{width:size,height:size,background:'#1f9d69'}} aria-label={person?.displayName||'成員'}>{person?.displayName?.slice(0,1)||'旅'}</span>}
 function ExpenseCategory({expense}){const label=expense.amountCents<0?'退款':expense.category||'其他';return <span className={`record-icon category-${label}`} aria-label={`分類：${label}`}><ReceiptText/><small>{label.slice(0,1)}</small></span>}
 
@@ -27,7 +27,7 @@ export default function ProductApp({Home}){
   if(!me)return <Home enter={login}/>;
   return <div className="real-app">
     <aside className="real-side" aria-label="主要導覽">
-      <Logo/>
+      <BrandLogo/>
       <div className="login-user"><Person person={me} size={46}/><div><b>{me.displayName}</b><small>LINE 帳號已連結</small></div></div>
       <div className="side-label">我的群組</div>
       <div className="group-switcher">{groups.map(item=><button className={activeId===item.id?'active':''} aria-current={activeId===item.id?'page':undefined} key={item.id} onClick={()=>setActiveId(item.id)}><span className="group-icon"><WalletCards/></span><div><b>{item.name}</b><small>{item.memberCount} 位成員</small></div></button>)}</div>
@@ -36,7 +36,7 @@ export default function ProductApp({Home}){
     </aside>
     <section className="real-workspace">
       <header>
-        <span className="mobile-header-mark">旅</span>
+        <BrandMark className="mobile-header-mark"/>
         <div className="desktop-group-title"><small>我的群組　/　共同帳本</small><h2>{group?.name||'旅帳'}</h2></div>
         <label className="mobile-group-picker"><small>目前群組</small><select value={activeId||''} onChange={e=>setActiveId(e.target.value)}>{groups.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <button type="button" className="mobile-new-group" onClick={()=>setShowCreate(true)} aria-label="建立新群組" title="建立新群組"><Plus/></button>

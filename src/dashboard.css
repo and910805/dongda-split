@@ -91,17 +91,15 @@
 }
 
 .real-side .brand {
+  --brand-symbol-size: 40px;
+  gap: 12px;
   height: 48px;
   padding: 0 8px;
   margin-bottom: 14px;
-}
-
-.real-side .brand strong {
   font-size: 18px;
-  letter-spacing: -.02em;
 }
 
-.real-side .brand small,
+.real-side .brand-english,
 .side-label,
 .side-footer small {
   color: var(--text-muted);
