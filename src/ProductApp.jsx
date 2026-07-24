@@ -1,7 +1,8 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertCircle,ArrowRight,Check,CircleHelp,Clipboard,DoorOpen,History,Link2,LoaderCircle,LogOut,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,Trash2,Users,WalletCards,X} from 'lucide-react';
+import {AlertCircle,ArrowRight,Check,CircleHelp,Clipboard,DoorOpen,History,Link2,LoaderCircle,LogOut,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,ShieldCheck,Trash2,Users,WalletCards,X} from 'lucide-react';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
+import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
 
 const api=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});if(response.status===401)throw Object.assign(new Error('unauthorized'),{status:401});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'操作失敗');return data};
@@ -12,26 +13,29 @@ function DevAccessBar({login,loading,error}){return <aside className="dev-access
 
 export default function ProductApp({Home}){
   const [me,setMe]=useState(null),[groups,setGroups]=useState([]),[activeId,setActiveId]=useState(null),[group,setGroup]=useState(null),[loading,setLoading]=useState(true),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[notice,setNotice]=useState(''),[showCreate,setShowCreate]=useState(false),[showExpense,setShowExpense]=useState(false),[editingExpense,setEditingExpense]=useState(null),[showInvite,setShowInvite]=useState(false);
-  const [devLoginLoading,setDevLoginLoading]=useState(false),[devLoginError,setDevLoginError]=useState('');
+  const [devLoginLoading,setDevLoginLoading]=useState(false),[devLoginError,setDevLoginError]=useState(''),[adminMode,setAdminMode]=useState(false),[adminViewingId,setAdminViewingId]=useState(null);
   const groupRequestRef=useRef(0),loadedGroupIdRef=useRef(null);
   const inviteToken=location.pathname.startsWith('/invite/')?location.pathname.split('/')[2]:null;
   const isLocalDevelopment=['localhost','127.0.0.1','::1','[::1]'].includes(location.hostname);
   const refreshGroups=useCallback(async()=>{const list=await api('/api/groups');setGroups(list);setActiveId(current=>current||list[0]?.id||null);return list},[]);
   useEffect(()=>{api('/api/me').then(async user=>{setMe(user);const list=await refreshGroups();if(inviteToken){const joined=await api(`/api/invites/${encodeURIComponent(inviteToken)}/join`,{method:'POST'});setActiveId(joined.groupId);await refreshGroups();history.replaceState({},'', '/app');setNotice('已成功加入群組！')}}).catch(error=>{if(error.status===401&&inviteToken){const returnTo=location.pathname;location.replace(`/api/auth/line?returnTo=${encodeURIComponent(returnTo)}`);return}if(error.status!==401)setNotice(error.message)}).finally(()=>setLoading(false))},[]);
   const refreshGroup=useCallback(async()=>{const requestedId=activeId,requestId=++groupRequestRef.current;if(!requestedId){loadedGroupIdRef.current=null;setGroup(null);setGroupError('');setGroupLoading(false);return}if(loadedGroupIdRef.current!==requestedId)setGroup(null);setGroupLoading(true);setGroupError('');try{const nextGroup=await api(`/api/groups/${requestedId}`);if(requestId!==groupRequestRef.current)return;loadedGroupIdRef.current=requestedId;setGroup(nextGroup)}catch(error){if(requestId!==groupRequestRef.current)return;loadedGroupIdRef.current=null;setGroup(null);setGroupError(error.message);throw error}finally{if(requestId===groupRequestRef.current)setGroupLoading(false)}},[activeId]);
-  const selectGroup=useCallback(id=>{if(!id||id===activeId)return;groupRequestRef.current+=1;loadedGroupIdRef.current=null;setGroup(null);setGroupError('');setGroupLoading(true);setActiveId(id)},[activeId]);
+  const selectGroup=useCallback(id=>{if(!id||id===activeId)return;setAdminViewingId(current=>current===id?current:null);groupRequestRef.current+=1;loadedGroupIdRef.current=null;setGroup(null);setGroupError('');setGroupLoading(true);setActiveId(id)},[activeId]);
   useEffect(()=>{if(me&&activeId)refreshGroup().catch(()=>{})},[me,activeId,refreshGroup]);
   useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),4000);return()=>clearTimeout(timer)},[notice]);
   const login=()=>{const returnTo=inviteToken?location.pathname:'/app';location.href=`/api/auth/line?returnTo=${encodeURIComponent(returnTo)}`};
   const devLogin=async()=>{setDevLoginLoading(true);setDevLoginError('');try{await api('/api/dev-login',{method:'POST'});const [user,list]=await Promise.all([api('/api/me'),api('/api/groups')]);setGroups(list);setActiveId(list[0]?.id||null);setMe(user);history.replaceState({},'','/app')}catch(error){setDevLoginError(`本機登入失敗：${error.message}`)}finally{setDevLoginLoading(false)}};
-  const logout=async()=>{await api('/api/auth/logout',{method:'POST'});setMe(null);setGroups([]);setGroup(null);history.replaceState({},'','/')};
+  const logout=async()=>{await api('/api/auth/logout',{method:'POST'});setAdminMode(false);setAdminViewingId(null);setMe(null);setGroups([]);setGroup(null);history.replaceState({},'','/')};
   const created=async data=>{setShowCreate(false);await refreshGroups();selectGroup(data.id);history.replaceState({},'','/app')};
   const expenseAdded=async()=>{setShowExpense(false);setEditingExpense(null);await refreshGroup()};
   const groupDeleted=async target=>{await api(`/api/groups/${target.id}`,{method:'DELETE'});const list=await api('/api/groups');setGroups(list);setGroup(null);setActiveId(list[0]?.id||null);setNotice(`已刪除群組「${target.name}」`)};
   const openNewExpense=()=>{setEditingExpense(null);setShowExpense(true)};
+  const openAdminGroup=item=>{setGroups(current=>current.some(groupItem=>groupItem.id===item.id)?current:[{id:item.id,name:item.name,description:item.description,currency:'TWD',memberCount:item.memberCount},...current]);setAdminViewingId(item.id);groupRequestRef.current+=1;loadedGroupIdRef.current=null;setGroup(null);setGroupError('');setGroupLoading(true);setActiveId(item.id);setAdminMode(false);history.replaceState({},'','/app')};
   if(loading)return <div className="page-loading"><LoaderCircle/><p>正在整理帳本…</p></div>;
   if(!me&&inviteToken)return <div className="page-loading"><LoaderCircle/><p>正在前往 LINE 登入並加入群組…</p></div>;
   if(!me)return <><Home enter={login}/>{isLocalDevelopment&&<DevAccessBar login={devLogin} loading={devLoginLoading} error={devLoginError}/>}</>;
+  if(adminMode&&me.isSuperuser)return <AdminConsole me={me} onExit={()=>setAdminMode(false)} onLogout={logout} onOpenGroup={openAdminGroup}/>;
+  const adminViewing=Boolean(me.isSuperuser&&group&&adminViewingId===group.id);
   return <div className="real-app">
     <aside className="real-side" aria-label="主要導覽">
       <BrandLogo/>
@@ -39,25 +43,29 @@ export default function ProductApp({Home}){
       <div className="side-label">我的群組</div>
       <div className="group-switcher">{groups.map(item=><button className={activeId===item.id?'active':''} aria-current={activeId===item.id?'page':undefined} key={item.id} onClick={()=>selectGroup(item.id)}><span className="group-icon"><WalletCards/></span><div><b>{item.name}</b><small>{item.memberCount} 位成員</small></div></button>)}</div>
       <button className="new-group" onClick={()=>setShowCreate(true)}><Plus/> 建立新群組</button>
-      <div className="side-footer"><button className="logout" onClick={logout}><LogOut/> 登出</button><span><b>旅帳 TripTab</b><small>v1.0.0</small></span></div>
+      <div className="side-footer">
+        {me.isSuperuser&&<button className="superuser-entry" onClick={()=>setAdminMode(true)}><ShieldCheck/> 超級使用者模式</button>}
+        <button className="logout" onClick={logout}><LogOut/> 登出</button>
+        <span><b>旅帳 TripTab</b><small>v1.0.0</small></span>
+      </div>
     </aside>
     <section className="real-workspace">
       <header>
         <BrandMark className="mobile-header-mark"/>
-        <div className="desktop-group-title"><small>我的群組　/　共同帳本</small><h2>{group?.name||'旅帳'}</h2></div>
+        <div className="desktop-group-title"><small>{adminViewing?'超級使用者　/　帳本檢視':'我的群組　/　共同帳本'}</small><h2>{group?.name||'旅帳'}</h2></div>
         <label className="mobile-group-picker"><small>目前群組</small><select value={activeId||''} onChange={e=>selectGroup(e.target.value)} disabled={groupLoading}>{groups.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <button type="button" className="mobile-new-group" onClick={()=>setShowCreate(true)} aria-label="建立新群組" title="建立新群組"><Plus/></button>
         <div className="real-header-actions">
           <span className="header-user-avatar"><Person person={me} size={36}/></span>
-          <button className="header-secondary" disabled={!group} onClick={()=>setShowInvite(true)}><Users/> 邀請成員</button>
-          <button className="primary header-primary" disabled={!group||groupLoading} onClick={openNewExpense}><Plus/> 新增支出</button>
+          <button className="header-secondary" disabled={!group||adminViewing} onClick={()=>setShowInvite(true)}><Users/> 邀請成員</button>
+          {adminViewing?<span className="admin-view-badge"><ShieldCheck/>管理檢視</span>:<button className="primary header-primary" disabled={!group||groupLoading} onClick={openNewExpense}><Plus/> 新增支出</button>}
           <button className="mobile-header-avatar" aria-label="點擊頭像登出" onClick={()=>confirm('確定要登出嗎？')&&logout()}><Person person={me} size={38}/></button>
           <button className="mobile-logout" aria-label="登出" onClick={logout}><LogOut/></button>
         </div>
       </header>
-      {!groups.length?<EmptyGroups create={()=>setShowCreate(true)}/>:groupError&&!group?<WorkspaceError message={groupError} retry={refreshGroup}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} group={group} me={me} addExpense={openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} refreshing={groupLoading}/>}
+      {!groups.length?<EmptyGroups create={()=>setShowCreate(true)}/>:groupError&&!group?<WorkspaceError message={groupError} retry={refreshGroup}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} group={group} me={me} addExpense={adminViewing?null:openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} refreshing={groupLoading} openAdmin={me.isSuperuser?()=>setAdminMode(true):null} adminViewing={adminViewing}/>}
     </section>
-    {group&&<button className="mobile-expense-fab" onClick={openNewExpense} aria-label="新增支出"><Plus/><span>新增</span></button>}
+    {group&&!adminViewing&&<button className="mobile-expense-fab" onClick={openNewExpense} aria-label="新增支出"><Plus/><span>新增</span></button>}
     {notice&&<button type="button" className="toast" onClick={()=>setNotice('')} aria-live="polite" aria-label={`${notice}，點擊關閉`}><Check/>{notice}</button>}
     {showCreate&&<CreateGroup close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} expense={editingExpense} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>}
   </div>
@@ -66,7 +74,7 @@ export default function ProductApp({Home}){
 function EmptyGroups({create}){return <main className="empty-groups"><img src="/xiaoluo-avatar.png" alt="旅行成員頭像"/><span className="eyebrow">歡迎加入旅帳 TripTab</span><h1>先建立第一個分帳群組</h1><p>為這次活動取一個名字，再把邀請連結傳給同行的朋友</p><button className="primary" onClick={create}><Plus/> 建立群組</button></main>}
 function DashboardSkeleton(){return <main className="dashboard-skeleton" aria-label="正在載入群組資料" aria-busy="true"><div className="skeleton skeleton-hero"></div><div className="skeleton-stats">{[0,1,2].map(item=><div className="skeleton" key={item}></div>)}</div><div className="skeleton-grid"><div className="skeleton"></div><div className="skeleton"></div></div><span className="sr-only">正在載入群組資料</span></main>}
 function WorkspaceError({message,retry}){const [retrying,setRetrying]=useState(false);const handleRetry=async()=>{setRetrying(true);try{await retry()}catch{}finally{setRetrying(false)}};return <main className="workspace-error" role="alert"><span><AlertCircle/></span><h1>群組資料暫時無法載入</h1><p>{message||'請檢查網路連線後再試一次'}</p><button className="primary" disabled={retrying} onClick={handleRetry}>{retrying?<LoaderCircle/>:<RefreshCcw/>}{retrying?'重新載入中…':'重新載入'}</button></main>}
-function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refresh,refreshing=false}){
+function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refresh,refreshing=false,openAdmin,adminViewing=false}){
   const [paying,setPaying]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[actionError,setActionError]=useState('');
   const total=group.expenses.reduce((sum,e)=>sum+e.amountCents,0);
   const mine=group.balances.find(x=>x.id===me.id)?.balanceCents||0;
@@ -94,14 +102,15 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
         </div>
       </div>
       <div className="group-overview-side">
-        {group.ownerId===me.id&&<details className="group-admin-menu"><summary><Settings2/> 群組管理</summary><div><p>刪除後，所有支出與結算都無法復原</p><button className="danger-action" disabled={deletingGroup} onClick={deleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除群組'}</button></div></details>}
+        {(group.ownerId===me.id||adminViewing)&&<details className="group-admin-menu"><summary><Settings2/> 群組管理</summary><div><p>{adminViewing?'你正以超級使用者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p><button className="danger-action" disabled={deletingGroup} onClick={deleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除群組'}</button></div></details>}
       </div>
     </section>
-    <nav className="mobile-shortcuts" aria-label="群組快捷功能">
+    <nav className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} aria-label="群組快捷功能">
       <button onClick={()=>document.querySelector('.expense-panel')?.scrollIntoView({behavior:'smooth'})}><ReceiptText/><span>支出</span></button>
       <button onClick={()=>setShowBalances(true)}><WalletCards/><span>結餘</span></button>
       <button onClick={()=>document.querySelector('.settlements')?.scrollIntoView({behavior:'smooth'})}><Check/><span>結算</span></button>
-      <button onClick={invite}><Users/><span>邀請</span></button>
+      <button onClick={invite} disabled={adminViewing}><Users/><span>邀請</span></button>
+      {openAdmin&&<button className="mobile-admin-shortcut" onClick={openAdmin}><ShieldCheck/><span>管理</span></button>}
     </nav>
     <div className="real-stats">
       <article className="stat-card"><span className="stat-icon"><WalletCards/></span><div><small>我的餘額</small><h3 className={mine>=0?'positive':'negative'}>{mine>=0?'應收 ':'應付 '}{money(Math.abs(mine))}</h3><p>{mine===0?'目前沒有待結算款項':mine>0?'其他成員需要付給你':'你需要付給其他成員'}</p></div></article>
@@ -112,16 +121,16 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
       <div className="activity-column">
         <section className="expense-panel" aria-labelledby="expense-title">
           <div className="section-head"><div><h2 id="expense-title">最近支出</h2><p>依新增時間排序，所有成員看到的資料保持一致</p></div><span className="count-badge">共 {group.expenses.length} 筆</span></div>
-          {!group.expenses.length?<div className="empty-list"><ReceiptText/><b>還沒有任何支出</b><p>從第一筆共同花費開始建立清楚帳目</p><button className="empty-primary" onClick={addExpense}><Plus/> 新增第一筆支出</button></div>:<>
+          {!group.expenses.length?<div className="empty-list"><ReceiptText/><b>還沒有任何支出</b><p>{adminViewing?'此帳本目前不需要管理協助':'從第一筆共同花費開始建立清楚帳目'}</p>{addExpense&&<button className="empty-primary" onClick={addExpense}><Plus/> 新增第一筆支出</button>}</div>:<>
             <div className="record-table-head" aria-hidden="true"><span>日期</span><span>項目</span><span>金額 (TWD)</span><span>支付者</span><span>分類</span><span>狀態</span><span>操作</span></div>
             <div className="record-list">{group.expenses.map(e=><article key={e.id}>
               <time className="record-date" dateTime={e.createdAt}>{new Date(e.createdAt).toLocaleDateString('zh-TW')}</time>
-              <div className="record-name"><ExpenseCategory expense={e}/><div><b title={e.title}>{e.title}</b><small>{e.shareCount} 人分攤</small></div></div>
+              <div className="record-name"><ExpenseCategory expense={e}/><div><b title={e.title}>{e.title}</b><small><span>{e.shareCount} 人分攤</span><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
               <div className="record-price"><b className={e.amountCents<0?'positive':''}>{money(e.amountCents)}</b><small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${money(Math.round(e.amountCents/e.shareCount))}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
               <span className="record-payer">{e.payerName}</span>
               <span className="record-category">{e.amountCents<0?'退款':e.category||'其他'}</span>
               <span className="record-status"><Check/>已記錄</span>
-              <div className="expense-row-actions">{(e.createdBy===me.id||group.ownerId===me.id)&&<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>removeExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>}</div>
+              <div className="expense-row-actions">{(e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)&&<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>removeExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>}</div>
             </article>)}</div>
             <div className="table-footer"><span>顯示 {group.expenses.length} 筆</span><b>{group.expenses.length} / {group.expenses.length}</b></div>
           </>}

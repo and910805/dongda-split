@@ -5,6 +5,7 @@ import './style.css';
 import './mobile.css';
 import './dashboard.css';
 import './operation.css';
+import './admin.css';
 import ProductApp from './ProductApp.jsx';
 import {BrandLogo as Brand} from './BrandLogo.jsx';
 

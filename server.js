@@ -29,6 +29,8 @@ function unsign(token){try{const [body,sig]=String(token||'').split('.');if(!bod
 function safeReturnTo(value){return typeof value==='string'&&value.startsWith('/')&&!value.startsWith('//')?value:'/app'}
 function requireUser(req,res,next){const session=unsign(req.cookies.dongda_session);if(!session?.userId)return res.status(401).json({error:'請先使用 LINE 登入'});req.userId=session.userId;next()}
 const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+async function isSuperuser(userId){const {rows:[user]}=await pool.query('SELECT is_superuser FROM users WHERE id=$1',[userId]);return Boolean(user?.is_superuser)}
+const requireSuperuser=asyncRoute(async(req,res,next)=>{if(!await isSuperuser(req.userId))return res.status(403).json({error:'此功能僅限超級使用者'});next()});
 const toWholeTwdCents=value=>{const amount=Number(value);return Number.isSafeInteger(amount)?amount*100:NaN};
 function splitMetaFromRequest(mode,body,participantIds){
   if(mode==='exact')return{shares:(body?.shares||[]).map(item=>({userId:String(item.userId),amount:Number(item.amount)}))};
@@ -46,6 +48,7 @@ async function migrate(){
       display_name TEXT NOT NULL,
       picture_url TEXT,
       is_virtual BOOLEAN NOT NULL DEFAULT false,
+      is_superuser BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -100,8 +103,19 @@ async function migrate(){
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       CHECK (from_user_id<>to_user_id)
     );
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      actor_id UUID NOT NULL REFERENCES users(id),
+      action TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
     CREATE INDEX IF NOT EXISTS expenses_group_created_idx ON expenses(group_id,created_at DESC);
+    CREATE INDEX IF NOT EXISTS admin_audit_created_idx ON admin_audit_log(created_at DESC);
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_virtual BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superuser BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_mode TEXT NOT NULL DEFAULT 'equal';
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_meta JSONB NOT NULL DEFAULT '{}'::jsonb;
     DO $$ BEGIN
@@ -175,18 +189,82 @@ app.get('/api/auth/line/callback',asyncRoute(async(req,res)=>{
   res.redirect(oauth.returnTo);
 }));
 app.post('/api/auth/logout',(_req,res)=>{res.clearCookie('dongda_session',{path:'/'});res.json({ok:true})});
-app.get('/api/me',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id,display_name AS "displayName",picture_url AS "pictureUrl" FROM users WHERE id=$1',[req.userId]);res.json(rows[0])}));
+app.get('/api/me',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id,display_name AS "displayName",picture_url AS "pictureUrl",is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);res.json(rows[0])}));
 
 if(!isProduction){app.post('/api/dev-login',asyncRoute(async(req,res)=>{const name=String(req.body?.name||'本機小羅').slice(0,40);const lineId=`dev-${name}`;const {rows}=await pool.query(`INSERT INTO users(line_user_id,display_name,picture_url) VALUES($1,$2,$3) ON CONFLICT(line_user_id) DO UPDATE SET display_name=excluded.display_name RETURNING id`,[lineId,name,'/xiaoluo-avatar.png']);res.cookie('dongda_session',sign({userId:rows[0].id,exp:Date.now()+14*86400000}),cookieOptions);res.json({ok:true})}))}
+
+app.get('/api/admin/overview',requireUser,requireSuperuser,asyncRoute(async(req,res)=>{
+  const [statsResult,usersResult,groupsResult,auditResult]=await Promise.all([
+    pool.query(`SELECT
+      (SELECT COUNT(*)::int FROM users WHERE is_virtual=false) AS "userCount",
+      (SELECT COUNT(*)::int FROM users WHERE is_superuser=true AND is_virtual=false) AS "superuserCount",
+      (SELECT COUNT(*)::int FROM groups) AS "groupCount",
+      (SELECT COUNT(*)::int FROM expenses) AS "expenseCount"`),
+    pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_superuser AS "isSuperuser",u.created_at AS "createdAt",COUNT(gm.group_id)::int AS "groupCount"
+      FROM users u LEFT JOIN group_members gm ON gm.user_id=u.id
+      WHERE u.is_virtual=false
+      GROUP BY u.id
+      ORDER BY u.is_superuser DESC,u.created_at DESC
+      LIMIT 200`),
+    pool.query(`SELECT g.id,g.name,g.description,g.created_at AS "createdAt",owner.display_name AS "ownerName",
+      members.member_count AS "memberCount",expenses.expense_count AS "expenseCount",expenses.total_cents::bigint::text AS "totalCents"
+      FROM groups g
+      JOIN users owner ON owner.id=g.owner_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) FILTER(WHERE u.is_virtual=false)::int AS member_count
+        FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=g.id
+      ) members ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS expense_count,COALESCE(SUM(amount_cents),0)::bigint AS total_cents
+        FROM expenses e WHERE e.group_id=g.id
+      ) expenses ON true
+      ORDER BY g.created_at DESC
+      LIMIT 200`),
+    pool.query(`SELECT log.id,log.action,log.target_type AS "targetType",log.target_id AS "targetId",log.metadata,log.created_at AS "createdAt",actor.display_name AS "actorName"
+      FROM admin_audit_log log JOIN users actor ON actor.id=log.actor_id
+      ORDER BY log.created_at DESC LIMIT 30`)
+  ]);
+  res.json({
+    stats:statsResult.rows[0],
+    users:usersResult.rows,
+    groups:groupsResult.rows.map(group=>({...group,totalCents:Number(group.totalCents)})),
+    auditLog:auditResult.rows
+  });
+}));
+
+app.patch('/api/admin/users/:id/superuser',requireUser,requireSuperuser,asyncRoute(async(req,res)=>{
+  const targetId=String(req.params.id||'');
+  const nextValue=req.body?.isSuperuser;
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetId)||typeof nextValue!=='boolean')return res.status(400).json({error:'權限設定格式不正確'});
+  if(targetId===req.userId&&!nextValue)return res.status(400).json({error:'不能移除自己的超級使用者權限'});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    await client.query('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
+    const {rows:[target]}=await client.query('SELECT id,display_name,is_virtual,is_superuser FROM users WHERE id=$1',[targetId]);
+    if(!target){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這位使用者'})}
+    if(target.is_virtual){await client.query('ROLLBACK');return res.status(400).json({error:'公費帳號不能設為超級使用者'})}
+    if(target.is_superuser&&!nextValue){
+      const {rows:[count]}=await client.query('SELECT COUNT(*)::int AS total FROM users WHERE is_superuser=true AND is_virtual=false');
+      if(count.total<=1){await client.query('ROLLBACK');return res.status(400).json({error:'系統至少需要保留一位超級使用者'})}
+    }
+    const {rows:[updated]}=await client.query('UPDATE users SET is_superuser=$1,updated_at=now() WHERE id=$2 RETURNING id,display_name AS "displayName",is_superuser AS "isSuperuser"',[nextValue,targetId]);
+    await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata)
+      VALUES($1,$2,'user',$3,$4::jsonb)`,[req.userId,nextValue?'grant_superuser':'revoke_superuser',targetId,JSON.stringify({displayName:target.display_name})]);
+    await client.query('COMMIT');
+    res.json(updated);
+  }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
+}));
 
 app.get('/api/groups',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query(`SELECT g.id,g.name,g.description,g.currency,g.invite_token AS "inviteToken",COUNT(gm2.user_id) FILTER(WHERE COALESCE(u2.is_virtual,false)=false)::int AS "memberCount" FROM groups g JOIN group_members mine ON mine.group_id=g.id AND mine.user_id=$1 LEFT JOIN group_members gm2 ON gm2.group_id=g.id LEFT JOIN users u2 ON u2.id=gm2.user_id GROUP BY g.id ORDER BY g.created_at DESC`,[req.userId]);res.json(rows)}));
 app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{const name=String(req.body?.name||'').trim();const description=String(req.body?.description||'').trim().slice(0,200);if(!name||name.length>60)return res.status(400).json({error:'群組名稱需為 1–60 字'});const client=await pool.connect();try{await client.query('BEGIN');const token=crypto.randomBytes(18).toString('base64url');const {rows}=await client.query('INSERT INTO groups(name,description,currency,invite_token,owner_id) VALUES($1,$2,$3,$4,$5) RETURNING id,name,description,currency,invite_token AS "inviteToken"',[name,description,'TWD',token,req.userId]);await client.query("INSERT INTO group_members(group_id,user_id,role) VALUES($1,$2,'owner')",[rows[0].id,req.userId]);await client.query('COMMIT');res.status(201).json(rows[0])}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}));
 app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id FROM groups WHERE invite_token=$1',[req.params.token]);if(!rows[0])return res.status(404).json({error:'邀請連結無效'});await pool.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[rows[0].id,req.userId]);res.json({groupId:rows[0].id})}));
 
 async function assertMember(groupId,userId){const {rows}=await pool.query('SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2',[groupId,userId]);return Boolean(rows[0])}
+async function canReadGroup(groupId,userId){return await assertMember(groupId,userId)||await isSuperuser(userId)}
 const BALANCE_SQL=`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_virtual AS "isFund",gm.role,(COALESCE(p.paid,0)-COALESCE(o.owed,0)+COALESCE(sout.sent,0)-COALESCE(sin.received,0))::bigint::text AS "balanceCents" FROM group_members gm JOIN users u ON u.id=gm.user_id LEFT JOIN (SELECT ep.user_id,SUM(ep.amount_cents) paid FROM expense_payments ep JOIN expenses e ON e.id=ep.expense_id WHERE e.group_id=$1 GROUP BY ep.user_id)p ON p.user_id=u.id LEFT JOIN (SELECT es.user_id,SUM(es.amount_cents) owed FROM expense_shares es JOIN expenses e ON e.id=es.expense_id WHERE e.group_id=$1 GROUP BY es.user_id)o ON o.user_id=u.id LEFT JOIN (SELECT from_user_id,SUM(amount_cents) sent FROM settlement_payments WHERE group_id=$1 GROUP BY from_user_id)sout ON sout.from_user_id=u.id LEFT JOIN (SELECT to_user_id,SUM(amount_cents) received FROM settlement_payments WHERE group_id=$1 GROUP BY to_user_id)sin ON sin.to_user_id=u.id WHERE gm.group_id=$1 ORDER BY gm.joined_at`;
 app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
-  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
   const [groupResult,membersResult,expensesResult,balancesResult,settlementHistoryResult]=await Promise.all([
     pool.query('SELECT id,name,description,currency,invite_token AS "inviteToken",owner_id AS "ownerId" FROM groups WHERE id=$1',[req.params.id]),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_virtual AS "isFund",gm.role FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id]),
@@ -203,8 +281,10 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
 app.delete('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   const {rows:[group]}=await pool.query('SELECT id,owner_id FROM groups WHERE id=$1',[req.params.id]);
   if(!group)return res.status(404).json({error:'找不到群組'});
-  if(group.owner_id!==req.userId)return res.status(403).json({error:'只有群組建立者能刪除群組'});
+  const elevated=await isSuperuser(req.userId);
+  if(group.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有群組建立者或超級使用者能刪除群組'});
   await pool.query('DELETE FROM groups WHERE id=$1',[req.params.id]);
+  if(elevated&&group.owner_id!==req.userId)await pool.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata) VALUES($1,'delete_group','group',$2,'{}'::jsonb)`,[req.userId,req.params.id]);
   res.json({ok:true});
 }));
 app.post('/api/groups/:id/funds',requireUser,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
@@ -229,10 +309,11 @@ app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
   const client=await pool.connect();try{await client.query('BEGIN');const {rows:[expense]}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING id`,[req.params.id,title,amountCents,payments[0].userId,req.userId,String(req.body?.category||'其他').slice(0,20),mode,JSON.stringify(splitMeta)]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,share.userId,share.shareCents]);await client.query('COMMIT');res.status(201).json({id:expense.id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req,res)=>{
-  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
   const {rows:[existing]}=await pool.query(`SELECT e.created_by,g.owner_id FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
   if(!existing)return res.status(404).json({error:'找不到這筆支出'});
-  if(existing.created_by!==req.userId&&existing.owner_id!==req.userId)return res.status(403).json({error:'只有記帳人或群組建立者能修改'});
+  const elevated=await isSuperuser(req.userId);
+  if(existing.created_by!==req.userId&&existing.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有記帳人、群組建立者或超級使用者能修改'});
   const title=String(req.body?.title||'').trim(),rawAmount=Number(req.body?.amount),sign=req.body?.kind==='refund'||rawAmount<0?-1:1,amountCents=sign*toWholeTwdCents(Math.abs(rawAmount)),participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
   if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents===0)return res.status(400).json({error:'請完整填寫支出資料'});
   const {rows:memberRows}=await pool.query('SELECT user_id::text id,is_virtual FROM group_members JOIN users ON users.id=user_id WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.filter(x=>!x.is_virtual).map(x=>x.id));
@@ -248,14 +329,16 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
     else{if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))throw new Error('請選擇有效的分攤成員');shares=allocateEqual(amountCents,participantIds)}
   }catch(error){return res.status(400).json({error:error.message})}
   const splitMeta=splitMetaFromRequest(mode,req.body,participantIds);
-  const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,split_mode=$5,split_meta=$6::jsonb WHERE id=$7`,[title,amountCents,payments[0].userId,String(req.body?.category||'其他').slice(0,20),mode,JSON.stringify(splitMeta),req.params.expenseId]);await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,share.userId,share.shareCents]);await client.query('COMMIT');res.json({id:req.params.expenseId})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,split_mode=$5,split_meta=$6::jsonb WHERE id=$7`,[title,amountCents,payments[0].userId,String(req.body?.category||'其他').slice(0,20),mode,JSON.stringify(splitMeta),req.params.expenseId]);await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,share.userId,share.shareCents]);if(elevated&&existing.created_by!==req.userId&&existing.owner_id!==req.userId)await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata) VALUES($1,'update_expense','expense',$2,$3::jsonb)`,[req.userId,req.params.expenseId,JSON.stringify({groupId:req.params.id,title})]);await client.query('COMMIT');res.json({id:req.params.expenseId})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.delete('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req,res)=>{
-  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
   const {rows:[expense]}=await pool.query(`SELECT e.id,e.created_by,g.owner_id FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
   if(!expense)return res.status(404).json({error:'找不到這筆支出'});
-  if(expense.created_by!==req.userId&&expense.owner_id!==req.userId)return res.status(403).json({error:'只有記帳人或群組建立者能刪除'});
+  const elevated=await isSuperuser(req.userId);
+  if(expense.created_by!==req.userId&&expense.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有記帳人、群組建立者或超級使用者能刪除'});
   await pool.query('DELETE FROM expenses WHERE id=$1',[req.params.expenseId]);
+  if(elevated&&expense.created_by!==req.userId&&expense.owner_id!==req.userId)await pool.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata) VALUES($1,'delete_expense','expense',$2,$3::jsonb)`,[req.userId,req.params.expenseId,JSON.stringify({groupId:req.params.id})]);
   res.json({ok:true});
 }));
 app.post('/api/groups/:id/settlements',requireUser,asyncRoute(async(req,res)=>{

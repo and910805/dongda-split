@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import 'dotenv/config.js';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 
@@ -8,12 +8,36 @@ async function login(name){const {response}=await request('/api/dev-login',{meth
 const post=(cookie,path,body)=>request(path,{cookie,method:'POST',body}).then(x=>x.data);
 async function expectStatus(status,promise){try{await promise;assert.fail(`expected HTTP ${status}`)}catch(error){assert.equal(error.status,status)}}
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
+let adminUserId=null,adminRoleBefore=null;
 
 try{
   const actors=[];for(let i=1;i<=14;i++)actors.push(await login(`ScenarioMember${i}`));
+  const admin=await login('本機小羅');
+  adminUserId=admin.user.id;
+  const {rows:[existingAdmin]}=await pool.query('SELECT is_superuser FROM users WHERE id=$1',[adminUserId]);
+  adminRoleBefore=existingAdmin;
+  await pool.query('UPDATE users SET is_superuser=true WHERE id=$1',[adminUserId]);
+  const {data:adminMe}=await request('/api/me',{cookie:admin.cookie});
+  admin.user=adminMe;
   const owner=actors[0],group=await post(owner.cookie,'/api/groups',{name:'scenario-e2e',description:'scenario automated test'});
   for(const actor of actors.slice(1))await post(actor.cookie,`/api/invites/${group.inviteToken}/join`,{});
   const ids=actors.map(x=>x.user.id);
+
+  await expectStatus(403,request('/api/admin/overview',{cookie:owner.cookie}));
+  const {data:adminOverview}=await request('/api/admin/overview',{cookie:admin.cookie});
+  assert.equal(admin.user.isSuperuser,true);
+  assert.ok(adminOverview.users.some(user=>user.id===owner.user.id));
+  assert.ok(adminOverview.groups.some(item=>item.id===group.id));
+  const promoted=actors[13];
+  const {data:promotedRole}=await request(`/api/admin/users/${promoted.user.id}/superuser`,{cookie:admin.cookie,method:'PATCH',body:{isSuperuser:true}});
+  assert.equal(promotedRole.isSuperuser,true);
+  const {data:promotedMe}=await request('/api/me',{cookie:promoted.cookie});
+  assert.equal(promotedMe.isSuperuser,true);
+  await expectStatus(400,request(`/api/admin/users/${admin.user.id}/superuser`,{cookie:admin.cookie,method:'PATCH',body:{isSuperuser:false}}));
+  const {data:revokedRole}=await request(`/api/admin/users/${promoted.user.id}/superuser`,{cookie:admin.cookie,method:'PATCH',body:{isSuperuser:false}});
+  assert.equal(revokedRole.isSuperuser,false);
+  const {data:adminGroupView}=await request(`/api/groups/${group.id}`,{cookie:admin.cookie});
+  assert.equal(adminGroupView.id,group.id);
 
   await post(owner.cookie,`/api/groups/${group.id}/expenses`,{title:'多人共同墊付',amount:14000,payers:[{userId:ids[0],amount:10000},{userId:ids[1],amount:4000}],participantIds:ids,splitMode:'equal'});
   await post(owner.cookie,`/api/groups/${group.id}/expenses`,{title:'只有十人喝酒',amount:1200,payerId:ids[0],participantIds:ids.slice(0,10),splitMode:'equal'});
@@ -30,6 +54,11 @@ try{
   assert.deepEqual(hybridExpense.splitMeta.participantIds,ids);assert.deepEqual(hybridExpense.splitMeta.fixedShares,[{userId:ids[0],amount:800},{userId:ids[1],amount:200}]);assert.deepEqual(weightedExpense.splitMeta.weights,ids.map((userId,index)=>({userId,weight:index<2?1:2})));assert.deepEqual(exactExpense.splitMeta.shares,[{userId:ids[4],amount:600},{userId:ids[5],amount:400}]);
   const purchase=detail.expenses.find(x=>x.title==='代購');assert.equal(purchase.payments.length,1);assert.equal(purchase.shares.length,1);
   await expectStatus(403,request(`/api/groups/${group.id}/expenses/${purchase.id}`,{cookie:actors[1].cookie,method:'PATCH',body:{title:'不能亂改',amount:130,payerId:ids[0],participantIds:[ids[1]],splitMode:'equal'}}));
+  await request(`/api/groups/${group.id}/expenses/${purchase.id}`,{cookie:admin.cookie,method:'PATCH',body:{title:'代購（管理者修正）',amount:125,payerId:ids[0],participantIds:[ids[1]],splitMode:'equal'}});
+  const {data:adminEdited}=await request(`/api/groups/${group.id}`,{cookie:owner.cookie});
+  assert.equal(adminEdited.expenses.find(x=>x.id===purchase.id).title,'代購（管理者修正）');
+  const {data:overviewAfterAdminEdit}=await request('/api/admin/overview',{cookie:admin.cookie});
+  assert.ok(overviewAfterAdminEdit.auditLog.some(item=>item.action==='update_expense'&&item.targetId===purchase.id));
   await request(`/api/groups/${group.id}/expenses/${purchase.id}`,{cookie:owner.cookie,method:'PATCH',body:{title:'代購（已修正）',amount:130,payerId:ids[0],participantIds:[ids[1]],splitMode:'equal'}});
   const {data:edited}=await request(`/api/groups/${group.id}`,{cookie:owner.cookie});const editedPurchase=edited.expenses.find(x=>x.id===purchase.id);assert.equal(editedPurchase.title,'代購（已修正）');assert.equal(editedPurchase.amountCents,13000);assert.equal(editedPurchase.payments[0].amountCents,13000);assert.equal(editedPurchase.shares[0].amountCents,13000);assert.equal(edited.balances.reduce((sum,x)=>sum+x.balanceCents,0),0);
 
@@ -41,5 +70,6 @@ try{
   await pool.query("DELETE FROM groups WHERE description='scenario automated test'");
   await pool.query("DELETE FROM users WHERE line_user_id LIKE 'dev-ScenarioMember%' AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.user_id=users.id)");
   await pool.query("DELETE FROM users WHERE is_virtual=true AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.user_id=users.id)");
+  if(adminUserId&&adminRoleBefore&&!adminRoleBefore.is_superuser)await pool.query('UPDATE users SET is_superuser=false WHERE id=$1',[adminUserId]);
   await pool.end();
 }

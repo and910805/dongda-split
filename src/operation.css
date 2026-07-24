@@ -189,6 +189,31 @@
   background: #fff2f0;
 }
 
+.side-footer .superuser-entry {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px;
+  border: 1px solid #b7dbc6;
+  border-radius: 8px;
+  color: var(--operation-green);
+  background: var(--operation-green-soft);
+  font-weight: 800;
+}
+
+.side-footer .superuser-entry:hover {
+  border-color: var(--operation-green);
+  color: #fff;
+  background: var(--operation-green);
+}
+
+.side-footer .superuser-entry svg {
+  width: 17px;
+  height: 17px;
+}
+
 .side-footer > span {
   display: flex;
   flex-direction: column;
@@ -206,6 +231,26 @@
   min-width: 0;
   margin-left: var(--operation-sidebar);
   background: var(--operation-bg);
+}
+
+.admin-view-badge {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid #b7dbc6;
+  border-radius: 9px;
+  color: var(--operation-green);
+  background: var(--operation-green-soft);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-view-badge svg {
+  width: 17px;
+  height: 17px;
 }
 
 .real-workspace > header {
@@ -653,6 +698,10 @@
 .record-price small {
   color: var(--operation-muted);
   font-size: 10px;
+}
+
+.record-payer-mobile {
+  display: none;
 }
 
 .record-price {
@@ -1166,6 +1215,10 @@
     background: #fff;
   }
 
+  .mobile-shortcuts.has-admin {
+    grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+  }
+
   .mobile-shortcuts button {
     display: flex;
     min-height: 54px;
@@ -1185,6 +1238,12 @@
     width: 19px;
     height: 19px;
     color: var(--operation-green);
+  }
+
+  .mobile-shortcuts .mobile-admin-shortcut {
+    color: var(--operation-green);
+    background: var(--operation-green-soft);
+    font-weight: 800;
   }
 
   .real-stats {
@@ -1235,23 +1294,82 @@
     display: grid;
     min-height: 0;
     grid-template-columns: minmax(0,1fr) auto;
-    gap: 8px 12px;
-    padding: 14px;
+    grid-template-areas:
+      "name actions"
+      "price price"
+      "date date";
+    gap: 6px 12px;
+    align-items: start;
+    padding: 16px 14px;
   }
 
-  .record-date {
-    grid-column: 1;
-    grid-row: 2;
+  .record-list article > .record-date {
+    position: static;
+    grid-area: date;
+    margin-left: 50px;
+    font-size: 11px;
+    line-height: 1.4;
   }
 
-  .record-name {
-    grid-column: 1;
-    grid-row: 1;
+  .record-list article > .record-name {
+    width: auto;
+    min-width: 0;
+    grid-area: name;
+    align-self: center;
+    padding: 0;
   }
 
-  .record-price {
-    grid-column: 2;
-    grid-row: 1;
+  .record-name .record-icon {
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .record-name b {
+    font-size: 14px;
+  }
+
+  .record-name small {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .record-payer-mobile {
+    display: inline;
+  }
+
+  .record-payer-mobile::before {
+    content: "·";
+    margin: 0 6px;
+  }
+
+  .record-list article > .record-price {
+    position: static;
+    width: auto;
+    min-width: 0;
+    grid-area: price;
+    align-items: baseline;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    margin-left: 50px;
+    text-align: left;
+    transform: none;
+  }
+
+  .record-price b {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  .record-price small {
+    font-size: 11px;
+    line-height: 1.4;
   }
 
   .record-payer,
@@ -1260,9 +1378,11 @@
     display: none;
   }
 
-  .expense-row-actions {
-    grid-column: 2;
-    grid-row: 2;
+  .record-list article > .expense-row-actions {
+    position: static;
+    grid-area: actions;
+    align-self: center;
+    gap: 8px;
   }
 
   .record-list .expense-row-actions .expense-edit,
