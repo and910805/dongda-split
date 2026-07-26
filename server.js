@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import pg from 'pg';
 import {allocateByWeights,allocateEqual,allocateHybrid,minimizeSettlements} from './finance.mjs';
+// bank-account.mjs is required at runtime and must be copied into the production image.
 import {createBankAccountCipher,normalizeBankAccount} from './bank-account.mjs';
 
 const {Pool}=pg;
