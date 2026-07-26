@@ -7,8 +7,35 @@ import {BrandLogo,BrandMark} from './BrandLogo.jsx';
 
 const api=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});if(response.status===401)throw Object.assign(new Error('unauthorized'),{status:401});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'操作失敗');return data};
 const money=cents=>`NT$ ${Math.round(Number(cents||0)/100).toLocaleString()}`;
-function Person({person,size=36}){return person?.isFund?<span className="avatar fund-avatar" style={{width:size,height:size}} aria-label={person.displayName||'公費'}><WalletCards/></span>:person?.pictureUrl?<img className="avatar" src={person.pictureUrl} alt={person.displayName||'成員頭像'} style={{width:size,height:size}} referrerPolicy="no-referrer"/>:<span className="avatar initial" style={{width:size,height:size,background:'#1f9d69'}} aria-label={person?.displayName||'成員'}>{person?.displayName?.slice(0,1)||'旅'}</span>}
+function Person({person,size=36}){
+  const [imageFailed,setImageFailed]=useState(false);
+  useEffect(()=>setImageFailed(false),[person?.pictureUrl]);
+  if(person?.isFund)return <span className="avatar fund-avatar" style={{width:size,height:size}} aria-label={person.displayName||'公費'}><WalletCards/></span>;
+  if(person?.pictureUrl&&!imageFailed)return <img className="avatar" src={person.pictureUrl} alt={person.displayName||'成員頭像'} style={{width:size,height:size}} referrerPolicy="no-referrer" onError={()=>setImageFailed(true)}/>;
+  const displayName=String(person?.displayName||'').trim();
+  return <span className="avatar initial" style={{width:size,height:size,background:'#1f9d69'}} aria-label={displayName||'成員'}>{Array.from(displayName)[0]||'旅'}</span>;
+}
 function ExpenseCategory({expense}){const label=expense.amountCents<0?'退款':expense.category||'其他';return <span className={`record-icon category-${label}`} aria-label={`分類：${label}`}><ReceiptText/><small>{label.slice(0,1)}</small></span>}
+function expenseShareRows(expense,members){
+  const memberById=new Map((members||[]).map(member=>[String(member.id),member]));
+  const memberOrder=new Map((members||[]).map((member,index)=>[String(member.id),index]));
+  return (expense?.shares||[]).map(share=>{
+    const userId=String(share.userId);
+    return {userId,amountCents:Number(share.amountCents||0),person:memberById.get(userId)||{id:userId,displayName:'已離開的成員'}};
+  }).sort((left,right)=>(memberOrder.get(left.userId)??Number.MAX_SAFE_INTEGER)-(memberOrder.get(right.userId)??Number.MAX_SAFE_INTEGER)||left.userId.localeCompare(right.userId));
+}
+function ExpenseShareAvatars({expense,members,onOpen}){
+  const rows=expenseShareRows(expense,members),visibleRows=rows.slice(0,4),remaining=rows.length-visibleRows.length,isRefund=Number(expense.amountCents)<0,kindLabel=isRefund?'退款':'分攤';
+  if(!rows.length)return <span className="expense-share-empty">沒有{kindLabel}成員</span>;
+  const label=`查看「${expense.title}」的${kindLabel}成員，共 ${rows.length} 人`;
+  return <button type="button" className="expense-share-trigger" onClick={()=>onOpen(expense)} aria-label={label} aria-haspopup="dialog" title={label}>
+    <span className="expense-share-avatars" aria-hidden="true">
+      {visibleRows.map(row=><span className="expense-share-avatar" key={row.userId}><Person person={row.person} size={24}/></span>)}
+      {remaining>0&&<span className="expense-share-more">+{remaining}</span>}
+    </span>
+    <span className="expense-share-count">{rows.length} 人{kindLabel}</span>
+  </button>;
+}
 function DevAccessBar({login,loading,error}){return <aside className="dev-access-bar" aria-label="本機開發工具"><div><small>LOCAL DEVELOPMENT</small><b>本機開發模式</b></div><button type="button" onClick={login} disabled={loading}>{loading?<LoaderCircle/>:<ArrowRight/>}{loading?'登入中…':'直接進入功能'}</button>{error&&<p role="alert">{error}</p>}</aside>}
 
 export default function ProductApp({Home}){
@@ -75,7 +102,7 @@ function EmptyGroups({create}){return <main className="empty-groups"><img src="/
 function DashboardSkeleton(){return <main className="dashboard-skeleton" aria-label="正在載入群組資料" aria-busy="true"><div className="skeleton skeleton-hero"></div><div className="skeleton-stats">{[0,1,2].map(item=><div className="skeleton" key={item}></div>)}</div><div className="skeleton-grid"><div className="skeleton"></div><div className="skeleton"></div></div><span className="sr-only">正在載入群組資料</span></main>}
 function WorkspaceError({message,retry}){const [retrying,setRetrying]=useState(false);const handleRetry=async()=>{setRetrying(true);try{await retry()}catch{}finally{setRetrying(false)}};return <main className="workspace-error" role="alert"><span><AlertCircle/></span><h1>群組資料暫時無法載入</h1><p>{message||'請檢查網路連線後再試一次'}</p><button className="primary" disabled={retrying} onClick={handleRetry}>{retrying?<LoaderCircle/>:<RefreshCcw/>}{retrying?'重新載入中…':'重新載入'}</button></main>}
 function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refresh,refreshing=false,openAdmin,adminViewing=false}){
-  const [paying,setPaying]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[actionError,setActionError]=useState('');
+  const [paying,setPaying]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[selectedExpenseShares,setSelectedExpenseShares]=useState(null),[actionError,setActionError]=useState('');
   const expenseMembers=useMemo(()=>group.members.filter(member=>!member.isFund),[group.members]);
   const [expenseMemberId,setExpenseMemberId]=useState(()=>expenseMembers.some(member=>String(member.id)===String(me.id))?String(me.id):'all');
   const visibleExpenses=useMemo(()=>expenseMemberId==='all'?group.expenses:group.expenses.filter(expense=>
@@ -132,7 +159,7 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
             <div className="record-table-head" aria-hidden="true"><span>日期</span><span>項目</span><span>金額 (TWD)</span><span>支付者</span><span>分類</span><span>狀態</span><span>操作</span></div>
             <div className="record-list">{visibleExpenses.map(e=><article key={e.id}>
               <time className="record-date" dateTime={e.createdAt}>{new Date(e.createdAt).toLocaleDateString('zh-TW')}</time>
-              <div className="record-name"><ExpenseCategory expense={e}/><div><b title={e.title}>{e.title}</b><small><span>{e.shareCount} 人分攤</span><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
+              <div className="record-name"><ExpenseCategory expense={e}/><div><b title={e.title}>{e.title}</b><small className="record-meta"><ExpenseShareAvatars expense={e} members={group.members} onOpen={setSelectedExpenseShares}/><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
               <div className="record-price"><b className={e.amountCents<0?'positive':''}>{money(e.amountCents)}</b><small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${money(Math.round(e.amountCents/e.shareCount))}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
               <span className="record-payer">{e.payerName}</span>
               <span className="record-category">{e.amountCents<0?'退款':e.category||'其他'}</span>
@@ -151,8 +178,23 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
       <SettlementHistory group={group} refresh={refresh} refreshing={refreshing}/>
       <footer className="workspace-footer"><span>服務條款 · 隱私權政策</span><b>© 2026 TripTab</b></footer>
     </div>
-    {showSettlementHelp&&<SettlementHelp close={()=>setShowSettlementHelp(false)}/>} {showBalances&&<BalanceChart group={group} close={()=>setShowBalances(false)}/>}
+    {showSettlementHelp&&<SettlementHelp close={()=>setShowSettlementHelp(false)}/>} {showBalances&&<BalanceChart group={group} close={()=>setShowBalances(false)}/>} {selectedExpenseShares&&<ExpenseSharesModal expense={selectedExpenseShares} members={group.members} close={()=>setSelectedExpenseShares(null)}/>}
   </main>
+}
+function ExpenseSharesModal({expense,members,close}){
+ const rows=expenseShareRows(expense,members),isRefund=Number(expense.amountCents)<0,kindLabel=isRefund?'退款':'分攤';
+ return <Modal close={close} label={`「${expense.title}」的${kindLabel}成員`}>
+  <div className="expense-shares-modal-content">
+   <span className="eyebrow"><Users/> {isRefund?'退款分配':'支出分攤'}</span>
+   <h2>{expense.title}</h2>
+   <p className="modal-copy">{isRefund?`這筆退款將依下列金額退回給 ${rows.length} 位成員。`:`這筆支出由以下 ${rows.length} 位成員共同分攤。`}</p>
+   <ul className="expense-share-list" aria-label={`${kindLabel}成員與金額`}>
+    {rows.map(row=><li key={row.userId}><Person person={row.person} size={42}/><span><b>{row.person.displayName}</b><small>{isRefund?'退回金額':'應分攤金額'}</small></span><strong>{money(Math.abs(row.amountCents))}</strong></li>)}
+   </ul>
+   <div className={`expense-share-total ${isRefund?'is-refund':''}`}><span>{isRefund?'退款總額':'分攤總額'}</span><strong>{money(Math.abs(expense.amountCents))}</strong></div>
+   <button type="button" className="primary wide" onClick={close}>完成</button>
+  </div>
+ </Modal>;
 }
 function SettlementHistory({group,refresh,refreshing=false}){
  const rows=group.settlementHistory||[];
