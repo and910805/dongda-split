@@ -548,7 +548,94 @@
 }
 
 .activity-column {
+  display: grid;
   min-width: 0;
+  gap: 10px;
+}
+
+.activity-tabs {
+  display: grid;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 4px;
+  padding: 4px;
+  margin: 0;
+  border: 1px solid var(--operation-border);
+  border-radius: 10px;
+  background: #eef3f0;
+  box-shadow: 0 1px 2px rgba(22,52,42,.025);
+}
+
+.activity-tabs button {
+  display: flex;
+  min-width: 0;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--operation-muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 750;
+  transition: color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.activity-tabs button:hover {
+  color: var(--operation-green-dark);
+  background: rgba(255,255,255,.58);
+}
+
+.activity-tabs button.active {
+  color: var(--operation-green-dark);
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(22,52,42,.1);
+}
+
+.activity-tabs button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid rgba(6,122,77,.24);
+  outline-offset: 1px;
+}
+
+.activity-tabs button svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.activity-tabs button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-tabs button b {
+  display: inline-flex;
+  min-width: 24px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--operation-muted);
+  background: rgba(255,255,255,.72);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-tabs button.active b {
+  color: #fff;
+  background: var(--operation-green);
+}
+
+.activity-column > [hidden] {
+  display: none;
 }
 
 .expense-panel,
@@ -587,57 +674,169 @@
   font-size: 11px;
 }
 
-.count-badge {
-  color: var(--operation-muted);
-  background: #f1f5f3;
+.expense-panel .section-head > :first-child {
+  min-width: 0;
+}
+
+.expense-panel .section-head p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .expense-head-actions {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
 }
 
 .expense-member-filter {
-  display: inline-flex;
-  min-height: 34px;
+  position: relative;
+  display: grid;
+  width: 182px;
+  min-height: 42px;
+  grid-template-columns: 28px minmax(0,1fr) 15px;
   align-items: center;
-  gap: 4px;
-  padding: 0 7px 0 10px;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
   border: 1px solid var(--operation-border);
-  border-radius: 8px;
+  border-radius: 11px;
   color: var(--operation-muted);
   background: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(22,52,42,.035);
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.expense-member-filter:hover {
+  border-color: #b8ccc2;
+  background: #fbfdfc;
 }
 
 .expense-member-filter:focus-within {
   border-color: var(--operation-green);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
   box-shadow: 0 0 0 3px rgba(26, 127, 86, .12);
 }
 
-.expense-member-filter select {
-  width: auto;
-  max-width: 140px;
-  min-height: 30px;
-  padding: 0 22px 0 4px;
-  border: 0;
-  outline: 0;
+.expense-member-filter-avatar {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: var(--operation-green);
+  background: var(--operation-green-soft);
+}
+
+.expense-member-filter-avatar .avatar {
+  border: 1px solid #fff;
+  box-shadow: 0 1px 4px rgba(22,52,42,.14);
+}
+
+.expense-member-filter-avatar > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.expense-member-filter-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.15;
+}
+
+.expense-member-filter-copy small {
+  color: var(--operation-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.expense-member-filter-copy b {
+  overflow: hidden;
   color: var(--operation-text);
-  background-color: transparent;
-  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-member-filter > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--operation-muted);
+  transition: transform .16s ease;
+}
+
+.expense-member-filter:focus-within > svg {
+  color: var(--operation-green);
+  transform: translateY(1px);
+}
+
+.expense-member-filter select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  outline: 0;
+  background-color: transparent;
+  font-size: 16px;
   cursor: pointer;
+}
+
+.expense-count {
+  display: inline-flex;
+  gap: 4px;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid #e1e9e4;
+  border-radius: 11px;
+  color: var(--operation-muted);
+  background: #f6f9f7;
+  box-shadow: 0 1px 2px rgba(22,52,42,.025);
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.expense-count strong {
+  color: var(--operation-text);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.expense-count span {
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.expense-count.is-filtered {
+  border-color: #cfe4d8;
+  color: var(--operation-green-dark);
+  background: var(--operation-green-soft);
+}
+
+@media (forced-colors: active) {
+  .expense-member-filter:focus-within {
+    outline-color: Highlight;
+  }
 }
 
 .record-table-head,
 .record-list article {
   display: grid;
-  grid-template-columns: 88px minmax(180px,1fr) 116px 90px 72px 76px 94px;
-  gap: 10px;
+  grid-template-columns: 76px minmax(0,1fr) 100px 90px 72px 60px 64px 92px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -647,13 +846,16 @@
 .record-table-head span:nth-child(3),
 .record-table-head span:last-child {
   display: block;
+  min-width: 0;
   grid-column: auto;
   grid-row: auto;
 }
 
 .record-list article > *,
 .record-price,
+.record-share-amount,
 .expense-row-actions {
+  min-width: 0;
   grid-column: auto;
   grid-row: auto;
 }
@@ -669,8 +871,12 @@
 }
 
 .record-table-head span:nth-child(3),
-.record-table-head span:last-child {
+.record-table-head span:nth-child(4) {
   text-align: right;
+}
+
+.record-table-head span:last-child {
+  text-align: center;
 }
 
 .record-list article {
@@ -816,13 +1022,6 @@
   letter-spacing: -.03em;
 }
 
-.expense-share-count {
-  overflow: hidden;
-  min-width: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .expense-share-empty {
   color: var(--operation-muted);
   font-size: 10px;
@@ -845,6 +1044,32 @@
   color: var(--operation-text);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.record-share-amount {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  flex-direction: column;
+  color: var(--operation-green-dark);
+  text-align: right;
+}
+
+.record-share-amount b {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-share-amount small {
+  display: none;
+}
+
+.record-share-amount.is-empty {
+  color: var(--operation-muted);
 }
 
 .record-category,
@@ -873,7 +1098,7 @@
 
 .expense-row-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 4px;
 }
 
@@ -953,21 +1178,89 @@
   background: var(--operation-green-dark);
 }
 
-.table-footer {
+.record-pagination {
   display: flex;
-  min-height: 34px;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 52px;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  gap: 12px;
+  padding: 8px 12px 8px 16px;
+  margin: 0;
   border-top: 1px solid var(--operation-border);
   color: var(--operation-muted);
   background: #fafcfb;
-  font-size: 10px;
+  font-size: 11px;
 }
 
-.table-footer b {
+.record-pagination-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-pagination-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.record-pagination-controls button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--operation-border);
+  border-radius: 8px;
   color: var(--operation-text);
+  background: #fff;
+}
+
+.record-pagination-controls button:hover:not(:disabled) {
+  border-color: var(--operation-green);
+  color: var(--operation-green-dark);
+  background: var(--operation-green-soft);
+}
+
+.record-pagination-controls button:focus-visible {
+  outline: 3px solid rgba(6,122,77,.22);
+  outline-offset: 1px;
+}
+
+.record-pagination-controls button:disabled {
+  color: #a7b2ad;
+  background: #f2f5f3;
+  cursor: not-allowed;
+}
+
+.record-pagination-controls svg {
+  width: 16px;
+  height: 16px;
+}
+
+.record-pagination-controls > span {
+  min-width: 52px;
+  text-align: center;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.record-pagination-controls b {
+  color: var(--operation-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.settlements .record-pagination.compact {
+  min-height: 48px;
+  padding: 8px 16px 12px;
+  border-top: 1px solid #edf2ef;
+  background: #fff;
 }
 
 .expense-shares-modal-content h2 {
@@ -1203,7 +1496,7 @@
   display: none;
 }
 
-@media (max-width: 1440px) {
+@media (max-width: 1500px) {
   .overlay .real-modal input,
   .overlay .real-modal select,
   .overlay .real-modal textarea,
@@ -1230,8 +1523,8 @@
 
   .record-table-head,
   .record-list article {
-    grid-template-columns: 72px minmax(154px,1fr) 105px 78px 62px 68px 94px;
-    gap: 8px;
+    grid-template-columns: 52px minmax(56px,1fr) 76px 76px 52px 48px 52px 92px;
+    gap: 6px;
   }
 }
 
@@ -1457,6 +1750,15 @@
     font-weight: 800;
   }
 
+  .activity-tabs button {
+    min-height: 44px;
+  }
+
+  .record-pagination-controls button {
+    width: 44px;
+    height: 44px;
+  }
+
   .real-stats {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
@@ -1488,20 +1790,29 @@
     padding: 14px;
   }
 
-  .count-badge {
-    display: none;
-  }
-
   .expense-head-actions {
     flex: 0 0 auto;
   }
 
-  .expense-member-filter > span {
-    display: none;
+  .expense-member-filter {
+    width: 138px;
+    min-height: 44px;
+    grid-template-columns: 26px minmax(0,1fr) 14px;
+    gap: 7px;
+    padding-right: 8px;
   }
 
-  .expense-member-filter select {
-    max-width: 126px;
+  .expense-member-filter-avatar {
+    width: 26px;
+    height: 26px;
+  }
+
+  .expense-member-filter-copy b {
+    font-size: 12px;
+  }
+
+  .expense-count {
+    min-height: 44px;
   }
 
   .empty-list .empty-primary {
@@ -1520,6 +1831,7 @@
     grid-template-areas:
       "name actions"
       "price price"
+      "share share"
       "date date";
     gap: 6px 12px;
     align-items: start;
@@ -1598,6 +1910,25 @@
   .record-price small {
     font-size: 11px;
     line-height: 1.4;
+  }
+
+  .record-list article > .record-share-amount {
+    grid-area: share;
+    align-items: baseline;
+    flex-direction: row;
+    gap: 8px;
+    margin-left: 50px;
+    text-align: left;
+  }
+
+  .record-share-amount b {
+    font-size: 13px;
+  }
+
+  .record-share-amount small {
+    display: inline;
+    color: var(--operation-muted);
+    font-size: 11px;
   }
 
   .record-payer,
@@ -1701,8 +2032,41 @@
     padding: 10px;
   }
 
-  .expense-share-count {
-    display: none;
+  .expense-panel .section-head {
+    display: grid;
+    grid-template-columns: minmax(0,1fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .expense-head-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .expense-member-filter {
+    width: auto;
+    flex: 1 1 auto;
+  }
+
+  .record-pagination {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .record-pagination-summary {
+    text-align: center;
+  }
+
+  .record-pagination-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .settlements .record-pagination.compact {
+    padding: 10px 16px 14px;
   }
 
   .expense-share-list {
