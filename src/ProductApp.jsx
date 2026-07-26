@@ -67,7 +67,7 @@ export default function ProductApp({Home}){
     </section>
     {group&&!adminViewing&&<button className="mobile-expense-fab" onClick={openNewExpense} aria-label="新增支出"><Plus/><span>新增</span></button>}
     {notice&&<button type="button" className="toast" onClick={()=>setNotice('')} aria-live="polite" aria-label={`${notice}，點擊關閉`}><Check/>{notice}</button>}
-    {showCreate&&<CreateGroup close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} expense={editingExpense} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>}
+    {showCreate&&<CreateGroup close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} expense={editingExpense} currentUserId={me.id} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>}
   </div>
 }
 
@@ -76,6 +76,12 @@ function DashboardSkeleton(){return <main className="dashboard-skeleton" aria-la
 function WorkspaceError({message,retry}){const [retrying,setRetrying]=useState(false);const handleRetry=async()=>{setRetrying(true);try{await retry()}catch{}finally{setRetrying(false)}};return <main className="workspace-error" role="alert"><span><AlertCircle/></span><h1>群組資料暫時無法載入</h1><p>{message||'請檢查網路連線後再試一次'}</p><button className="primary" disabled={retrying} onClick={handleRetry}>{retrying?<LoaderCircle/>:<RefreshCcw/>}{retrying?'重新載入中…':'重新載入'}</button></main>}
 function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refresh,refreshing=false,openAdmin,adminViewing=false}){
   const [paying,setPaying]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[actionError,setActionError]=useState('');
+  const expenseMembers=useMemo(()=>group.members.filter(member=>!member.isFund),[group.members]);
+  const [expenseMemberId,setExpenseMemberId]=useState(()=>expenseMembers.some(member=>String(member.id)===String(me.id))?String(me.id):'all');
+  const visibleExpenses=useMemo(()=>expenseMemberId==='all'?group.expenses:group.expenses.filter(expense=>
+    [...(expense.payments||[]),...(expense.shares||[])].some(entry=>String(entry.userId)===expenseMemberId)
+  ),[expenseMemberId,group.expenses]);
+  const selectedExpenseMember=expenseMembers.find(member=>String(member.id)===expenseMemberId);
   const total=group.expenses.reduce((sum,e)=>sum+e.amountCents,0);
   const mine=group.balances.find(x=>x.id===me.id)?.balanceCents||0;
   const memberCount=group.members.filter(x=>!x.isFund).length;
@@ -120,10 +126,11 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
     <div className="real-grid">
       <div className="activity-column">
         <section className="expense-panel" aria-labelledby="expense-title">
-          <div className="section-head"><div><h2 id="expense-title">最近支出</h2><p>依新增時間排序，所有成員看到的資料保持一致</p></div><span className="count-badge">共 {group.expenses.length} 筆</span></div>
+          <div className="section-head"><div><h2 id="expense-title">最近支出</h2><p>依新增時間排序，所有成員看到的資料保持一致</p></div><div className="expense-head-actions"><label className="expense-member-filter"><span>查看</span><select value={expenseMemberId} onChange={event=>setExpenseMemberId(event.target.value)} aria-label="依成員篩選最近支出"><option value="all">全部成員</option>{expenseMembers.map(member=><option key={member.id} value={member.id}>{member.displayName}</option>)}</select></label><span className="count-badge">共 {visibleExpenses.length} 筆</span></div></div>
           {!group.expenses.length?<div className="empty-list"><ReceiptText/><b>還沒有任何支出</b><p>{adminViewing?'此帳本目前不需要管理協助':'從第一筆共同花費開始建立清楚帳目'}</p>{addExpense&&<button className="empty-primary" onClick={addExpense}><Plus/> 新增第一筆支出</button>}</div>:<>
+            {!visibleExpenses.length?<div className="empty-list"><ReceiptText/><b>沒有符合的支出</b><p>{selectedExpenseMember?`${selectedExpenseMember.displayName} 尚未參與任何支出`:'目前沒有符合篩選條件的支出'}</p></div>:<>
             <div className="record-table-head" aria-hidden="true"><span>日期</span><span>項目</span><span>金額 (TWD)</span><span>支付者</span><span>分類</span><span>狀態</span><span>操作</span></div>
-            <div className="record-list">{group.expenses.map(e=><article key={e.id}>
+            <div className="record-list">{visibleExpenses.map(e=><article key={e.id}>
               <time className="record-date" dateTime={e.createdAt}>{new Date(e.createdAt).toLocaleDateString('zh-TW')}</time>
               <div className="record-name"><ExpenseCategory expense={e}/><div><b title={e.title}>{e.title}</b><small><span>{e.shareCount} 人分攤</span><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
               <div className="record-price"><b className={e.amountCents<0?'positive':''}>{money(e.amountCents)}</b><small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${money(Math.round(e.amountCents/e.shareCount))}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
@@ -132,7 +139,8 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
               <span className="record-status"><Check/>已記錄</span>
               <div className="expense-row-actions">{(e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)&&<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>removeExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>}</div>
             </article>)}</div>
-            <div className="table-footer"><span>顯示 {group.expenses.length} 筆</span><b>{group.expenses.length} / {group.expenses.length}</b></div>
+            <div className="table-footer"><span>顯示 {visibleExpenses.length} 筆</span><b>{visibleExpenses.length} / {group.expenses.length}</b></div>
+            </>}
           </>}
         </section>
       </div>

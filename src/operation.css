@@ -592,6 +592,47 @@
   background: #f1f5f3;
 }
 
+.expense-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.expense-member-filter {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px 0 10px;
+  border: 1px solid var(--operation-border);
+  border-radius: 8px;
+  color: var(--operation-muted);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.expense-member-filter:focus-within {
+  border-color: var(--operation-green);
+  box-shadow: 0 0 0 3px rgba(26, 127, 86, .12);
+}
+
+.expense-member-filter select {
+  width: auto;
+  max-width: 140px;
+  min-height: 30px;
+  padding: 0 22px 0 4px;
+  border: 0;
+  outline: 0;
+  color: var(--operation-text);
+  background-color: transparent;
+  font: inherit;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
 .record-table-head,
 .record-list article {
   display: grid;
@@ -1279,6 +1320,18 @@
 
   .count-badge {
     display: none;
+  }
+
+  .expense-head-actions {
+    flex: 0 0 auto;
+  }
+
+  .expense-member-filter > span {
+    display: none;
+  }
+
+  .expense-member-filter select {
+    max-width: 126px;
   }
 
   .empty-list .empty-primary {
