@@ -741,6 +741,93 @@
   font-size: 10px;
 }
 
+.record-name .record-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.expense-share-trigger {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+  margin: -3px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--operation-muted);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.expense-share-trigger:hover {
+  color: var(--operation-green-dark);
+  background: var(--operation-green-soft);
+}
+
+.expense-share-trigger:focus-visible {
+  outline: 3px solid rgba(6, 122, 77, .28);
+  outline-offset: 2px;
+}
+
+.expense-share-avatars {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.expense-share-avatar,
+.expense-share-more {
+  position: relative;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+}
+
+.expense-share-avatar + .expense-share-avatar,
+.expense-share-more {
+  margin-left: -6px;
+}
+
+.expense-share-avatar .avatar {
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(24, 47, 39, .16);
+}
+
+.expense-share-more {
+  z-index: 1;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--operation-green);
+  box-shadow: 0 1px 4px rgba(24, 47, 39, .16);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+}
+
+.expense-share-count {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-share-empty {
+  color: var(--operation-muted);
+  font-size: 10px;
+}
+
 .record-payer-mobile {
   display: none;
 }
@@ -880,6 +967,89 @@
 
 .table-footer b {
   color: var(--operation-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.expense-shares-modal-content h2 {
+  padding-right: 48px;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+
+.expense-shares-modal-content .eyebrow svg {
+  width: 16px;
+}
+
+.expense-share-list {
+  max-height: min(42vh,360px);
+  padding: 0;
+  margin: 18px 0 12px;
+  overflow: auto;
+  border: 1px solid var(--operation-border,#dbe4df);
+  border-radius: 12px;
+  list-style: none;
+}
+
+.expense-share-list li {
+  display: grid;
+  min-height: 62px;
+  grid-template-columns: 42px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #edf2ef;
+}
+
+.expense-share-list li:last-child {
+  border-bottom: 0;
+}
+
+.expense-share-list li > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.expense-share-list li b {
+  overflow: hidden;
+  color: var(--operation-text,#182f27);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-share-list li small {
+  margin-top: 2px;
+  color: var(--operation-muted,#667870);
+  font-size: 10px;
+}
+
+.expense-share-list li strong {
+  color: var(--operation-text,#182f27);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.expense-share-total {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 13px;
+  border-radius: 10px;
+  color: var(--operation-green-dark,#066d46);
+  background: var(--operation-green-soft,#e7f5ed);
+  font-size: 12px;
+}
+
+.expense-share-total.is-refund {
+  color: #9b552f;
+  background: #fff1e8;
+}
+
+.expense-share-total strong {
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1392,6 +1562,11 @@
     line-height: 1.4;
   }
 
+  .expense-share-trigger {
+    min-height: 44px;
+    margin-block: -7px;
+  }
+
   .record-payer-mobile {
     display: inline;
   }
@@ -1524,6 +1699,25 @@
 @media (max-width: 430px) {
   .real-dashboard {
     padding: 10px;
+  }
+
+  .expense-share-count {
+    display: none;
+  }
+
+  .expense-share-list {
+    max-height: 46vh;
+  }
+
+  .expense-share-list li {
+    grid-template-columns: 38px minmax(0,1fr) auto;
+    gap: 9px;
+    padding: 9px 8px;
+  }
+
+  .expense-share-list li > .avatar {
+    width: 38px !important;
+    height: 38px !important;
   }
 
   .group-hero .group-overview-copy > p {
