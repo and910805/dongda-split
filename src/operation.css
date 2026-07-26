@@ -835,7 +835,7 @@
 .record-table-head,
 .record-list article {
   display: grid;
-  grid-template-columns: 76px minmax(0,1fr) 100px 90px 72px 60px 64px 92px;
+  grid-template-columns: 76px minmax(0,1fr) 72px 104px 100px 60px 64px 100px;
   gap: 8px;
   align-items: center;
 }
@@ -870,13 +870,22 @@
   font-weight: 700;
 }
 
-.record-table-head span:nth-child(3),
-.record-table-head span:nth-child(4) {
+.record-table-head span:nth-child(4),
+.record-table-head span:nth-child(5) {
   text-align: right;
 }
 
+.record-table-head span:nth-child(3) {
+  text-align: left;
+}
+
+.record-table-head span:nth-child(4),
+.record-share-amount {
+  margin-inline: 6px;
+}
+
 .record-table-head span:last-child {
-  text-align: center;
+  text-align: left;
 }
 
 .record-list article {
@@ -899,33 +908,15 @@
   font-size: 11px;
 }
 
+.record-payer {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .record-name {
-  display: flex;
+  display: block;
   min-width: 0;
-  align-items: center;
-  flex: none;
-  flex-direction: row;
-  gap: 10px;
-}
-
-.record-name .record-icon {
-  display: grid;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border: 0;
-  border-radius: 9px;
-  color: var(--operation-green);
-  background: var(--operation-green-soft);
-}
-
-.record-name .record-icon svg {
-  width: 16px;
-}
-
-.record-name .record-icon small {
-  display: none;
 }
 
 .record-name > div {
@@ -1098,14 +1089,14 @@
 
 .expense-row-actions {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 4px;
 }
 
 .expense-row-actions button {
   display: grid;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -1523,8 +1514,13 @@
 
   .record-table-head,
   .record-list article {
-    grid-template-columns: 52px minmax(56px,1fr) 76px 76px 52px 48px 52px 92px;
+    grid-template-columns: 52px minmax(0,1fr) 72px 84px 76px 48px 52px 96px;
     gap: 6px;
+  }
+
+  .record-table-head span:nth-child(4),
+  .record-share-amount {
+    margin-inline: 4px;
   }
 }
 
@@ -1739,9 +1735,15 @@
   }
 
   .mobile-shortcuts button svg {
-    width: 19px;
-    height: 19px;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    padding: 0;
+    border-radius: 0;
     color: var(--operation-green);
+    background: transparent;
+    overflow: visible;
+    stroke-width: 2.2;
   }
 
   .mobile-shortcuts .mobile-admin-shortcut {
@@ -1830,10 +1832,10 @@
     grid-template-columns: minmax(0,1fr) auto;
     grid-template-areas:
       "name actions"
-      "price price"
       "share share"
+      "price price"
       "date date";
-    gap: 6px 12px;
+    gap: 8px 12px;
     align-items: start;
     padding: 16px 14px;
   }
@@ -1841,7 +1843,7 @@
   .record-list article > .record-date {
     position: static;
     grid-area: date;
-    margin-left: 50px;
+    margin-left: 0;
     font-size: 11px;
     line-height: 1.4;
   }
@@ -1852,12 +1854,6 @@
     grid-area: name;
     align-self: center;
     padding: 0;
-  }
-
-  .record-name .record-icon {
-    flex-basis: 40px;
-    width: 40px;
-    height: 40px;
   }
 
   .record-name b {
@@ -1897,7 +1893,7 @@
     flex-direction: row;
     flex-wrap: wrap;
     gap: 2px 8px;
-    margin-left: 50px;
+    margin-left: 0;
     text-align: left;
     transform: none;
   }
@@ -1917,7 +1913,7 @@
     align-items: baseline;
     flex-direction: row;
     gap: 8px;
-    margin-left: 50px;
+    margin-inline: 0;
     text-align: left;
   }
 
