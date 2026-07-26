@@ -9,6 +9,7 @@ const api=async(url,options={})=>{const response=await fetch(url,{...options,hea
 const money=cents=>`NT$ ${Math.round(Number(cents||0)/100).toLocaleString()}`;
 const TABLE_PAGE_SIZE=8;
 const SETTLEMENT_PAGE_SIZE=4;
+const EMPTY_BANK_ACCOUNT={bankCode:'',bankName:'',branchCode:'',accountHolderName:'',accountNumber:''};
 function Person({person,size=36}){
   const [imageFailed,setImageFailed]=useState(false);
   useEffect(()=>setImageFailed(false),[person?.pictureUrl]);
@@ -48,7 +49,7 @@ function RecordPagination({page,totalItems,pageSize,onPageChange,label,compact=f
 function DevAccessBar({login,loading,error}){return <aside className="dev-access-bar" aria-label="本機開發工具"><div><small>LOCAL DEVELOPMENT</small><b>本機開發模式</b></div><button type="button" onClick={login} disabled={loading}>{loading?<LoaderCircle/>:<ArrowRight/>}{loading?'登入中…':'直接進入功能'}</button>{error&&<p role="alert">{error}</p>}</aside>}
 
 export default function ProductApp({Home}){
-  const [me,setMe]=useState(null),[groups,setGroups]=useState([]),[activeId,setActiveId]=useState(null),[group,setGroup]=useState(null),[loading,setLoading]=useState(true),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[notice,setNotice]=useState(''),[showCreate,setShowCreate]=useState(false),[showExpense,setShowExpense]=useState(false),[editingExpense,setEditingExpense]=useState(null),[showInvite,setShowInvite]=useState(false);
+  const [me,setMe]=useState(null),[groups,setGroups]=useState([]),[activeId,setActiveId]=useState(null),[group,setGroup]=useState(null),[loading,setLoading]=useState(true),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[notice,setNotice]=useState(''),[showCreate,setShowCreate]=useState(false),[showExpense,setShowExpense]=useState(false),[editingExpense,setEditingExpense]=useState(null),[showInvite,setShowInvite]=useState(false),[showProfile,setShowProfile]=useState(false);
   const [devLoginLoading,setDevLoginLoading]=useState(false),[devLoginError,setDevLoginError]=useState(''),[adminMode,setAdminMode]=useState(false),[adminViewingId,setAdminViewingId]=useState(null);
   const groupRequestRef=useRef(0),loadedGroupIdRef=useRef(null);
   const inviteToken=location.pathname.startsWith('/invite/')?location.pathname.split('/')[2]:null;
@@ -75,7 +76,7 @@ export default function ProductApp({Home}){
   return <div className="real-app">
     <aside className="real-side" aria-label="主要導覽">
       <BrandLogo/>
-      <div className="login-user"><Person person={me} size={46}/><div><b>{me.displayName}</b><small>LINE 帳號已連結</small></div></div>
+      <button type="button" className="login-user" onClick={()=>setShowProfile(true)} aria-label="開啟個人資料與收款帳戶設定"><Person person={me} size={46}/><div><b>{me.displayName}</b><small>{me.bankAccount?.configured?`收款帳戶 •••• ${me.bankAccount.last4}`:'設定常用收款帳戶'}</small></div><ChevronRight className="login-user-chevron"/></button>
       <div className="side-label">我的群組</div>
       <div className="group-switcher">{groups.map(item=><button className={activeId===item.id?'active':''} aria-current={activeId===item.id?'page':undefined} key={item.id} onClick={()=>selectGroup(item.id)}><span className="group-icon"><WalletCards/></span><div><b>{item.name}</b><small>{item.memberCount} 位成員</small></div></button>)}</div>
       <button className="new-group" onClick={()=>setShowCreate(true)}><Plus/> 建立新群組</button>
@@ -92,25 +93,79 @@ export default function ProductApp({Home}){
         <label className="mobile-group-picker"><small>目前群組</small><select value={activeId||''} onChange={e=>selectGroup(e.target.value)} disabled={groupLoading}>{groups.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <button type="button" className="mobile-new-group" onClick={()=>setShowCreate(true)} aria-label="建立新群組" title="建立新群組"><Plus/></button>
         <div className="real-header-actions">
-          <span className="header-user-avatar"><Person person={me} size={36}/></span>
+          <button type="button" className="header-user-avatar" onClick={()=>setShowProfile(true)} aria-label="開啟個人資料"><Person person={me} size={36}/></button>
           <button className="header-secondary" disabled={!group||adminViewing} onClick={()=>setShowInvite(true)}><Users/> 邀請成員</button>
           {adminViewing?<span className="admin-view-badge"><ShieldCheck/>管理檢視</span>:<button className="primary header-primary" disabled={!group||groupLoading} onClick={openNewExpense}><Plus/> 新增支出</button>}
-          <button className="mobile-header-avatar" aria-label="點擊頭像登出" onClick={()=>confirm('確定要登出嗎？')&&logout()}><Person person={me} size={38}/></button>
+          <button type="button" className="mobile-header-avatar" aria-label="開啟個人資料與收款帳戶設定" onClick={()=>setShowProfile(true)}><Person person={me} size={38}/></button>
           <button className="mobile-logout" aria-label="登出" onClick={logout}><LogOut/></button>
         </div>
       </header>
-      {!groups.length?<EmptyGroups create={()=>setShowCreate(true)}/>:groupError&&!group?<WorkspaceError message={groupError} retry={refreshGroup}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} group={group} me={me} addExpense={adminViewing?null:openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} refreshing={groupLoading} openAdmin={me.isSuperuser?()=>setAdminMode(true):null} adminViewing={adminViewing}/>}
+      {!groups.length?<EmptyGroups create={()=>setShowCreate(true)}/>:groupError&&!group?<WorkspaceError message={groupError} retry={refreshGroup}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} group={group} me={me} addExpense={adminViewing?null:openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} refreshing={groupLoading} openAdmin={me.isSuperuser?()=>setAdminMode(true):null} openProfile={()=>setShowProfile(true)} adminViewing={adminViewing}/>}
     </section>
     {group&&!adminViewing&&<button className="mobile-expense-fab" onClick={openNewExpense} aria-label="新增支出"><Plus/><span>新增</span></button>}
     {notice&&<button type="button" className="toast" onClick={()=>setNotice('')} aria-live="polite" aria-label={`${notice}，點擊關閉`}><Check/>{notice}</button>}
-    {showCreate&&<CreateGroup close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} expense={editingExpense} currentUserId={me.id} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>}
+    {showCreate&&<CreateGroup close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} expense={editingExpense} currentUserId={me.id} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>} {showProfile&&<ProfileModal me={me} close={()=>setShowProfile(false)} saved={bankAccount=>{setMe(current=>({...current,bankAccount}));setShowProfile(false);setNotice(bankAccount.configured?'已更新常用收款帳戶':'已移除常用收款帳戶')}}/>}
   </div>
 }
 
 function EmptyGroups({create}){return <main className="empty-groups"><img src="/xiaoluo-avatar.png" alt="旅行成員頭像"/><span className="eyebrow">歡迎加入旅帳 TripTab</span><h1>先建立第一個分帳群組</h1><p>為這次活動取一個名字，再把邀請連結傳給同行的朋友</p><button className="primary" onClick={create}><Plus/> 建立群組</button></main>}
 function DashboardSkeleton(){return <main className="dashboard-skeleton" aria-label="正在載入群組資料" aria-busy="true"><div className="skeleton skeleton-hero"></div><div className="skeleton-stats">{[0,1,2].map(item=><div className="skeleton" key={item}></div>)}</div><div className="skeleton-grid"><div className="skeleton"></div><div className="skeleton"></div></div><span className="sr-only">正在載入群組資料</span></main>}
 function WorkspaceError({message,retry}){const [retrying,setRetrying]=useState(false);const handleRetry=async()=>{setRetrying(true);try{await retry()}catch{}finally{setRetrying(false)}};return <main className="workspace-error" role="alert"><span><AlertCircle/></span><h1>群組資料暫時無法載入</h1><p>{message||'請檢查網路連線後再試一次'}</p><button className="primary" disabled={retrying} onClick={handleRetry}>{retrying?<LoaderCircle/>:<RefreshCcw/>}{retrying?'重新載入中…':'重新載入'}</button></main>}
-function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refresh,refreshing=false,openAdmin,adminViewing=false}){
+function SettlementBankDetails({groupId,settlement}){
+  const [details,setDetails]=useState(null),[expanded,setExpanded]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false);
+  const panelId=`settlement-bank-${settlement.from.id}-${settlement.to.id}`;
+  const toggle=async()=>{
+    if(details){setExpanded(value=>!value);return}
+    setLoading(true);setError('');
+    try{setDetails(await api(`/api/groups/${groupId}/settlements/${settlement.to.id}/bank-account`));setExpanded(true)}
+    catch(loadError){setError(loadError.message)}
+    finally{setLoading(false)}
+  };
+  const copyAccount=async()=>{
+    setError('');
+    try{await navigator.clipboard.writeText(details.bankAccount.accountNumber);setCopied(true)}
+    catch{setError('無法自動複製，請手動選取帳號')}
+  };
+  return <div className="settlement-bank">
+    <button type="button" className="settlement-bank-toggle" onClick={toggle} disabled={loading} aria-expanded={expanded} aria-controls={panelId}>
+      {loading?<LoaderCircle/>:<WalletCards/>}{loading?'讀取中…':expanded?'收起轉帳資訊':'檢視轉帳資訊'}<ChevronDown/>
+    </button>
+    {error&&<p className="settlement-bank-error" role="alert"><AlertCircle/>{error}</p>}
+    {expanded&&details&&<div className={`settlement-bank-panel ${details.bankAccount?'':'is-empty'}`} id={panelId}>
+      {!details.bankAccount?<><AlertCircle/><div><b>{details.recipient.displayName} 尚未設定收款帳戶</b><p>可先用現金或其他方式還款，仍可在下方確認完成。</p></div></>:<>
+        <div className="settlement-bank-recipient"><Person person={details.recipient} size={34}/><span><small>轉帳給</small><b>{details.recipient.displayName}</b></span><ShieldCheck aria-label="僅付款人可見"/></div>
+        <dl>
+          <div><dt>銀行</dt><dd>{details.bankAccount.bankName}（{details.bankAccount.bankCode}）</dd></div>
+          {details.bankAccount.branchCode&&<div><dt>分行代碼</dt><dd>{details.bankAccount.branchCode}</dd></div>}
+          <div><dt>戶名</dt><dd>{details.bankAccount.accountHolderName}</dd></div>
+          <div className="bank-account-number"><dt>帳號</dt><dd>{details.bankAccount.accountNumber}</dd></div>
+        </dl>
+        <button type="button" className="settlement-bank-copy" onClick={copyAccount} aria-live="polite">{copied?<Check/>:<Clipboard/>}{copied?'已複製帳號':'複製帳號'}</button>
+        <small className="settlement-bank-manual">僅供檢視與複製，請自行使用手機銀行轉帳；系統不會發起扣款或匯款。</small>
+      </>}
+    </div>}
+  </div>;
+}
+function SettlementBankUnavailable(){
+  return <div className="settlement-bank-unavailable"><WalletCards/><div><b>收款人尚未提供轉帳資訊</b><p>可先聯絡對方或使用其他方式還款，仍可在下方確認完成。</p></div></div>;
+}
+function SettlementBankShare({groupId,settlement,shared,configured,refresh,openProfile}){
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  const updateAccess=async()=>{
+    if(!configured){openProfile();return}
+    setBusy(true);setError('');
+    try{
+      await api(`/api/groups/${groupId}/settlements/${settlement.from.id}/bank-account-access`,{method:shared?'DELETE':'POST'});
+      await refresh();
+    }catch(updateError){setError(updateError.message)}finally{setBusy(false)}
+  };
+  return <div className={`settlement-bank-share ${shared?'is-shared':''}`}>
+    <div><ShieldCheck/><span><b>{shared?'已提供轉帳資訊':'安全提供收款帳戶'}</b><p>{shared?'只有這位付款人能在目前欠款有效時查看。':'由你主動提供後，付款人才看得到完整帳號。'}</p></span></div>
+    <button type="button" onClick={updateAccess} disabled={busy}>{busy?<LoaderCircle/>:configured?shared?<X/>:<WalletCards/>:<Plus/>}{busy?'處理中…':configured?shared?'撤回資訊':'提供給付款人':'設定收款帳戶'}</button>
+    {error&&<p className="settlement-bank-error" role="alert"><AlertCircle/>{error}</p>}
+  </div>;
+}
+function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refresh,refreshing=false,openAdmin,openProfile,adminViewing=false}){
   const [paying,setPaying]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[selectedExpenseShares,setSelectedExpenseShares]=useState(null),[actionError,setActionError]=useState('');
   const [activityTab,setActivityTab]=useState('expenses'),[expensePage,setExpensePage]=useState(1),[settlementPage,setSettlementPage]=useState(1);
   const expenseMembers=useMemo(()=>group.members.filter(member=>!member.isFund),[group.members]);
@@ -118,8 +173,16 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
   const visibleExpenses=useMemo(()=>expenseMemberId==='all'?group.expenses:group.expenses.filter(expense=>
     [...(expense.payments||[]),...(expense.shares||[])].some(entry=>String(entry.userId)===expenseMemberId)
   ),[expenseMemberId,group.expenses]);
-  const expensePageCount=Math.max(1,Math.ceil(visibleExpenses.length/TABLE_PAGE_SIZE)),currentExpensePage=Math.min(expensePage,expensePageCount);
-  const pagedExpenses=visibleExpenses.slice((currentExpensePage-1)*TABLE_PAGE_SIZE,currentExpensePage*TABLE_PAGE_SIZE);
+  const prioritizedExpenses=useMemo(()=>{
+    const paidByMe=[],others=[];
+    for(const expense of visibleExpenses){
+      const isPaidByMe=(expense.payments||[]).some(payment=>String(payment.userId)===String(me.id));
+      (isPaidByMe?paidByMe:others).push(expense);
+    }
+    return [...paidByMe,...others];
+  },[me.id,visibleExpenses]);
+  const expensePageCount=Math.max(1,Math.ceil(prioritizedExpenses.length/TABLE_PAGE_SIZE)),currentExpensePage=Math.min(expensePage,expensePageCount);
+  const pagedExpenses=prioritizedExpenses.slice((currentExpensePage-1)*TABLE_PAGE_SIZE,currentExpensePage*TABLE_PAGE_SIZE);
   const settlementPageCount=Math.max(1,Math.ceil(group.settlements.length/SETTLEMENT_PAGE_SIZE)),currentSettlementPage=Math.min(settlementPage,settlementPageCount);
   const pagedSettlements=group.settlements.slice((currentSettlementPage-1)*SETTLEMENT_PAGE_SIZE,currentSettlementPage*SETTLEMENT_PAGE_SIZE);
   useEffect(()=>setExpensePage(page=>Math.min(page,expensePageCount)),[expensePageCount]);
@@ -176,10 +239,10 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
           <button id={`activity-tab-repayments-${group.id}`} type="button" role="tab" aria-selected={activityTab==='repayments'} aria-controls={`activity-panel-repayments-${group.id}`} tabIndex={activityTab==='repayments'?0:-1} className={activityTab==='repayments'?'active':''} onClick={()=>setActivityTab('repayments')} onKeyDown={handleActivityTabKeyDown}><History/><span>還款紀錄</span><b>{(group.settlementHistory||[]).length}</b></button>
         </nav>
         <section className="expense-panel" id={`activity-panel-expenses-${group.id}`} role="tabpanel" aria-labelledby={`activity-tab-expenses-${group.id}`} tabIndex={0} hidden={activityTab!=='expenses'}>
-          <div className="section-head"><div><h2 id="expense-title">最近支出</h2><p>依新增時間排序，所有成員看到的資料保持一致</p></div><div className="expense-head-actions"><label className="expense-member-filter" title={selectedExpenseMember?.displayName||'全部成員'}><span className="expense-member-filter-avatar" aria-hidden="true">{selectedExpenseMember?<Person person={selectedExpenseMember} size={26}/>:<Users/>}</span><span className="expense-member-filter-copy" aria-hidden="true"><small>支出成員</small><b>{selectedExpenseMember?.displayName||'全部成員'}</b></span><ChevronDown aria-hidden="true"/><select id={`expense-member-filter-${group.id}`} value={expenseMemberId} onChange={event=>{setExpenseMemberId(event.target.value);setExpensePage(1)}} aria-label="依成員篩選最近支出"><option value="all">全部成員</option>{expenseMembers.map(member=><option key={member.id} value={member.id}>{member.displayName}</option>)}</select></label><output className={`count-badge expense-count ${expenseMemberId==='all'?'':'is-filtered'}`} htmlFor={`expense-member-filter-${group.id}`} aria-live="polite" aria-atomic="true"><strong>{visibleExpenses.length}</strong><span>{expenseMemberId==='all'?'筆支出':`／${group.expenses.length} 筆`}</span></output></div></div>
+          <div className="section-head"><div><h2 id="expense-title">最近支出</h2><p>你付款的支出優先，各組內依新增時間排序</p></div><div className="expense-head-actions"><label className="expense-member-filter" title={selectedExpenseMember?.displayName||'全部成員'}><span className="expense-member-filter-avatar" aria-hidden="true">{selectedExpenseMember?<Person person={selectedExpenseMember} size={26}/>:<Users/>}</span><span className="expense-member-filter-copy" aria-hidden="true"><small>支出成員</small><b>{selectedExpenseMember?.displayName||'全部成員'}</b></span><ChevronDown aria-hidden="true"/><select id={`expense-member-filter-${group.id}`} value={expenseMemberId} onChange={event=>{setExpenseMemberId(event.target.value);setExpensePage(1)}} aria-label="依成員篩選最近支出"><option value="all">全部成員</option>{expenseMembers.map(member=><option key={member.id} value={member.id}>{member.displayName}</option>)}</select></label><output className={`count-badge expense-count ${expenseMemberId==='all'?'':'is-filtered'}`} htmlFor={`expense-member-filter-${group.id}`} aria-live="polite" aria-atomic="true"><strong>{visibleExpenses.length}</strong><span>{expenseMemberId==='all'?'筆支出':`／${group.expenses.length} 筆`}</span></output></div></div>
           {!group.expenses.length?<div className="empty-list"><ReceiptText/><b>還沒有任何支出</b><p>{adminViewing?'此帳本目前不需要管理協助':'從第一筆共同花費開始建立清楚帳目'}</p>{addExpense&&<button className="empty-primary" onClick={addExpense}><Plus/> 新增第一筆支出</button>}</div>:<>
             {!visibleExpenses.length?<div className="empty-list"><ReceiptText/><b>沒有符合的支出</b><p>{selectedExpenseMember?`${selectedExpenseMember.displayName} 尚未參與任何支出`:'目前沒有符合篩選條件的支出'}</p></div>:<>
-            <div className="record-table-head" aria-hidden="true"><span>日期</span><span>項目</span><span>支付者</span><span>參與金額</span><span>金額 (TWD)</span><span>分類</span><span>狀態</span><span>操作</span></div>
+            <div className="record-table-head" aria-hidden="true"><span>日期</span><span>項目</span><span>支付者</span><span>參與金額</span><span>金額 (TWD)</span><span className="record-category-heading">分類</span><span>狀態</span><span>操作</span></div>
             <div className="record-list">{pagedExpenses.map(e=>{const ownShare=(e.shares||[]).find(share=>String(share.userId)===String(me.id));return <article key={e.id}>
               <time className="record-date" dateTime={e.createdAt}>{new Date(e.createdAt).toLocaleDateString('zh-TW')}</time>
               <div className="record-name"><div><b title={e.title}>{e.title}</b><small className="record-meta"><ExpenseShareAvatars expense={e} members={group.members} onOpen={setSelectedExpenseShares}/><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
@@ -198,7 +261,21 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
       </div>
       <aside className="settlements" aria-labelledby="settlement-title">
         <div className="settlement-heading"><div><span className="section-kicker">待辦事項</span><h2 id="settlement-title">結算</h2><p>簡化後轉帳，共 {group.settlements.length} 筆</p></div><button className="settlement-help-button" onClick={()=>setShowSettlementHelp(true)} aria-label="了解結算演算法"><CircleHelp/></button></div>
-        {!group.settlements.length?<div className="all-clear"><Check/><b>目前都結清了</b><p>新增支出後，旅帳會在這裡整理最少轉帳路徑</p></div>:<><div className="settlement-list">{pagedSettlements.map(s=><article className={`settlement-row ${canConfirm(s)?'payable':''}`} key={settlementKey(s)}><span className={`settlement-status ${canConfirm(s)?'needs-action':''}`}>{canConfirm(s)?'待你處理':'等待對方'}</span><div className="settlement-person"><Person person={s.from} size={44}/><span className="settlement-person-copy"><small>付款人</small><b>{s.from.displayName}</b></span></div><div className="settlement-flow"><ArrowRight/><small>應付金額</small><strong>{money(s.amountCents)}</strong></div><div className="settlement-person receiver"><Person person={s.to} size={44}/><span className="settlement-person-copy"><small>收款人</small><b>{s.to.displayName}</b></span></div>{canConfirm(s)?<button disabled={Boolean(paying)} onClick={()=>markPaid(s)}>{paying===settlementKey(s)?<><LoaderCircle/>處理中…</>:canManageFundPayment(s)?'從公費付款':'我已轉帳'}</button>:<div className="settlement-waiting">等待付款人轉帳</div>}</article>)}</div><RecordPagination page={currentSettlementPage} totalItems={group.settlements.length} pageSize={SETTLEMENT_PAGE_SIZE} onPageChange={setSettlementPage} label="待辦結算" compact/></>}
+        {!group.settlements.length?<div className="all-clear"><Check/><b>目前都結清了</b><p>新增支出後，旅帳會在這裡整理最少轉帳路徑</p></div>:<>
+          <div className="settlement-list">{pagedSettlements.map(s=>{
+            const actionable=canConfirm(s),fundPayment=canManageFundPayment(s),bankAccess=s.bankAccountAccess||{},canShareBank=Boolean(bankAccess.canShare&&String(s.to.id)===String(me.id));
+            return <article className={`settlement-row ${actionable?'payable':''}`} key={settlementKey(s)}>
+              <span className={`settlement-status ${actionable?'needs-action':''}`}>{actionable?'待你處理':'等待對方'}</span>
+              <div className="settlement-person"><Person person={s.from} size={44}/><span className="settlement-person-copy"><small>付款人</small><b>{s.from.displayName}</b></span></div>
+              <div className="settlement-flow"><ArrowRight/><small>應付金額</small><strong>{money(s.amountCents)}</strong></div>
+              <div className="settlement-person receiver"><Person person={s.to} size={44}/><span className="settlement-person-copy"><small>收款人</small><b>{s.to.displayName}</b></span></div>
+              {canShareBank&&<SettlementBankShare groupId={group.id} settlement={s} shared={bankAccess.shared} configured={Boolean(me.bankAccount?.configured)} refresh={refresh} openProfile={openProfile}/>}
+              {actionable&&(bankAccess.shared?<SettlementBankDetails groupId={group.id} settlement={s}/>:<SettlementBankUnavailable/>)}
+              {actionable?<button className="settlement-confirm" disabled={Boolean(paying)} onClick={()=>markPaid(s)}>{paying===settlementKey(s)?<><LoaderCircle/>處理中…</>:fundPayment?'從公費付款':'我已轉帳'}</button>:<div className="settlement-waiting">等待付款人轉帳</div>}
+            </article>;
+          })}</div>
+          <RecordPagination page={currentSettlementPage} totalItems={group.settlements.length} pageSize={SETTLEMENT_PAGE_SIZE} onPageChange={setSettlementPage} label="待辦結算" compact/>
+        </>}
       </aside>
       <footer className="workspace-footer"><span>服務條款 · 隱私權政策</span><b>© 2026 TripTab</b></footer>
     </div>
@@ -242,6 +319,29 @@ function BalanceChart({group,close}){
 }
 function SettlementHelp({close}){return <Modal close={close} label="結算說明"><span className="eyebrow"><CircleHelp/> 結算說明</span><h2>我們如何簡化轉帳？</h2><p className="modal-copy">系統會先把所有支出換算成每個人的最終淨額，再重新安排付款對象，原始帳目不會被修改，每個人最後付出或收到的總額也完全相同</p><div className="settlement-example"><div className="example-title"><b>舉個例子</b><small>A、B、C 三人結算</small></div><div className="example-columns"><section><b>原始 · 3 筆</b><p>A → C　NT$ 100</p><p>B → C　NT$ 300</p><p>A → B　NT$ 50</p></section><ArrowRight/><section className="simplified"><b>簡化後 · 2 筆</b><p>A → C　NT$ 150</p><p>B → C　NT$ 250</p></section></div><div className="example-net"><span>A 應付 150</span><span>B 應付 250</span><span>C 應收 400</span></div></div><div className="algorithm-note"><b>目前採用的方式</b><p>先配對金額完全相同的人，再讓小額欠款者優先一次付清，目標是讓更多付款人只轉一次；較大的欠款者必要時可能拆成多筆，因此不保證全群總筆數是數學上的絕對最少</p></div><button className="primary wide" onClick={close}>了解</button></Modal>}
 function Modal({children,close,label='對話視窗'}){const overlayRef=useRef(null),dialogRef=useRef(null),closeRef=useRef(close),returnFocus=useRef(document.activeElement);closeRef.current=close;useEffect(()=>{const overlay=overlayRef.current,dialog=dialogRef.current,focusable='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',blocked=[...(overlay?.parentElement?.children||[])].filter(item=>item!==overlay).map(item=>({item,inert:item.inert,hidden:item.getAttribute('aria-hidden')}));blocked.forEach(({item})=>{item.inert=true;item.setAttribute('aria-hidden','true')});const initialTimer=setTimeout(()=>{if(dialog&&!dialog.contains(document.activeElement))dialog.querySelector(focusable)?.focus()},0);const onKeyDown=event=>{if(event.key==='Escape'){event.preventDefault();closeRef.current();return}if(event.key!=='Tab'||!dialog)return;const items=[...dialog.querySelectorAll(focusable)].filter(item=>item.getClientRects().length);if(!items.length)return;const first=items[0],last=items.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener('keydown',onKeyDown);return()=>{clearTimeout(initialTimer);document.removeEventListener('keydown',onKeyDown);blocked.forEach(({item,inert,hidden})=>{item.inert=inert;if(hidden===null)item.removeAttribute('aria-hidden');else item.setAttribute('aria-hidden',hidden)});returnFocus.current?.focus?.()}},[]);return createPortal(<div ref={overlayRef} className="overlay" onMouseDown={e=>e.target===e.currentTarget&&close()}><div ref={dialogRef} className="modal real-modal" role="dialog" aria-modal="true" aria-label={label}><button type="button" className="modal-x" onClick={close} aria-label="關閉對話視窗"><X/></button>{children}</div></div>,document.body)}
+function ProfileModal({me,close,saved}){
+ const [form,setForm]=useState(EMPTY_BANK_ACCOUNT),[configured,setConfigured]=useState(Boolean(me.bankAccount?.configured)),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ useEffect(()=>{let active=true;api('/api/me/bank-account').then(({bankAccount})=>{if(!active)return;if(bankAccount){setForm({...EMPTY_BANK_ACCOUNT,...bankAccount,branchCode:bankAccount.branchCode||''});setConfigured(true)}}).catch(loadError=>active&&setError(loadError.message)).finally(()=>active&&setLoading(false));return()=>{active=false}},[]);
+ const update=(field,value)=>setForm(current=>({...current,[field]:value}));
+ const submit=async event=>{event.preventDefault();if(busy)return;setBusy(true);setError('');try{const result=await api('/api/me/bank-account',{method:'PUT',body:JSON.stringify(form)});saved(result.bankAccount)}catch(saveError){setError(saveError.message);setBusy(false)}};
+ const remove=async()=>{if(!confirm('確定要移除常用收款帳戶嗎？目前欠你款項的人將無法查看轉帳資訊。'))return;setBusy(true);setError('');try{const result=await api('/api/me/bank-account',{method:'DELETE'});saved(result.bankAccount)}catch(removeError){setError(removeError.message);setBusy(false)}};
+ return <Modal close={close} label="個人資料與收款帳戶">
+  <div className="profile-heading"><Person person={me} size={52}/><div><span className="eyebrow">個人資料</span><h2>{me.displayName}</h2><p>LINE 帳號已連結</p></div></div>
+  <div className="profile-privacy" id="bank-account-privacy"><ShieldCheck/><div><b>帳戶由你主動提供給付款人</b><p>資料只供檢視與複製，系統不會代為轉帳；結清後付款人會立即失去查看權限，更新帳戶也會撤銷舊授權。</p></div></div>
+  {loading?<div className="profile-loading" role="status"><LoaderCircle/><span>正在讀取帳戶資料…</span></div>:<form className="profile-form" onSubmit={submit}>
+    <div className="profile-form-title"><div><b>常用收款帳戶</b><small>{configured?`目前帳號末四碼 ${me.bankAccount?.last4||form.accountNumber.slice(-4)}`:'尚未設定'}</small></div><WalletCards/></div>
+    <div className="form-two">
+      <label>銀行代碼 <span className="required-mark" aria-hidden="true">*</span><input autoFocus inputMode="numeric" maxLength="3" pattern="[0-9]{3}" value={form.bankCode} onChange={event=>update('bankCode',event.target.value)} placeholder="例如：822" required aria-describedby="bank-account-privacy"/></label>
+      <label>銀行名稱 <span className="required-mark" aria-hidden="true">*</span><input maxLength="60" value={form.bankName} onChange={event=>update('bankName',event.target.value)} placeholder="例如：中國信託" required/></label>
+    </div>
+    <label>分行代碼<input inputMode="numeric" maxLength="7" pattern="[0-9]{3,7}" value={form.branchCode} onChange={event=>update('branchCode',event.target.value)} placeholder="選填，3–7 位數"/><small className="field-help">若不確定可先留白</small></label>
+    <label>戶名 <span className="required-mark" aria-hidden="true">*</span><input maxLength="80" autoComplete="name" value={form.accountHolderName} onChange={event=>update('accountHolderName',event.target.value)} placeholder="銀行帳戶戶名" required/></label>
+    <label>帳號 <span className="required-mark" aria-hidden="true">*</span><input inputMode="numeric" autoComplete="off" maxLength="24" pattern="[0-9 -]{6,24}" value={form.accountNumber} onChange={event=>update('accountNumber',event.target.value)} placeholder="請輸入 6–20 位數帳號" required aria-describedby="bank-account-number-help"/><small className="field-help" id="bank-account-number-help">帳號會加密保存，可輸入空格或連字號，儲存時會自動整理。</small></label>
+    {error&&<p className="form-error" role="alert"><AlertCircle/>{error}</p>}
+    <div className="form-actions profile-actions">{configured&&<button type="button" className="profile-remove" onClick={remove} disabled={busy}><Trash2/>移除帳戶</button>}<button type="button" className="secondary-button" onClick={close} disabled={busy}>取消</button><button className="primary" disabled={busy}>{busy?<LoaderCircle/>:<Check/>}{busy?'儲存中…':'儲存帳戶'}</button></div>
+  </form>}
+ </Modal>;
+}
 function CreateGroup({close,done}){const [name,setName]=useState(''),[description,setDescription]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');const submit=async e=>{e.preventDefault();if(busy)return;setBusy(true);setError('');try{done(await api('/api/groups',{method:'POST',body:JSON.stringify({name,description})}))}catch(err){setError(err.message);setBusy(false)}};return <Modal close={close} label="建立分帳群組"><span className="eyebrow">新的共同帳本</span><h2>建立分帳群組</h2><p className="modal-copy">先為這次旅行取一個容易辨識的名稱，建立後即可邀請旅伴</p><form onSubmit={submit}><label>群組名稱 <span className="required-mark" aria-hidden="true">*</span><input autoFocus maxLength="60" value={name} onChange={e=>setName(e.target.value)} placeholder="例如：花蓮三天兩夜" required aria-invalid={Boolean(error&&!name.trim())}/><small className="field-help">最多 60 個字，建議包含地點或日期</small></label><label>簡短說明<input maxLength="200" value={description} onChange={e=>setDescription(e.target.value)} placeholder="例如：14 人畢旅共同花費"/><small className="field-help">選填，讓旅伴快速確認群組用途</small></label>{error&&<p className="form-error" role="alert"><AlertCircle/>{error}</p>}<div className="form-actions"><button type="button" className="secondary-button" onClick={close} disabled={busy}>取消</button><button className="primary" disabled={busy||!name.trim()}>{busy?<LoaderCircle/>:<Plus/>}{busy?'建立中…':'建立群組'}</button></div></form></Modal>}
 function ExpenseModal({group,close,done}){
  const [title,setTitle]=useState(''),[amount,setAmount]=useState(''),[payerId,setPayerId]=useState(group.members[0]?.id),[category,setCategory]=useState('餐飲'),[selected,setSelected]=useState(group.members.map(x=>x.id)),[mode,setMode]=useState('equal'),[custom,setCustom]=useState({}),[busy,setBusy]=useState(false),[error,setError]=useState('');
