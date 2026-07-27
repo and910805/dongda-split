@@ -77,7 +77,34 @@ try{
   assert.ok(legacyAfter.balances.every(item=>item.balanceCents===0));
   assert.equal(legacyAfter.settlements.length,0);
 
-  const settleGroup=await post(owner.cookie,'/api/groups',{name:'settle-e2e',description:'scenario automated test'});await post(actors[1].cookie,`/api/invites/${settleGroup.inviteToken}/join`,{});await post(owner.cookie,`/api/groups/${settleGroup.id}/expenses`,{title:'兩人晚餐',amount:1000,payerId:ids[0],participantIds:[ids[0],ids[1]],splitMode:'equal'});const {data:before}=await request(`/api/groups/${settleGroup.id}`,{cookie:actors[1].cookie});const transfer=before.settlements[0];await post(actors[1].cookie,`/api/groups/${settleGroup.id}/settlements`,{toUserId:ids[0],amount:transfer.amountCents/100});const {data:after}=await request(`/api/groups/${settleGroup.id}`,{cookie:owner.cookie});assert.equal(after.settlements.length,0);assert.ok(after.balances.every(x=>x.balanceCents===0));assert.equal(after.settlementHistory.length,1);assert.equal(after.settlementHistory[0].from.id,ids[1]);assert.equal(after.settlementHistory[0].to.id,ids[0]);assert.equal(after.settlementHistory[0].amountCents,transfer.amountCents);assert.equal(after.settlementHistory[0].confirmedBy.id,ids[1]);
+  const settleGroup=await post(owner.cookie,'/api/groups',{name:'settle-e2e',description:'scenario automated test'});
+  await post(actors[1].cookie,`/api/invites/${settleGroup.inviteToken}/join`,{});
+  await post(actors[2].cookie,`/api/invites/${settleGroup.inviteToken}/join`,{});
+  await post(owner.cookie,`/api/groups/${settleGroup.id}/expenses`,{title:'兩人晚餐',amount:1000,payerId:ids[0],participantIds:[ids[0],ids[1]],splitMode:'equal'});
+  const {data:before}=await request(`/api/groups/${settleGroup.id}`,{cookie:actors[1].cookie});
+  const transfer=before.settlements[0];
+  const reportPayload={fromUserId:ids[1],toUserId:ids[0],amount:transfer.amountCents/100};
+  await expectStatus(403,post(actors[2].cookie,`/api/groups/${settleGroup.id}/settlements`,reportPayload));
+  await expectStatus(403,post(owner.cookie,`/api/groups/${settleGroup.id}/settlements`,reportPayload));
+  const {data:reportResult,response:reportResponse}=await request(`/api/groups/${settleGroup.id}/settlements`,{cookie:actors[1].cookie,method:'POST',body:reportPayload});
+  assert.equal(reportResponse.status,201);
+  assert.equal(reportResult.ok,true);
+  assert.equal(reportResult.reportStatus,'reported');
+  assert.equal(reportResult.verificationStatus,'unverified');
+  assert.ok(Number.isFinite(new Date(reportResult.reportedAt).getTime()));
+  await expectStatus(400,post(actors[1].cookie,`/api/groups/${settleGroup.id}/settlements`,reportPayload));
+  const {data:after}=await request(`/api/groups/${settleGroup.id}`,{cookie:owner.cookie});
+  assert.equal(after.settlements.length,0);
+  assert.ok(after.balances.every(x=>x.balanceCents===0));
+  assert.equal(after.settlementHistory.length,1);
+  assert.equal(after.settlementHistory[0].from.id,ids[1]);
+  assert.equal(after.settlementHistory[0].to.id,ids[0]);
+  assert.equal(after.settlementHistory[0].amountCents,transfer.amountCents);
+  assert.equal(after.settlementHistory[0].confirmedBy.id,ids[1]);
+  assert.equal(after.settlementHistory[0].reportedBy.id,ids[1]);
+  assert.equal(after.settlementHistory[0].reportStatus,'reported');
+  assert.equal(after.settlementHistory[0].verificationStatus,'unverified');
+  assert.equal(new Date(after.settlementHistory[0].createdAt).getTime(),new Date(reportResult.reportedAt).getTime());
 
   const bankOwner=actors[0],bankDebtor=actors[1],bankObserver=actors[2];
   await request('/api/me/bank-account',{cookie:bankOwner.cookie,method:'DELETE'});
