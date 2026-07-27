@@ -296,6 +296,32 @@ try{
   assert.equal(reversedDirection.settlements[0].to.id,carryPeer.user.id);
   assert.equal(reversedDirection.settlements[0].amountCents,30000);
   assert.deepEqual(reversedDirection.settlementHistory,oldHistorySnapshot);
+
+  const lockedActors=actors.slice(6,11);
+  const [lockedDebtorA,lockedDebtorB,lockedCreditorA,lockedCreditorB,lockedCreditorC]=lockedActors;
+  const lockedGroup=await post(lockedDebtorA.cookie,'/api/groups',{name:'locked-settlement-plan-e2e',description:'scenario automated test'});
+  for(const actor of lockedActors.slice(1))await post(actor.cookie,`/api/invites/${lockedGroup.inviteToken}/join`,{});
+  await post(lockedDebtorA.cookie,`/api/groups/${lockedGroup.id}/expenses`,{title:'A 欠收款人甲',amount:100,payerId:lockedCreditorA.user.id,participantIds:[lockedDebtorA.user.id],splitMode:'equal'});
+  await post(lockedDebtorA.cookie,`/api/groups/${lockedGroup.id}/expenses`,{title:'A 欠收款人乙',amount:100,payerId:lockedCreditorB.user.id,participantIds:[lockedDebtorA.user.id],splitMode:'equal'});
+  await post(lockedDebtorA.cookie,`/api/groups/${lockedGroup.id}/expenses`,{title:'B 欠收款人丙',amount:100,payerId:lockedCreditorC.user.id,participantIds:[lockedDebtorB.user.id],splitMode:'equal'});
+  const {data:lockedBefore}=await request(`/api/groups/${lockedGroup.id}`,{cookie:lockedDebtorA.cookie});
+  const completedOutOfOrder=lockedBefore.settlements.find(item=>item.from.id===lockedDebtorA.user.id&&item.to.id===lockedCreditorA.user.id);
+  assert.ok(completedOutOfOrder);
+  const lockedRemainder=lockedBefore.settlements
+    .filter(item=>item.id!==completedOutOfOrder.id)
+    .map(item=>({id:item.id,from:item.from.id,to:item.to.id,amountCents:item.amountCents}));
+  await post(lockedDebtorA.cookie,`/api/groups/${lockedGroup.id}/settlements`,{fromUserId:completedOutOfOrder.from.id,toUserId:completedOutOfOrder.to.id,amount:completedOutOfOrder.amountCents/100});
+  const {data:lockedAfterPayment}=await request(`/api/groups/${lockedGroup.id}`,{cookie:lockedDebtorB.cookie});
+  assert.deepEqual(
+    lockedAfterPayment.settlements.map(item=>({id:item.id,from:item.from.id,to:item.to.id,amountCents:item.amountCents})),
+    lockedRemainder
+  );
+  assert.ok(lockedAfterPayment.settlements.some(item=>item.from.id===lockedDebtorB.user.id&&item.to.id===lockedCreditorC.user.id));
+  await post(lockedDebtorA.cookie,`/api/groups/${lockedGroup.id}/expenses`,{title:'支出異動後才重算',amount:50,payerId:lockedCreditorC.user.id,participantIds:[lockedDebtorA.user.id],splitMode:'equal'});
+  const {data:lockedAfterExpenseChange}=await request(`/api/groups/${lockedGroup.id}`,{cookie:lockedDebtorA.cookie});
+  assert.ok(lockedAfterExpenseChange.settlements.some(item=>item.from.id===lockedDebtorA.user.id&&item.to.id===lockedCreditorC.user.id&&item.amountCents===15000));
+  assert.ok(lockedAfterExpenseChange.settlements.some(item=>item.from.id===lockedDebtorB.user.id&&item.to.id===lockedCreditorB.user.id&&item.amountCents===10000));
+  assert.equal(lockedAfterExpenseChange.balances.reduce((sum,item)=>sum+item.balanceCents,0),0);
   console.log('ALL_DATABASE_SCENARIOS_OK');
 }finally{
   await pool.query("DELETE FROM groups WHERE description='scenario automated test'");
