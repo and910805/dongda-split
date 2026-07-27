@@ -1,10 +1,12 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertCircle,ArrowRight,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,ShieldCheck,Trash2,Users,WalletCards,X} from 'lucide-react';
+import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,ShieldCheck,Trash2,Users,WalletCards,X} from 'lucide-react';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
+import {DEFAULT_EXPENSE_SORT,nextExpenseSort,sortExpenses} from './expense-sort.mjs';
 import {buildSettlementNotice,settlementLineShareUrl} from './settlement-notice.mjs';
+import {prioritizeSettlementsForReceiver} from './settlement-order.mjs';
 
 const api=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});if(response.status===401)throw Object.assign(new Error('unauthorized'),{status:401});const data=await response.json().catch(()=>({}));if(!response.ok)throw Object.assign(new Error(data.error||'操作失敗'),{status:response.status});return data};
 const money=cents=>`NT$ ${Math.round(Number(cents||0)/100).toLocaleString()}`;
@@ -47,6 +49,19 @@ function RecordPagination({page,totalItems,pageSize,onPageChange,label,compact=f
     <div className="record-pagination-controls"><button type="button" disabled={safePage===1} onClick={()=>onPageChange(safePage-1)} aria-label={`${label}上一頁`}><ChevronLeft/></button><span aria-live="polite" aria-atomic="true"><b>{safePage}</b> / {totalPages}</span><button type="button" disabled={safePage===totalPages} onClick={()=>onPageChange(safePage+1)} aria-label={`${label}下一頁`}><ChevronRight/></button></div>
   </nav>;
 }
+const EXPENSE_SORT_LABELS={date:'日期',participantAmount:'參與金額',amount:'金額'};
+const expenseSortDirectionLabel=(key,direction)=>{
+  if(key==='date')return direction==='asc'?'由舊到新':'由新到舊';
+  return direction==='asc'?'由低到高':'由高到低';
+};
+function ExpenseSortButton({field,sort,onSort,className=''}) {
+  const active=sort.key===field,direction=active?sort.direction:'desc';
+  const Icon=active?(direction==='asc'?ArrowUp:ArrowDown):ArrowUpDown;
+  const label=EXPENSE_SORT_LABELS[field];
+  const currentLabel=active?`目前${expenseSortDirectionLabel(field,direction)}`:'尚未選取';
+  const nextDirection=active&&direction==='desc'?'asc':'desc';
+  return <button type="button" className={`expense-sort-button ${active?'is-active':''} ${className}`.trim()} aria-pressed={active} aria-label={`${label}排序，${currentLabel}，點擊改為${expenseSortDirectionLabel(field,nextDirection)}`} title={`${label}排序：${currentLabel}`} onClick={()=>onSort(field)}><span>{label}</span><Icon aria-hidden="true"/></button>;
+}
 function DevAccessBar({login,loading,error}){return <aside className="dev-access-bar" aria-label="本機開發工具"><div><small>LOCAL DEVELOPMENT</small><b>本機開發模式</b></div><button type="button" onClick={login} disabled={loading}>{loading?<LoaderCircle/>:<ArrowRight/>}{loading?'登入中…':'直接進入功能'}</button>{error&&<p role="alert">{error}</p>}</aside>}
 
 export default function ProductApp({Home}){
@@ -85,7 +100,7 @@ export default function ProductApp({Home}){
       <div className="group-switcher">{groups.map(item=><button className={activeId===item.id?'active':''} aria-current={activeId===item.id?'page':undefined} key={item.id} onClick={()=>selectGroup(item.id)}><span className="group-icon"><WalletCards/></span><div><b>{item.name}</b><small>{item.memberCount} 位成員</small></div></button>)}</div>
       <button className="new-group" onClick={()=>setShowCreate(true)}><Plus/> 建立新群組</button>
       <div className="side-footer">
-        {me.isSuperuser&&<button className="superuser-entry" onClick={()=>setAdminMode(true)}><ShieldCheck/> 超級使用者模式</button>}
+        {me.isSuperuser&&<button className="superuser-entry" onClick={()=>setAdminMode(true)}><ShieldCheck/> 管理者模式</button>}
         <button className="logout" onClick={logout}><LogOut/> 登出</button>
         <span><b>旅帳 TripTab</b><small>v1.0.0</small></span>
       </div>
@@ -93,7 +108,7 @@ export default function ProductApp({Home}){
     <section className="real-workspace">
       <header>
         <BrandMark className="mobile-header-mark"/>
-        <div className="desktop-group-title"><small>{adminViewing?'超級使用者　/　帳本檢視':'我的群組　/　共同帳本'}</small><h2>{group?.name||'旅帳'}</h2></div>
+        <div className="desktop-group-title"><small>{adminViewing?'管理者　/　帳本檢視':'我的群組　/　共同帳本'}</small><h2>{group?.name||'旅帳'}</h2></div>
         <label className="mobile-group-picker"><small>目前群組</small><select value={activeId||''} onChange={e=>selectGroup(e.target.value)} disabled={groupLoading}>{groups.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <button type="button" className="mobile-new-group" onClick={()=>setShowCreate(true)} aria-label="建立新群組" title="建立新群組"><Plus/></button>
         <div className="real-header-actions">
@@ -171,28 +186,27 @@ function SettlementBankShare({groupId,settlement,shared,configured,refresh,openP
 }
 function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refresh,refreshing=false,openAdmin,openProfile,onTransferReported,adminViewing=false}){
   const [paying,setPaying]=useState(''),[pendingSettlement,setPendingSettlement]=useState(null),[transferError,setTransferError]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[selectedExpenseShares,setSelectedExpenseShares]=useState(null),[selectedMemberId,setSelectedMemberId]=useState(null),[actionError,setActionError]=useState('');
-  const [activityTab,setActivityTab]=useState('expenses'),[expensePage,setExpensePage]=useState(1),[settlementPage,setSettlementPage]=useState(1);
+  const [activityTab,setActivityTab]=useState('expenses'),[expensePage,setExpensePage]=useState(1),[settlementPage,setSettlementPage]=useState(1),[expenseSort,setExpenseSort]=useState(DEFAULT_EXPENSE_SORT);
   const expenseMembers=useMemo(()=>group.members.filter(member=>!member.isFund),[group.members]);
   const selectedMember=expenseMembers.find(member=>String(member.id)===selectedMemberId);
   const [expenseMemberId,setExpenseMemberId]=useState(()=>expenseMembers.some(member=>String(member.id)===String(me.id))?String(me.id):'all');
+  const selectedExpenseMember=expenseMembers.find(member=>String(member.id)===expenseMemberId);
+  const currentUserIsMember=expenseMembers.some(member=>String(member.id)===String(me.id));
+  const expenseParticipantId=selectedExpenseMember?.id||(currentUserIsMember?me.id:null);
+  const expenseParticipantLabel=selectedExpenseMember?`${selectedExpenseMember.displayName} 的參與金額`:currentUserIsMember?'我的參與金額':'參與金額';
   const visibleExpenses=useMemo(()=>expenseMemberId==='all'?group.expenses:group.expenses.filter(expense=>
     [...(expense.payments||[]),...(expense.shares||[])].some(entry=>String(entry.userId)===expenseMemberId)
   ),[expenseMemberId,group.expenses]);
-  const prioritizedExpenses=useMemo(()=>{
-    const paidByMe=[],others=[];
-    for(const expense of visibleExpenses){
-      const isPaidByMe=(expense.payments||[]).some(payment=>String(payment.userId)===String(me.id));
-      (isPaidByMe?paidByMe:others).push(expense);
-    }
-    return [...paidByMe,...others];
-  },[me.id,visibleExpenses]);
-  const expensePageCount=Math.max(1,Math.ceil(prioritizedExpenses.length/TABLE_PAGE_SIZE)),currentExpensePage=Math.min(expensePage,expensePageCount);
-  const pagedExpenses=prioritizedExpenses.slice((currentExpensePage-1)*TABLE_PAGE_SIZE,currentExpensePage*TABLE_PAGE_SIZE);
-  const settlementPageCount=Math.max(1,Math.ceil(group.settlements.length/SETTLEMENT_PAGE_SIZE)),currentSettlementPage=Math.min(settlementPage,settlementPageCount);
-  const pagedSettlements=group.settlements.slice((currentSettlementPage-1)*SETTLEMENT_PAGE_SIZE,currentSettlementPage*SETTLEMENT_PAGE_SIZE);
+  const sortedExpenses=useMemo(()=>sortExpenses(visibleExpenses,expenseSort,expenseParticipantId),[expenseParticipantId,expenseSort,visibleExpenses]);
+  const expensePageCount=Math.max(1,Math.ceil(sortedExpenses.length/TABLE_PAGE_SIZE)),currentExpensePage=Math.min(expensePage,expensePageCount);
+  const pagedExpenses=sortedExpenses.slice((currentExpensePage-1)*TABLE_PAGE_SIZE,currentExpensePage*TABLE_PAGE_SIZE);
+  const prioritizedSettlements=useMemo(()=>prioritizeSettlementsForReceiver(group.settlements,me.id),[group.settlements,me.id]);
+  const settlementPageCount=Math.max(1,Math.ceil(prioritizedSettlements.length/SETTLEMENT_PAGE_SIZE)),currentSettlementPage=Math.min(settlementPage,settlementPageCount);
+  const pagedSettlements=prioritizedSettlements.slice((currentSettlementPage-1)*SETTLEMENT_PAGE_SIZE,currentSettlementPage*SETTLEMENT_PAGE_SIZE);
   useEffect(()=>setExpensePage(page=>Math.min(page,expensePageCount)),[expensePageCount]);
   useEffect(()=>setSettlementPage(page=>Math.min(page,settlementPageCount)),[settlementPageCount]);
-  const selectedExpenseMember=expenseMembers.find(member=>String(member.id)===expenseMemberId);
+  const changeExpenseSort=field=>{setExpenseSort(current=>nextExpenseSort(current,field));setExpensePage(1)};
+  const expenseSortSummary=`目前依${EXPENSE_SORT_LABELS[expenseSort.key]}${expenseSortDirectionLabel(expenseSort.key,expenseSort.direction)}排序`;
   const total=group.expenses.reduce((sum,e)=>sum+e.amountCents,0);
   const mine=group.balances.find(x=>x.id===me.id)?.balanceCents||0;
   const memberCount=group.members.filter(x=>!x.isFund).length;
@@ -283,7 +297,7 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
         </div>
       </div>
       <div className="group-overview-side">
-        {(group.ownerId===me.id||adminViewing)&&<details className="group-admin-menu"><summary><Settings2/> 群組管理</summary><div><p>{adminViewing?'你正以超級使用者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p><button className="danger-action" disabled={deletingGroup} onClick={deleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除群組'}</button></div></details>}
+        {(group.ownerId===me.id||adminViewing)&&<details className="group-admin-menu"><summary><Settings2/> 群組管理</summary><div><p>{adminViewing?'你正以管理者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p><button className="danger-action" disabled={deletingGroup} onClick={deleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除群組'}</button></div></details>}
       </div>
     </section>
     <nav className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} aria-label="群組快捷功能">
@@ -305,20 +319,23 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
           <button id={`activity-tab-repayments-${group.id}`} type="button" role="tab" aria-selected={activityTab==='repayments'} aria-controls={`activity-panel-repayments-${group.id}`} tabIndex={activityTab==='repayments'?0:-1} className={activityTab==='repayments'?'active':''} onClick={()=>setActivityTab('repayments')} onKeyDown={handleActivityTabKeyDown}><History/><span>還款紀錄</span><b>{(group.settlementHistory||[]).length}</b></button>
         </nav>
         <section className="expense-panel" id={`activity-panel-expenses-${group.id}`} role="tabpanel" aria-labelledby={`activity-tab-expenses-${group.id}`} tabIndex={0} hidden={activityTab!=='expenses'}>
-          <div className="section-head"><div><h2 id="expense-title">最近支出</h2><p>你付款的支出優先，各組內依新增時間排序</p></div><div className="expense-head-actions"><label className="expense-member-filter" title={selectedExpenseMember?.displayName||'全部成員'}><span className="expense-member-filter-avatar" aria-hidden="true">{selectedExpenseMember?<Person person={selectedExpenseMember} size={26}/>:<Users/>}</span><span className="expense-member-filter-copy" aria-hidden="true"><small>支出成員</small><b>{selectedExpenseMember?.displayName||'全部成員'}</b></span><ChevronDown aria-hidden="true"/><select id={`expense-member-filter-${group.id}`} value={expenseMemberId} onChange={event=>{setExpenseMemberId(event.target.value);setExpensePage(1)}} aria-label="依成員篩選最近支出"><option value="all">全部成員</option>{expenseMembers.map(member=><option key={member.id} value={member.id}>{member.displayName}</option>)}</select></label><output className={`count-badge expense-count ${expenseMemberId==='all'?'':'is-filtered'}`} htmlFor={`expense-member-filter-${group.id}`} aria-live="polite" aria-atomic="true"><strong>{visibleExpenses.length}</strong><span>{expenseMemberId==='all'?'筆支出':`／${group.expenses.length} 筆`}</span></output></div></div>
+          <div className="section-head"><div><h2 id="expense-title">最近支出</h2><p aria-live="polite" aria-atomic="true">{expenseSortSummary}</p></div><div className="expense-head-actions"><label className="expense-member-filter" title={selectedExpenseMember?.displayName||'全部成員'}><span className="expense-member-filter-avatar" aria-hidden="true">{selectedExpenseMember?<Person person={selectedExpenseMember} size={26}/>:<Users/>}</span><span className="expense-member-filter-copy" aria-hidden="true"><small>支出成員</small><b>{selectedExpenseMember?.displayName||'全部成員'}</b></span><ChevronDown aria-hidden="true"/><select id={`expense-member-filter-${group.id}`} value={expenseMemberId} onChange={event=>{setExpenseMemberId(event.target.value);setExpensePage(1)}} aria-label="依成員篩選最近支出"><option value="all">全部成員</option>{expenseMembers.map(member=><option key={member.id} value={member.id}>{member.displayName}</option>)}</select></label><output className={`count-badge expense-count ${expenseMemberId==='all'?'':'is-filtered'}`} htmlFor={`expense-member-filter-${group.id}`} aria-live="polite" aria-atomic="true"><strong>{visibleExpenses.length}</strong><span>{expenseMemberId==='all'?'筆支出':`／${group.expenses.length} 筆`}</span></output></div></div>
           {!group.expenses.length?<div className="empty-list"><ReceiptText/><b>還沒有任何支出</b><p>{adminViewing?'此帳本目前不需要管理協助':'從第一筆共同花費開始建立清楚帳目'}</p>{addExpense&&<button className="empty-primary" onClick={addExpense}><Plus/> 新增第一筆支出</button>}</div>:<>
             {!visibleExpenses.length?<div className="empty-list"><ReceiptText/><b>沒有符合的支出</b><p>{selectedExpenseMember?`${selectedExpenseMember.displayName} 尚未參與任何支出`:'目前沒有符合篩選條件的支出'}</p></div>:<>
-            <div className="record-table-head" aria-hidden="true"><span>日期</span><span>項目</span><span>支付者</span><span>參與金額</span><span>金額 (TWD)</span><span className="record-category-heading">分類</span><span>狀態</span><span>操作</span></div>
-            <div className="record-list">{pagedExpenses.map(e=>{const ownShare=(e.shares||[]).find(share=>String(share.userId)===String(me.id));return <article key={e.id}>
-              <time className="record-date" dateTime={e.createdAt}>{new Date(e.createdAt).toLocaleDateString('zh-TW')}</time>
-              <div className="record-name"><div><b title={e.title}>{e.title}</b><small className="record-meta"><ExpenseShareAvatars expense={e} members={group.members} onOpen={setSelectedExpenseShares}/><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
-              <span className="record-payer">{e.payerName}</span>
-              <div className={`record-share-amount ${ownShare?'':'is-empty'}`}><small>我的參與金額</small><b>{ownShare?money(ownShare.amountCents):'未參與'}</b></div>
-              <div className="record-price"><b className={e.amountCents<0?'positive':''}>{money(e.amountCents)}</b><small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${money(Math.round(e.amountCents/e.shareCount))}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
-              <span className="record-category">{e.amountCents<0?'退款':e.category||'其他'}</span>
-              <span className="record-status"><Check/>已記錄</span>
-              <div className="expense-row-actions">{(e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)&&<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>removeExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>}</div>
-            </article>})}</div>
+            <div className="mobile-expense-sort" role="group" aria-label="最近支出排序"><ExpenseSortButton field="date" sort={expenseSort} onSort={changeExpenseSort}/><ExpenseSortButton field="participantAmount" sort={expenseSort} onSort={changeExpenseSort}/><ExpenseSortButton field="amount" sort={expenseSort} onSort={changeExpenseSort}/></div>
+            <div className="expense-record-table" role="table" aria-labelledby="expense-title">
+              <div role="rowgroup"><div className="record-table-head" role="row"><span className="record-sort-cell" role="columnheader" aria-sort={expenseSort.key==='date'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="date" sort={expenseSort} onSort={changeExpenseSort}/></span><span role="columnheader">項目</span><span role="columnheader">支付者</span><span className="record-sort-cell numeric" role="columnheader" aria-sort={expenseSort.key==='participantAmount'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="participantAmount" sort={expenseSort} onSort={changeExpenseSort}/></span><span className="record-sort-cell numeric" role="columnheader" aria-sort={expenseSort.key==='amount'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="amount" sort={expenseSort} onSort={changeExpenseSort} className="amount-sort"/><small className="record-currency" aria-hidden="true">TWD</small></span><span className="record-category-heading" role="columnheader">分類</span><span role="columnheader">狀態</span><span role="columnheader">操作</span></div></div>
+              <div className="record-list" role="rowgroup">{pagedExpenses.map(e=>{const participantShare=(e.shares||[]).find(share=>String(share.userId)===String(expenseParticipantId));return <article key={e.id} role="row">
+                <time className="record-date" dateTime={e.createdAt} role="cell">{new Date(e.createdAt).toLocaleDateString('zh-TW')}</time>
+                <div className="record-name" role="cell"><div><b title={e.title}>{e.title}</b><small className="record-meta"><ExpenseShareAvatars expense={e} members={group.members} onOpen={setSelectedExpenseShares}/><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
+                <span className="record-payer" role="cell">{e.payerName}</span>
+                <div className={`record-share-amount ${participantShare?'':'is-empty'}`} role="cell"><small>{expenseParticipantLabel}</small><b>{participantShare?money(participantShare.amountCents):'未參與'}</b></div>
+                <div className="record-price" role="cell"><b className={e.amountCents<0?'positive':''}>{money(e.amountCents)}</b><small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${money(Math.round(e.amountCents/e.shareCount))}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
+                <span className="record-category" role="cell">{e.amountCents<0?'退款':e.category||'其他'}</span>
+                <span className="record-status" role="cell"><Check/>已記錄</span>
+                <div className="expense-row-actions" role="cell">{(e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)&&<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>removeExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>}</div>
+              </article>})}</div>
+            </div>
             <RecordPagination page={currentExpensePage} totalItems={visibleExpenses.length} pageSize={TABLE_PAGE_SIZE} onPageChange={setExpensePage} label="最近支出"/>
             </>}
           </>}

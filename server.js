@@ -82,7 +82,7 @@ const requireUser=asyncRoute(async(req,res,next)=>{
   next();
 });
 async function isSuperuser(userId){const {rows:[user]}=await pool.query('SELECT is_superuser FROM users WHERE id=$1',[userId]);return Boolean(user?.is_superuser)}
-const requireSuperuser=asyncRoute(async(req,res,next)=>{if(!await isSuperuser(req.userId))return res.status(403).json({error:'此功能僅限超級使用者'});next()});
+const requireSuperuser=asyncRoute(async(req,res,next)=>{if(!await isSuperuser(req.userId))return res.status(403).json({error:'此功能僅限管理者'});next()});
 const toWholeTwdCents=value=>{const amount=Number(value);return Number.isSafeInteger(amount)?amount*100:NaN};
 const UUID_PATTERN=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function splitMetaFromRequest(mode,body,participantIds){
@@ -411,7 +411,7 @@ app.get('/api/admin/overview',requireUser,requireSuperuser,asyncRoute(async(req,
       LIMIT 200`),
     pool.query(`SELECT log.id,log.action,log.target_type AS "targetType",log.target_id AS "targetId",log.metadata,log.created_at AS "createdAt",actor.display_name AS "actorName"
       FROM admin_audit_log log JOIN users actor ON actor.id=log.actor_id
-      ORDER BY log.created_at DESC LIMIT 30`),
+      ORDER BY log.created_at DESC LIMIT 200`),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_simulated AS "isSimulated",u.simulated_note AS "note",u.created_at AS "createdAt",
       creator.display_name AS "createdByName",COUNT(gm.group_id)::int AS "groupCount"
       FROM users u
@@ -467,7 +467,7 @@ app.post('/api/admin/simulated-accounts/:id/session',requireUser,requireSuperuse
     const {rows:[actor]}=await client.query(`SELECT id FROM users
       WHERE id=$1 AND is_superuser=true AND is_virtual=false AND is_simulated=false
       FOR UPDATE`,[req.userId]);
-    if(!actor){await client.query('ROLLBACK');return res.status(403).json({error:'此功能僅限超級使用者'})}
+    if(!actor){await client.query('ROLLBACK');return res.status(403).json({error:'此功能僅限管理者'})}
     const {rows:[target]}=await client.query(`SELECT id,display_name AS "displayName"
       FROM users WHERE id=$1 AND is_virtual=false AND is_simulated=true AND simulated_created_by IS NOT NULL`,[targetId]);
     if(!target){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這個模擬帳號'})}
@@ -531,17 +531,17 @@ app.patch('/api/admin/users/:id/superuser',requireUser,requireSuperuser,asyncRou
   const targetId=String(req.params.id||'');
   const nextValue=req.body?.isSuperuser;
   if(!UUID_PATTERN.test(targetId)||typeof nextValue!=='boolean')return res.status(400).json({error:'權限設定格式不正確'});
-  if(targetId===req.userId&&!nextValue)return res.status(400).json({error:'不能移除自己的超級使用者權限'});
+  if(targetId===req.userId&&!nextValue)return res.status(400).json({error:'不能移除自己的管理者權限'});
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
     await client.query('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
     const {rows:[target]}=await client.query('SELECT id,display_name,is_virtual,is_simulated,is_superuser FROM users WHERE id=$1',[targetId]);
     if(!target){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這位使用者'})}
-    if(target.is_virtual||target.is_simulated){await client.query('ROLLBACK');return res.status(400).json({error:'公費或模擬帳號不能設為超級使用者'})}
+    if(target.is_virtual||target.is_simulated){await client.query('ROLLBACK');return res.status(400).json({error:'公費或模擬帳號不能設為管理者'})}
     if(target.is_superuser&&!nextValue){
       const {rows:[count]}=await client.query('SELECT COUNT(*)::int AS total FROM users WHERE is_superuser=true AND is_virtual=false AND is_simulated=false');
-      if(count.total<=1){await client.query('ROLLBACK');return res.status(400).json({error:'系統至少需要保留一位超級使用者'})}
+      if(count.total<=1){await client.query('ROLLBACK');return res.status(400).json({error:'系統至少需要保留一位管理者'})}
     }
     const {rows:[updated]}=await client.query('UPDATE users SET is_superuser=$1,updated_at=now() WHERE id=$2 RETURNING id,display_name AS "displayName",is_superuser AS "isSuperuser"',[nextValue,targetId]);
     await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata)
@@ -614,7 +614,7 @@ app.delete('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   const {rows:[group]}=await pool.query('SELECT id,owner_id FROM groups WHERE id=$1',[req.params.id]);
   if(!group)return res.status(404).json({error:'找不到群組'});
   const elevated=await isSuperuser(req.userId);
-  if(group.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有群組建立者或超級使用者能刪除群組'});
+  if(group.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有群組建立者或管理者能刪除群組'});
   await pool.query('DELETE FROM groups WHERE id=$1',[req.params.id]);
   if(elevated&&group.owner_id!==req.userId)await pool.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata) VALUES($1,'delete_group','group',$2,'{}'::jsonb)`,[req.userId,req.params.id]);
   res.json({ok:true});
@@ -645,7 +645,7 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
   const {rows:[existing]}=await pool.query(`SELECT e.created_by,g.owner_id FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
   if(!existing)return res.status(404).json({error:'找不到這筆支出'});
   const elevated=await isSuperuser(req.userId);
-  if(existing.created_by!==req.userId&&existing.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有記帳人、群組建立者或超級使用者能修改'});
+  if(existing.created_by!==req.userId&&existing.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有記帳人、群組建立者或管理者能修改'});
   const title=String(req.body?.title||'').trim(),rawAmount=Number(req.body?.amount),sign=req.body?.kind==='refund'||rawAmount<0?-1:1,amountCents=sign*toWholeTwdCents(Math.abs(rawAmount)),participantIds=[...new Set(Array.isArray(req.body?.participantIds)?req.body.participantIds.map(String):[])];
   if(!title||title.length>100||!Number.isSafeInteger(amountCents)||amountCents===0)return res.status(400).json({error:'請完整填寫支出資料'});
   const {rows:memberRows}=await pool.query('SELECT user_id::text id,is_virtual FROM group_members JOIN users ON users.id=user_id WHERE group_id=$1',[req.params.id]);const allowed=new Set(memberRows.filter(x=>!x.is_virtual).map(x=>x.id));
@@ -668,7 +668,7 @@ app.delete('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(re
   const {rows:[expense]}=await pool.query(`SELECT e.id,e.created_by,g.owner_id FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
   if(!expense)return res.status(404).json({error:'找不到這筆支出'});
   const elevated=await isSuperuser(req.userId);
-  if(expense.created_by!==req.userId&&expense.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有記帳人、群組建立者或超級使用者能刪除'});
+  if(expense.created_by!==req.userId&&expense.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有記帳人、群組建立者或管理者能刪除'});
   const client=await pool.connect();
   try{
     await client.query('BEGIN');

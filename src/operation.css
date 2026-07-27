@@ -1014,8 +1014,13 @@
   background: var(--operation-green-soft);
 }
 
+.mobile-expense-sort {
+  display: none;
+}
+
 @media (forced-colors: active) {
-  .expense-member-filter:focus-within {
+  .expense-member-filter:focus-within,
+  .expense-sort-button:focus-visible {
     outline-color: Highlight;
   }
 }
@@ -1028,11 +1033,11 @@
   align-items: center;
 }
 
-.record-table-head span,
-.record-table-head span:first-child,
-.record-table-head span:nth-child(2),
-.record-table-head span:nth-child(3),
-.record-table-head span:last-child {
+.record-table-head > span,
+.record-table-head > span:first-child,
+.record-table-head > span:nth-child(2),
+.record-table-head > span:nth-child(3),
+.record-table-head > span:last-child {
   display: block;
   min-width: 0;
   grid-column: auto;
@@ -1049,7 +1054,7 @@
 }
 
 .record-table-head {
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 16px;
   border-bottom: 1px solid var(--operation-border);
   color: var(--operation-muted);
@@ -1058,16 +1063,16 @@
   font-weight: 700;
 }
 
-.record-table-head span:nth-child(4),
-.record-table-head span:nth-child(5) {
+.record-table-head > span:nth-child(4),
+.record-table-head > span:nth-child(5) {
   text-align: right;
 }
 
-.record-table-head span:nth-child(3) {
+.record-table-head > span:nth-child(3) {
   text-align: left;
 }
 
-.record-table-head span:nth-child(4),
+.record-table-head > span:nth-child(4),
 .record-share-amount {
   margin-inline: 6px;
 }
@@ -1077,8 +1082,76 @@
   margin-inline-start: 8px;
 }
 
-.record-table-head span:last-child {
+.record-table-head > span:last-child {
   text-align: left;
+}
+
+.record-table-head > .record-sort-cell {
+  display: flex;
+  align-items: center;
+}
+
+.record-table-head > .record-sort-cell.numeric {
+  justify-content: flex-end;
+}
+
+.expense-sort-button {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 7px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+.expense-sort-button:hover {
+  color: var(--operation-green-dark);
+  background: var(--operation-green-soft);
+}
+
+.expense-sort-button:active {
+  color: var(--operation-green);
+  background: #dcefe5;
+}
+
+.expense-sort-button:focus-visible {
+  outline: 2px solid var(--operation-green);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(26, 127, 86, .12);
+}
+
+.expense-sort-button.is-active {
+  color: var(--operation-green-dark);
+}
+
+.expense-sort-button svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  stroke-width: 2.2;
+}
+
+.record-sort-cell.numeric .expense-sort-button {
+  justify-content: flex-end;
+}
+
+.record-currency {
+  margin-left: 2px;
+  color: var(--operation-muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .02em;
 }
 
 .record-list article {
@@ -1826,7 +1899,7 @@
     gap: 6px;
   }
 
-  .record-table-head span:nth-child(4),
+  .record-table-head > span:nth-child(4),
   .record-share-amount {
     margin-inline: 4px;
   }
@@ -2233,6 +2306,45 @@
   .record-table-head,
   .repayment-table-head {
     display: none;
+  }
+
+  .mobile-expense-sort {
+    display: grid;
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--operation-border);
+    background: #fafcfb;
+  }
+
+  .mobile-expense-sort .expense-sort-button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 6px;
+    border: 1px solid var(--operation-border);
+    border-radius: 9px;
+    color: var(--operation-muted);
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(22,52,42,.025);
+    font-size: 11px;
+  }
+
+  .mobile-expense-sort .expense-sort-button:hover {
+    border-color: #b8ccc2;
+    color: var(--operation-green-dark);
+    background: #fbfdfc;
+  }
+
+  .mobile-expense-sort .expense-sort-button.is-active {
+    border-color: #b9d8c7;
+    color: var(--operation-green-dark);
+    background: var(--operation-green-soft);
+  }
+
+  .mobile-expense-sort .expense-sort-button:active {
+    background: #dcefe5;
   }
 
   .record-list article {
