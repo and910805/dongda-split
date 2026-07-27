@@ -2001,27 +2001,96 @@
   }
 
   .mobile-group-picker {
+    position: relative;
+    display: grid;
+    width: min(100%,320px);
+    max-width: 320px;
+    height: 50px;
     min-width: 0;
     flex: 1;
+    grid-template-columns: minmax(0,1fr) 32px;
     align-items: center;
-    flex-direction: column;
+    gap: 6px;
+    padding: 5px 5px 5px 12px;
+    border: 1px solid rgba(255,255,255,.36);
+    border-radius: 14px;
+    background: rgba(255,255,255,.13);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+    overflow: hidden;
+    transition: background-color 160ms ease,border-color 160ms ease,box-shadow 160ms ease,opacity 160ms ease;
   }
 
-  .mobile-group-picker small {
+  .mobile-group-picker:hover {
+    border-color: rgba(255,255,255,.62);
+    background: rgba(255,255,255,.19);
+  }
+
+  .mobile-group-picker:focus-within {
+    border-color: #fff;
+    outline: 3px solid rgba(255,255,255,.95);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(5,79,49,.18);
+  }
+
+  .mobile-group-picker.is-loading {
+    opacity: .78;
+  }
+
+  .mobile-group-picker-copy {
+    display: grid;
+    min-width: 0;
+    gap: 1px;
+    pointer-events: none;
+  }
+
+  .mobile-group-picker-copy small {
     color: #d8f4e6;
     font-size: 9px;
+    font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: .04em;
+  }
+
+  .mobile-group-picker-copy b {
+    overflow: hidden;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-group-picker-caret {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 10px;
+    color: #fff;
+    background: rgba(255,255,255,.12);
+    pointer-events: none;
+  }
+
+  .mobile-group-picker-caret svg {
+    width: 17px;
+    height: 17px;
   }
 
   .mobile-group-picker select {
-    width: min(100%,230px);
-    min-height: 44px;
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     border: 0;
-    color: #fff;
+    margin: 0;
+    opacity: 0;
     background: transparent;
     font-size: 16px;
-    font-weight: 800;
-    text-align: center;
-    text-align-last: center;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
   }
 
   .mobile-group-picker option {

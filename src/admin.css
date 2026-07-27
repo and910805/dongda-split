@@ -397,9 +397,13 @@
 
 .admin-tabs {
   display: grid;
+  width: 100%;
+  height: auto;
+  max-width: none;
   grid-template-columns: repeat(4,minmax(0,1fr));
   gap: 6px;
   padding: 6px;
+  margin: 0;
   border: 1px solid var(--admin-line);
   border-radius: 12px;
   background: #eaf0ed;
@@ -1333,11 +1337,25 @@
 
 @media (max-width: 700px) {
   .admin-tabs {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 8px;
+    padding: 8px;
+    border-radius: 14px;
   }
 
   .admin-tabs button {
+    min-height: 60px;
     justify-content: flex-start;
+    gap: 9px;
+    padding: 0 12px;
+  }
+
+  .admin-tabs button > span {
+    font-size: 12px;
+  }
+
+  .admin-tabs button > b {
+    margin-left: auto;
   }
 
   .admin-simulator-form,
@@ -1560,6 +1578,22 @@
 
   .admin-workspace > header h1 {
     font-size: 14px;
+  }
+
+  .admin-tabs {
+    gap: 7px;
+    padding: 7px;
+  }
+
+  .admin-tabs button {
+    min-height: 56px;
+    gap: 7px;
+    padding: 0 10px;
+  }
+
+  .admin-tabs svg {
+    width: 16px;
+    height: 16px;
   }
 
   .admin-stats article > span {
