@@ -1,14 +1,19 @@
 import 'dotenv/config.js';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import pg from 'pg';
 
 const base=process.env.TEST_BASE_URL||'http://127.0.0.1:8080';
 async function request(path,{cookie,method='GET',body}={}){const response=await fetch(`${base}${path}`,{method,headers:{...(cookie?{cookie}:{}),...(body?{'content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});const data=await response.json().catch(()=>({}));if(!response.ok)throw Object.assign(new Error(data.error||`${method} ${path} failed`),{status:response.status});return{data,response}}
-async function login(name){const {response}=await request('/api/dev-login',{method:'POST',body:{name}});const cookie=(response.headers.getSetCookie?.()[0]||response.headers.get('set-cookie')).split(';')[0];const {data}=await request('/api/me',{cookie});return{cookie,user:data}}
+const sessionCookie=response=>(response.headers.getSetCookie?.()[0]||response.headers.get('set-cookie')).split(';')[0];
+async function login(name){const {response}=await request('/api/dev-login',{method:'POST',body:{name}});const cookie=sessionCookie(response);const {data}=await request('/api/me',{cookie});return{cookie,user:data}}
 const post=(cookie,path,body)=>request(path,{cookie,method:'POST',body}).then(x=>x.data);
 async function expectStatus(status,promise){try{await promise;assert.fail(`expected HTTP ${status}`)}catch(error){assert.equal(error.status,status)}}
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
 let adminUserId=null,adminRoleBefore=null;
+const simulatedUserIds=[];
+const simulationRunId=crypto.randomUUID().slice(0,8);
+const simulationNote=`scenario automated test ${simulationRunId}`;
 
 try{
   const actors=[];for(let i=1;i<=14;i++)actors.push(await login(`ScenarioMember${i}`));
@@ -28,14 +33,103 @@ try{
   assert.equal(admin.user.isSuperuser,true);
   assert.ok(adminOverview.users.some(user=>user.id===owner.user.id));
   assert.ok(adminOverview.groups.some(item=>item.id===group.id));
+  await expectStatus(403,request('/api/admin/simulated-accounts',{cookie:owner.cookie,method:'POST',body:{displayName:'無權建立'}}));
+  await expectStatus(400,request('/api/admin/simulated-accounts',{cookie:admin.cookie,method:'POST',body:{displayName:'  '}}));
+  const simulatedName=`Scenario模擬旅伴A-${simulationRunId}`;
+  const {data:simulatedAccount,response:simulatedCreateResponse}=await request('/api/admin/simulated-accounts',{cookie:admin.cookie,method:'POST',body:{displayName:simulatedName,note:simulationNote}});
+  simulatedUserIds.push(simulatedAccount.id);
+  assert.equal(simulatedCreateResponse.status,201);
+  assert.equal(simulatedAccount.displayName,simulatedName);
+  assert.equal(simulatedAccount.isSimulated,true);
+  await expectStatus(409,request('/api/admin/simulated-accounts',{cookie:admin.cookie,method:'POST',body:{displayName:simulatedName,note:'duplicate'}}));
+  const {data:overviewWithSimulation}=await request('/api/admin/overview',{cookie:admin.cookie});
+  assert.equal(overviewWithSimulation.stats.simulatedAccountCount>=1,true);
+  assert.ok(overviewWithSimulation.simulatedAccounts.some(account=>account.id===simulatedAccount.id&&account.isSimulated===true));
+  assert.ok(!overviewWithSimulation.users.some(user=>user.id===simulatedAccount.id));
+  await expectStatus(403,request(`/api/admin/simulated-accounts/${simulatedAccount.id}/session`,{cookie:owner.cookie,method:'POST'}));
+  await expectStatus(400,request('/api/admin/simulated-accounts/not-a-uuid/session',{cookie:admin.cookie,method:'POST'}));
+  await expectStatus(400,request(`/api/admin/users/${simulatedAccount.id}/superuser`,{cookie:admin.cookie,method:'PATCH',body:{isSuperuser:true}}));
+  const {response:simulationResponse}=await request(`/api/admin/simulated-accounts/${simulatedAccount.id}/session`,{cookie:admin.cookie,method:'POST'});
+  const simulatedCookie=sessionCookie(simulationResponse);
+  const {data:simulatedMe}=await request('/api/me',{cookie:simulatedCookie});
+  assert.equal(simulatedMe.id,simulatedAccount.id);
+  assert.equal(simulatedMe.isSimulated,true);
+  assert.equal(simulatedMe.isSuperuser,false);
+  assert.equal(simulatedMe.simulation.active,true);
+  assert.equal(simulatedMe.simulation.actor.id,admin.user.id);
+  await expectStatus(403,request('/api/admin/overview',{cookie:simulatedCookie}));
+  const simulatedGroup=await post(simulatedCookie,'/api/groups',{name:'simulation-e2e',description:'scenario automated test'});
+  const secondSimulatedName=`Scenario模擬旅伴B-${simulationRunId}`;
+  const secondSimulated=await post(admin.cookie,'/api/admin/simulated-accounts',{displayName:secondSimulatedName,note:simulationNote});
+  simulatedUserIds.push(secondSimulated.id);
+  const {response:simulationExitResponse}=await request('/api/admin/simulation/exit',{cookie:simulatedCookie,method:'POST'});
+  const restoredAdminCookie=sessionCookie(simulationExitResponse);
+  const {data:restoredAdmin}=await request('/api/me',{cookie:restoredAdminCookie});
+  assert.equal(restoredAdmin.id,admin.user.id);
+  assert.equal(restoredAdmin.isSuperuser,true);
+  assert.equal(restoredAdmin.simulation,null);
+  await expectStatus(401,request('/api/groups',{cookie:simulatedCookie}));
+  const {response:secondSimulationResponse}=await request(`/api/admin/simulated-accounts/${secondSimulated.id}/session`,{cookie:admin.cookie,method:'POST'});
+  const secondSimulatedCookie=sessionCookie(secondSimulationResponse);
+  await post(secondSimulatedCookie,`/api/invites/${simulatedGroup.inviteToken}/join`,{});
+  await expectStatus(403,post(owner.cookie,`/api/invites/${simulatedGroup.inviteToken}/join`,{}));
+  await expectStatus(403,post(secondSimulatedCookie,`/api/invites/${group.inviteToken}/join`,{}));
+  const {data:simulatedGroupDetail}=await request(`/api/groups/${simulatedGroup.id}`,{cookie:secondSimulatedCookie});
+  assert.equal(simulatedGroupDetail.members.filter(member=>!member.isFund).length,2);
+  await request('/api/admin/simulation/exit',{cookie:secondSimulatedCookie,method:'POST'});
+  await expectStatus(401,request('/api/groups',{cookie:secondSimulatedCookie}));
+  const {response:expenseSimulationResponse}=await request(`/api/admin/simulated-accounts/${simulatedAccount.id}/session`,{cookie:admin.cookie,method:'POST'});
+  const expenseSimulatedCookie=sessionCookie(expenseSimulationResponse);
+  await post(expenseSimulatedCookie,`/api/groups/${simulatedGroup.id}/expenses`,{
+    title:'模擬住宿費',
+    amount:1200,
+    payerId:simulatedAccount.id,
+    participantIds:[simulatedAccount.id,secondSimulated.id],
+    splitMode:'equal'
+  });
+  const {data:simulatedLedger}=await request(`/api/groups/${simulatedGroup.id}`,{cookie:expenseSimulatedCookie});
+  assert.equal(simulatedLedger.expenses.some(expense=>expense.title==='模擬住宿費'),true);
+  const simulatedTransfer=simulatedLedger.settlements.find(item=>item.from.id===secondSimulated.id&&item.to.id===simulatedAccount.id);
+  assert.equal(simulatedTransfer.amountCents,60000);
+  await request('/api/admin/simulation/exit',{cookie:expenseSimulatedCookie,method:'POST'});
+  const {response:settlementSimulationResponse}=await request(`/api/admin/simulated-accounts/${secondSimulated.id}/session`,{cookie:admin.cookie,method:'POST'});
+  const settlementSimulatedCookie=sessionCookie(settlementSimulationResponse);
+  await post(settlementSimulatedCookie,`/api/groups/${simulatedGroup.id}/settlements`,{
+    fromUserId:secondSimulated.id,
+    toUserId:simulatedAccount.id,
+    amount:simulatedTransfer.amountCents/100
+  });
+  const {data:simulatedSettled}=await request(`/api/groups/${simulatedGroup.id}`,{cookie:settlementSimulatedCookie});
+  assert.equal(simulatedSettled.settlements.length,0);
+  assert.equal(simulatedSettled.settlementHistory.length,1);
+  await request('/api/admin/simulation/exit',{cookie:settlementSimulatedCookie,method:'POST'});
+  await expectStatus(400,request('/api/admin/simulation/exit',{cookie:admin.cookie,method:'POST'}));
+  const {data:overviewAfterSimulation}=await request('/api/admin/overview',{cookie:admin.cookie});
+  assert.ok(overviewAfterSimulation.auditLog.some(item=>item.action==='create_simulated_account'&&item.targetId===simulatedAccount.id));
+  assert.ok(overviewAfterSimulation.auditLog.some(item=>item.action==='start_account_simulation'&&item.targetId===simulatedAccount.id));
+  assert.ok(overviewAfterSimulation.auditLog.some(item=>item.action==='end_account_simulation'&&item.targetId===simulatedAccount.id));
   const promoted=actors[13];
   const {data:promotedRole}=await request(`/api/admin/users/${promoted.user.id}/superuser`,{cookie:admin.cookie,method:'PATCH',body:{isSuperuser:true}});
   assert.equal(promotedRole.isSuperuser,true);
   const {data:promotedMe}=await request('/api/me',{cookie:promoted.cookie});
   assert.equal(promotedMe.isSuperuser,true);
   await expectStatus(400,request(`/api/admin/users/${admin.user.id}/superuser`,{cookie:admin.cookie,method:'PATCH',body:{isSuperuser:false}}));
+  const foreignSimulated=await post(promoted.cookie,'/api/admin/simulated-accounts',{
+    displayName:`Scenario模擬旅伴C-${simulationRunId}`,
+    note:simulationNote
+  });
+  simulatedUserIds.push(foreignSimulated.id);
+  const {response:foreignSimulationResponse}=await request(`/api/admin/simulated-accounts/${foreignSimulated.id}/session`,{cookie:promoted.cookie,method:'POST'});
+  const foreignSimulatedCookie=sessionCookie(foreignSimulationResponse);
+  await expectStatus(403,post(foreignSimulatedCookie,`/api/invites/${simulatedGroup.inviteToken}/join`,{}));
   const {data:revokedRole}=await request(`/api/admin/users/${promoted.user.id}/superuser`,{cookie:admin.cookie,method:'PATCH',body:{isSuperuser:false}});
   assert.equal(revokedRole.isSuperuser,false);
+  await expectStatus(401,request('/api/groups',{cookie:foreignSimulatedCookie}));
+  const {response:foreignSimulationExitResponse}=await request('/api/admin/simulation/exit',{cookie:foreignSimulatedCookie,method:'POST'});
+  const restoredPromotedCookie=sessionCookie(foreignSimulationExitResponse);
+  const {data:restoredPromoted}=await request('/api/me',{cookie:restoredPromotedCookie});
+  assert.equal(restoredPromoted.id,promoted.user.id);
+  assert.equal(restoredPromoted.isSuperuser,false);
   const {data:adminGroupView}=await request(`/api/groups/${group.id}`,{cookie:admin.cookie});
   assert.equal(adminGroupView.id,group.id);
 
@@ -205,6 +299,15 @@ try{
   console.log('ALL_DATABASE_SCENARIOS_OK');
 }finally{
   await pool.query("DELETE FROM groups WHERE description='scenario automated test'");
+  if(simulatedUserIds.length){
+    await pool.query(`DELETE FROM admin_audit_log
+      WHERE (target_type='simulated_account' AND target_id=ANY($1::text[]))
+         OR (target_type='simulation_session' AND metadata->>'subjectId'=ANY($1::text[]))`,[simulatedUserIds]);
+    await pool.query('DELETE FROM account_simulation_sessions WHERE subject_id=ANY($1::uuid[])',[simulatedUserIds]);
+    await pool.query(`DELETE FROM users
+      WHERE id=ANY($1::uuid[]) AND is_simulated=true
+        AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.user_id=users.id)`,[simulatedUserIds]);
+  }
   await pool.query("DELETE FROM users WHERE line_user_id LIKE 'dev-ScenarioMember%' AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.user_id=users.id)");
   await pool.query("DELETE FROM users WHERE is_virtual=true AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.user_id=users.id)");
   if(adminUserId&&adminRoleBefore&&!adminRoleBefore.is_superuser)await pool.query('UPDATE users SET is_superuser=false WHERE id=$1',[adminUserId]);

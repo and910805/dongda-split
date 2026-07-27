@@ -9,6 +9,7 @@ import pg from 'pg';
 import {allocateByWeights,allocateEqual,allocateHybrid,minimizeSettlements} from './finance.mjs';
 // bank-account.mjs is required at runtime and must be copied into the production image.
 import {createBankAccountCipher,normalizeBankAccount} from './bank-account.mjs';
+import {normalizeSimulatedAccountInput} from './account-simulation.mjs';
 
 const {Pool}=pg;
 const app=express();
@@ -34,11 +35,56 @@ const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
 function sign(value){const body=encode(value);const sig=crypto.createHmac('sha256',SESSION_SECRET).update(body).digest('base64url');return `${body}.${sig}`}
 function unsign(token){try{const [body,sig]=String(token||'').split('.');if(!body||!sig)return null;const expected=crypto.createHmac('sha256',SESSION_SECRET).update(body).digest();const actual=Buffer.from(sig,'base64url');if(actual.length!==expected.length||!crypto.timingSafeEqual(actual,expected))return null;const data=JSON.parse(Buffer.from(body,'base64url').toString());if(data.exp&&Date.now()>data.exp)return null;return data}catch{return null}}
 function safeReturnTo(value){return typeof value==='string'&&value.startsWith('/')&&!value.startsWith('//')?value:'/app'}
-function requireUser(req,res,next){const session=unsign(req.cookies.dongda_session);if(!session?.userId)return res.status(401).json({error:'請先使用 LINE 登入'});req.userId=session.userId;next()}
 const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+function attachSignedSession(req,res){
+  const session=unsign(req.cookies.dongda_session);
+  if(!session?.userId){res.status(401).json({error:'請先使用 LINE 登入'});return false}
+  req.userId=session.userId;
+  req.session=session;
+  return true;
+}
+function requireSignedUser(req,res,next){if(attachSignedSession(req,res))next()}
+const requireUser=asyncRoute(async(req,res,next)=>{
+  if(!attachSignedSession(req,res))return;
+  const hasSimulationClaims=Boolean(req.session.impersonatorId||req.session.simulationSessionId);
+  if(!hasSimulationClaims)return next();
+  const actorId=String(req.session.impersonatorId||'');
+  const simulationSessionId=String(req.session.simulationSessionId||'');
+  if(!UUID_PATTERN.test(actorId)||!UUID_PATTERN.test(simulationSessionId)){
+    res.clearCookie('dongda_session',{path:'/'});
+    return res.status(401).json({error:'帳戶模擬工作階段已失效，請重新登入'});
+  }
+  const {rows:[simulation]}=await pool.query(`SELECT session.id,session.actor_id AS "actorId",session.subject_id AS "subjectId",
+    actor.display_name AS "actorDisplayName",actor.picture_url AS "actorPictureUrl",subject.display_name AS "subjectDisplayName"
+    FROM account_simulation_sessions session
+    JOIN users actor ON actor.id=session.actor_id
+    JOIN users subject ON subject.id=session.subject_id
+    WHERE session.id=$1 AND session.actor_id=$2 AND session.subject_id=$3
+      AND session.ended_at IS NULL AND session.expires_at>now()
+      AND actor.is_superuser=true AND actor.is_virtual=false AND actor.is_simulated=false
+      AND subject.is_virtual=false AND subject.is_simulated=true`,
+    [simulationSessionId,actorId,req.userId]);
+  if(!simulation){
+    res.clearCookie('dongda_session',{path:'/'});
+    return res.status(401).json({error:'帳戶模擬已結束或管理權限已失效'});
+  }
+  req.simulationSession=simulation;
+  if(!['GET','HEAD','OPTIONS'].includes(req.method)){
+    res.once('finish',()=>{
+      if(res.statusCode<200||res.statusCode>=400)return;
+      const route=String(req.route?.path||req.path||'').replace(/[?#].*$/,'').slice(0,160);
+      pool.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata)
+        VALUES($1,'simulation_action','simulation_session',$2,$3::jsonb)`,
+        [simulation.actorId,simulation.id,JSON.stringify({displayName:simulation.subjectDisplayName,subjectId:req.userId,method:req.method,route,statusCode:res.statusCode})])
+        .catch(error=>console.error('Failed to audit simulation action',error));
+    });
+  }
+  next();
+});
 async function isSuperuser(userId){const {rows:[user]}=await pool.query('SELECT is_superuser FROM users WHERE id=$1',[userId]);return Boolean(user?.is_superuser)}
 const requireSuperuser=asyncRoute(async(req,res,next)=>{if(!await isSuperuser(req.userId))return res.status(403).json({error:'此功能僅限超級使用者'});next()});
 const toWholeTwdCents=value=>{const amount=Number(value);return Number.isSafeInteger(amount)?amount*100:NaN};
+const UUID_PATTERN=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function splitMetaFromRequest(mode,body,participantIds){
   if(mode==='exact')return{shares:(body?.shares||[]).map(item=>({userId:String(item.userId),amount:Number(item.amount)}))};
   if(mode==='hybrid')return{participantIds,fixedShares:(body?.fixedShares||[]).map(item=>({userId:String(item.userId),amount:Number(item.amount)}))};
@@ -56,6 +102,9 @@ async function migrate(){
       picture_url TEXT,
       is_virtual BOOLEAN NOT NULL DEFAULT false,
       is_superuser BOOLEAN NOT NULL DEFAULT false,
+      is_simulated BOOLEAN NOT NULL DEFAULT false,
+      simulated_note TEXT NOT NULL DEFAULT '',
+      simulated_created_by UUID REFERENCES users(id) ON DELETE RESTRICT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -140,13 +189,74 @@ async function migrate(){
       metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS account_simulation_sessions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      actor_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      subject_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      ended_at TIMESTAMPTZ,
+      expires_at TIMESTAMPTZ NOT NULL,
+      CHECK (actor_id<>subject_id)
+    );
     CREATE INDEX IF NOT EXISTS expenses_group_created_idx ON expenses(group_id,created_at DESC);
     CREATE INDEX IF NOT EXISTS expenses_group_created_id_idx ON expenses(group_id,created_at DESC,id DESC);
     CREATE INDEX IF NOT EXISTS settlement_payments_group_created_id_idx ON settlement_payments(group_id,created_at DESC,id DESC);
     CREATE INDEX IF NOT EXISTS bank_account_access_grants_to_idx ON bank_account_access_grants(to_user_id);
     CREATE INDEX IF NOT EXISTS admin_audit_created_idx ON admin_audit_log(created_at DESC);
+    CREATE INDEX IF NOT EXISTS account_simulation_sessions_actor_idx ON account_simulation_sessions(actor_id,started_at DESC);
+    CREATE INDEX IF NOT EXISTS account_simulation_sessions_active_idx ON account_simulation_sessions(subject_id,expires_at) WHERE ended_at IS NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_virtual BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superuser BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_simulated BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS simulated_note TEXT NOT NULL DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS simulated_created_by UUID REFERENCES users(id) ON DELETE RESTRICT;
+    UPDATE users simulated
+      SET simulated_created_by=(
+        SELECT log.actor_id
+        FROM admin_audit_log log
+        WHERE log.action='create_simulated_account'
+          AND log.target_type='simulated_account'
+          AND log.target_id=simulated.id::text
+        ORDER BY log.created_at DESC
+        LIMIT 1
+      )
+      WHERE simulated.is_simulated=true
+        AND simulated.simulated_created_by IS NULL
+        AND EXISTS(
+          SELECT 1 FROM admin_audit_log log
+          WHERE log.action='create_simulated_account'
+            AND log.target_type='simulated_account'
+            AND log.target_id=simulated.id::text
+        );
+    DO $$ BEGIN
+      IF NOT EXISTS(
+        SELECT 1 FROM pg_constraint
+        WHERE conname='users_simulated_created_by_fkey'
+          AND conrelid='users'::regclass
+          AND contype='f'
+          AND confdeltype IN ('a','r')
+      ) THEN
+        ALTER TABLE users DROP CONSTRAINT IF EXISTS users_simulated_created_by_fkey;
+        ALTER TABLE users ADD CONSTRAINT users_simulated_created_by_fkey
+          FOREIGN KEY(simulated_created_by) REFERENCES users(id) ON DELETE RESTRICT;
+      END IF;
+      IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='users_account_type_check' AND conrelid='users'::regclass) THEN
+        ALTER TABLE users ADD CONSTRAINT users_account_type_check CHECK (NOT (is_virtual AND is_simulated));
+      END IF;
+      IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='users_simulated_role_check' AND conrelid='users'::regclass) THEN
+        ALTER TABLE users ADD CONSTRAINT users_simulated_role_check CHECK (NOT (is_simulated AND is_superuser));
+      END IF;
+      IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='users_simulated_creator_check' AND conrelid='users'::regclass) THEN
+        ALTER TABLE users ADD CONSTRAINT users_simulated_creator_check CHECK (NOT is_simulated OR simulated_created_by IS NOT NULL);
+      END IF;
+    END $$;
+    DROP INDEX IF EXISTS users_simulated_name_unique_idx;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_simulated_creator_name_unique_idx ON users(simulated_created_by,lower(display_name)) WHERE is_simulated=true;
+    UPDATE account_simulation_sessions
+      SET ended_at=expires_at
+      WHERE ended_at IS NULL AND expires_at<=now();
+    DELETE FROM account_simulation_sessions
+      WHERE COALESCE(ended_at,expires_at)<now()-INTERVAL '90 days';
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_mode TEXT NOT NULL DEFAULT 'equal';
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_meta JSONB NOT NULL DEFAULT '{}'::jsonb;
     DO $$ BEGIN
@@ -222,12 +332,20 @@ app.get('/api/auth/line/callback',asyncRoute(async(req,res)=>{
 app.post('/api/auth/logout',(_req,res)=>{res.clearCookie('dongda_session',{path:'/'});res.json({ok:true})});
 app.get('/api/me',requireUser,asyncRoute(async(req,res)=>{
   res.set('Cache-Control','private, no-store');
-  const {rows:[user]}=await pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_superuser AS "isSuperuser",
+  const {rows:[user]}=await pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_superuser AS "isSuperuser",u.is_simulated AS "isSimulated",
     (ba.user_id IS NOT NULL) AS "bankAccountConfigured",ba.account_last4 AS "bankAccountLast4",ba.updated_at AS "bankAccountUpdatedAt"
     FROM users u LEFT JOIN user_bank_accounts ba ON ba.user_id=u.id WHERE u.id=$1`,[req.userId]);
   if(!user)return res.status(404).json({error:'找不到使用者'});
   const {bankAccountConfigured,bankAccountLast4,bankAccountUpdatedAt,...profile}=user;
-  res.json({...profile,bankAccount:{configured:bankAccountConfigured,last4:bankAccountLast4||null,updatedAt:bankAccountUpdatedAt||null}});
+  let simulation=null;
+  if(user.isSimulated&&req.simulationSession){
+    simulation={active:true,actor:{
+      id:req.simulationSession.actorId,
+      displayName:req.simulationSession.actorDisplayName,
+      pictureUrl:req.simulationSession.actorPictureUrl
+    }};
+  }
+  res.json({...profile,simulation,bankAccount:{configured:bankAccountConfigured,last4:bankAccountLast4||null,updatedAt:bankAccountUpdatedAt||null}});
 }));
 app.get('/api/me/bank-account',requireUser,asyncRoute(async(req,res)=>{
   res.set('Cache-Control','private, no-store');
@@ -264,15 +382,16 @@ app.delete('/api/me/bank-account',requireUser,asyncRoute(async(req,res)=>{
 if(!isProduction){app.post('/api/dev-login',asyncRoute(async(req,res)=>{const name=String(req.body?.name||'本機小羅').slice(0,40);const lineId=`dev-${name}`;const {rows}=await pool.query(`INSERT INTO users(line_user_id,display_name,picture_url) VALUES($1,$2,$3) ON CONFLICT(line_user_id) DO UPDATE SET display_name=excluded.display_name RETURNING id`,[lineId,name,'/xiaoluo-avatar.png']);res.cookie('dongda_session',sign({userId:rows[0].id,exp:Date.now()+14*86400000}),cookieOptions);res.json({ok:true})}))}
 
 app.get('/api/admin/overview',requireUser,requireSuperuser,asyncRoute(async(req,res)=>{
-  const [statsResult,usersResult,groupsResult,auditResult]=await Promise.all([
+  const [statsResult,usersResult,groupsResult,auditResult,simulatedResult]=await Promise.all([
     pool.query(`SELECT
-      (SELECT COUNT(*)::int FROM users WHERE is_virtual=false) AS "userCount",
-      (SELECT COUNT(*)::int FROM users WHERE is_superuser=true AND is_virtual=false) AS "superuserCount",
+      (SELECT COUNT(*)::int FROM users WHERE is_virtual=false AND is_simulated=false) AS "userCount",
+      (SELECT COUNT(*)::int FROM users WHERE is_superuser=true AND is_virtual=false AND is_simulated=false) AS "superuserCount",
+      (SELECT COUNT(*)::int FROM users WHERE is_virtual=false AND is_simulated=true) AS "simulatedAccountCount",
       (SELECT COUNT(*)::int FROM groups) AS "groupCount",
       (SELECT COUNT(*)::int FROM expenses) AS "expenseCount"`),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_superuser AS "isSuperuser",u.created_at AS "createdAt",COUNT(gm.group_id)::int AS "groupCount"
       FROM users u LEFT JOIN group_members gm ON gm.user_id=u.id
-      WHERE u.is_virtual=false
+      WHERE u.is_virtual=false AND u.is_simulated=false
       GROUP BY u.id
       ORDER BY u.is_superuser DESC,u.created_at DESC
       LIMIT 200`),
@@ -292,30 +411,136 @@ app.get('/api/admin/overview',requireUser,requireSuperuser,asyncRoute(async(req,
       LIMIT 200`),
     pool.query(`SELECT log.id,log.action,log.target_type AS "targetType",log.target_id AS "targetId",log.metadata,log.created_at AS "createdAt",actor.display_name AS "actorName"
       FROM admin_audit_log log JOIN users actor ON actor.id=log.actor_id
-      ORDER BY log.created_at DESC LIMIT 30`)
+      ORDER BY log.created_at DESC LIMIT 30`),
+    pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_simulated AS "isSimulated",u.simulated_note AS "note",u.created_at AS "createdAt",
+      creator.display_name AS "createdByName",COUNT(gm.group_id)::int AS "groupCount"
+      FROM users u
+      LEFT JOIN users creator ON creator.id=u.simulated_created_by
+      LEFT JOIN group_members gm ON gm.user_id=u.id
+      WHERE u.is_virtual=false AND u.is_simulated=true
+      GROUP BY u.id,creator.display_name
+      ORDER BY u.created_at DESC
+      LIMIT 100`)
   ]);
   res.json({
     stats:statsResult.rows[0],
     users:usersResult.rows,
     groups:groupsResult.rows.map(group=>({...group,totalCents:Number(group.totalCents)})),
-    auditLog:auditResult.rows
+    auditLog:auditResult.rows,
+    simulatedAccounts:simulatedResult.rows
   });
+}));
+
+app.post('/api/admin/simulated-accounts',requireUser,requireSuperuser,asyncRoute(async(req,res)=>{
+  let account;
+  try{account=normalizeSimulatedAccountInput(req.body)}catch(error){return res.status(400).json({error:error.message})}
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[existing]}=await client.query('SELECT id FROM users WHERE is_simulated=true AND simulated_created_by=$1 AND lower(display_name)=lower($2)',[req.userId,account.displayName]);
+    if(existing){await client.query('ROLLBACK');return res.status(409).json({error:'已經有同名的模擬帳號'})}
+    const {rows:[created]}=await client.query(`INSERT INTO users(line_user_id,display_name,is_simulated,simulated_note,simulated_created_by)
+      VALUES($1,$2,true,$3,$4)
+      RETURNING id,display_name AS "displayName",picture_url AS "pictureUrl",simulated_note AS "note",created_at AS "createdAt"`,
+      [`simulated-${crypto.randomUUID()}`,account.displayName,account.note,req.userId]);
+    await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata)
+      VALUES($1,'create_simulated_account','simulated_account',$2,$3::jsonb)`,
+      [req.userId,created.id,JSON.stringify({displayName:created.displayName,note:account.note})]);
+    await client.query('COMMIT');
+    res.status(201).json({...created,isSimulated:true,createdByName:null,groupCount:0});
+  }catch(error){
+    await client.query('ROLLBACK');
+    if(error.code==='23505')return res.status(409).json({error:'已經有同名的模擬帳號'});
+    throw error;
+  }finally{client.release()}
+}));
+
+app.post('/api/admin/simulated-accounts/:id/session',requireUser,requireSuperuser,asyncRoute(async(req,res)=>{
+  const targetId=String(req.params.id||'');
+  if(!UUID_PATTERN.test(targetId))return res.status(400).json({error:'模擬帳號格式不正確'});
+  const sessionExpiresAt=Number.isFinite(Number(req.session.exp))&&Number(req.session.exp)>Date.now()
+    ?Number(req.session.exp)
+    :Date.now()+cookieOptions.maxAge;
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[actor]}=await client.query(`SELECT id FROM users
+      WHERE id=$1 AND is_superuser=true AND is_virtual=false AND is_simulated=false
+      FOR UPDATE`,[req.userId]);
+    if(!actor){await client.query('ROLLBACK');return res.status(403).json({error:'此功能僅限超級使用者'})}
+    const {rows:[target]}=await client.query(`SELECT id,display_name AS "displayName"
+      FROM users WHERE id=$1 AND is_virtual=false AND is_simulated=true AND simulated_created_by IS NOT NULL`,[targetId]);
+    if(!target){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這個模擬帳號'})}
+    await client.query(`UPDATE account_simulation_sessions SET ended_at=now()
+      WHERE actor_id=$1 AND ended_at IS NULL`,[req.userId]);
+    const {rows:[simulation]}=await client.query(`INSERT INTO account_simulation_sessions(actor_id,subject_id,expires_at)
+      VALUES($1,$2,$3) RETURNING id`,[req.userId,target.id,new Date(sessionExpiresAt)]);
+    await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata)
+      VALUES($1,'start_account_simulation','simulated_account',$2,$3::jsonb)`,
+      [req.userId,target.id,JSON.stringify({displayName:target.displayName,simulationSessionId:simulation.id})]);
+    await client.query('COMMIT');
+    res.cookie('dongda_session',sign({
+      userId:target.id,
+      impersonatorId:req.userId,
+      simulationSessionId:simulation.id,
+      exp:sessionExpiresAt
+    }),cookieOptions);
+    res.json({ok:true,account:target});
+  }catch(error){
+    await client.query('ROLLBACK');
+    throw error;
+  }finally{client.release()}
+}));
+
+app.post('/api/admin/simulation/exit',requireSignedUser,asyncRoute(async(req,res)=>{
+  const actorId=String(req.session?.impersonatorId||'');
+  const simulationSessionId=String(req.session?.simulationSessionId||'');
+  if(!UUID_PATTERN.test(actorId)||!UUID_PATTERN.test(simulationSessionId))return res.status(400).json({error:'目前沒有啟用帳戶模擬'});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[simulation]}=await client.query(`SELECT session.id,actor.id AS "actorId",subject.id AS "subjectId",
+      subject.display_name AS "subjectDisplayName"
+      FROM account_simulation_sessions session
+      JOIN users actor ON actor.id=session.actor_id
+      JOIN users subject ON subject.id=session.subject_id
+      WHERE session.id=$1 AND session.actor_id=$2 AND session.subject_id=$3
+        AND session.ended_at IS NULL
+        AND actor.is_virtual=false AND actor.is_simulated=false
+        AND subject.is_virtual=false AND subject.is_simulated=true
+      FOR UPDATE OF session`,[simulationSessionId,actorId,req.userId]);
+    if(!simulation){
+      await client.query('ROLLBACK');
+      res.clearCookie('dongda_session',{path:'/'});
+      return res.status(400).json({error:'模擬工作階段已失效，請重新登入'});
+    }
+    await client.query('UPDATE account_simulation_sessions SET ended_at=now() WHERE id=$1',[simulation.id]);
+    await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata)
+      VALUES($1,'end_account_simulation','simulated_account',$2,$3::jsonb)`,
+      [simulation.actorId,simulation.subjectId,JSON.stringify({displayName:simulation.subjectDisplayName,simulationSessionId:simulation.id})]);
+    await client.query('COMMIT');
+    res.cookie('dongda_session',sign({userId:simulation.actorId,exp:req.session.exp}),cookieOptions);
+    res.json({ok:true});
+  }catch(error){
+    await client.query('ROLLBACK');
+    throw error;
+  }finally{client.release()}
 }));
 
 app.patch('/api/admin/users/:id/superuser',requireUser,requireSuperuser,asyncRoute(async(req,res)=>{
   const targetId=String(req.params.id||'');
   const nextValue=req.body?.isSuperuser;
-  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetId)||typeof nextValue!=='boolean')return res.status(400).json({error:'權限設定格式不正確'});
+  if(!UUID_PATTERN.test(targetId)||typeof nextValue!=='boolean')return res.status(400).json({error:'權限設定格式不正確'});
   if(targetId===req.userId&&!nextValue)return res.status(400).json({error:'不能移除自己的超級使用者權限'});
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
     await client.query('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
-    const {rows:[target]}=await client.query('SELECT id,display_name,is_virtual,is_superuser FROM users WHERE id=$1',[targetId]);
+    const {rows:[target]}=await client.query('SELECT id,display_name,is_virtual,is_simulated,is_superuser FROM users WHERE id=$1',[targetId]);
     if(!target){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這位使用者'})}
-    if(target.is_virtual){await client.query('ROLLBACK');return res.status(400).json({error:'公費帳號不能設為超級使用者'})}
+    if(target.is_virtual||target.is_simulated){await client.query('ROLLBACK');return res.status(400).json({error:'公費或模擬帳號不能設為超級使用者'})}
     if(target.is_superuser&&!nextValue){
-      const {rows:[count]}=await client.query('SELECT COUNT(*)::int AS total FROM users WHERE is_superuser=true AND is_virtual=false');
+      const {rows:[count]}=await client.query('SELECT COUNT(*)::int AS total FROM users WHERE is_superuser=true AND is_virtual=false AND is_simulated=false');
       if(count.total<=1){await client.query('ROLLBACK');return res.status(400).json({error:'系統至少需要保留一位超級使用者'})}
     }
     const {rows:[updated]}=await client.query('UPDATE users SET is_superuser=$1,updated_at=now() WHERE id=$2 RETURNING id,display_name AS "displayName",is_superuser AS "isSuperuser"',[nextValue,targetId]);
@@ -328,7 +553,21 @@ app.patch('/api/admin/users/:id/superuser',requireUser,requireSuperuser,asyncRou
 
 app.get('/api/groups',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query(`SELECT g.id,g.name,g.description,g.currency,g.invite_token AS "inviteToken",COUNT(gm2.user_id) FILTER(WHERE COALESCE(u2.is_virtual,false)=false)::int AS "memberCount" FROM groups g JOIN group_members mine ON mine.group_id=g.id AND mine.user_id=$1 LEFT JOIN group_members gm2 ON gm2.group_id=g.id LEFT JOIN users u2 ON u2.id=gm2.user_id GROUP BY g.id ORDER BY g.created_at DESC`,[req.userId]);res.json(rows)}));
 app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{const name=String(req.body?.name||'').trim();const description=String(req.body?.description||'').trim().slice(0,200);if(!name||name.length>60)return res.status(400).json({error:'群組名稱需為 1–60 字'});const client=await pool.connect();try{await client.query('BEGIN');const token=crypto.randomBytes(18).toString('base64url');const {rows}=await client.query('INSERT INTO groups(name,description,currency,invite_token,owner_id) VALUES($1,$2,$3,$4,$5) RETURNING id,name,description,currency,invite_token AS "inviteToken"',[name,description,'TWD',token,req.userId]);await client.query("INSERT INTO group_members(group_id,user_id,role) VALUES($1,$2,'owner')",[rows[0].id,req.userId]);await client.query('COMMIT');res.status(201).json(rows[0])}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}));
-app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id FROM groups WHERE invite_token=$1',[req.params.token]);if(!rows[0])return res.status(404).json({error:'邀請連結無效'});await pool.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[rows[0].id,req.userId]);res.json({groupId:rows[0].id})}));
+app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{
+  const {rows:[group]}=await pool.query(`SELECT g.id,owner.is_simulated AS "ownerIsSimulated",owner.simulated_created_by AS "ownerSimulationCreator",
+    joining.is_simulated AS "joiningIsSimulated",joining.simulated_created_by AS "joiningSimulationCreator"
+    FROM groups g JOIN users owner ON owner.id=g.owner_id JOIN users joining ON joining.id=$2
+    WHERE g.invite_token=$1`,[req.params.token,req.userId]);
+  if(!group)return res.status(404).json({error:'邀請連結無效'});
+  if(group.ownerIsSimulated||group.joiningIsSimulated){
+    const sameSimulationOwner=group.ownerIsSimulated&&group.joiningIsSimulated&&
+      group.ownerSimulationCreator&&group.joiningSimulationCreator&&
+      String(group.ownerSimulationCreator||'')===String(group.joiningSimulationCreator||'');
+    if(!sameSimulationOwner)return res.status(403).json({error:'模擬帳號只能加入同一位管理者建立的測試群組'});
+  }
+  await pool.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[group.id,req.userId]);
+  res.json({groupId:group.id});
+}));
 
 async function assertMember(groupId,userId){const {rows}=await pool.query('SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2',[groupId,userId]);return Boolean(rows[0])}
 async function canReadGroup(groupId,userId){return await assertMember(groupId,userId)||await isSuperuser(userId)}

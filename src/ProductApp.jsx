@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertCircle,ArrowRight,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,History,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,ShieldCheck,Trash2,Users,WalletCards,X} from 'lucide-react';
+import {AlertCircle,ArrowRight,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,ShieldCheck,Trash2,Users,WalletCards,X} from 'lucide-react';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
@@ -51,7 +51,7 @@ function DevAccessBar({login,loading,error}){return <aside className="dev-access
 
 export default function ProductApp({Home}){
   const [me,setMe]=useState(null),[groups,setGroups]=useState([]),[activeId,setActiveId]=useState(null),[group,setGroup]=useState(null),[loading,setLoading]=useState(true),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[notice,setNotice]=useState(''),[showCreate,setShowCreate]=useState(false),[showExpense,setShowExpense]=useState(false),[editingExpense,setEditingExpense]=useState(null),[showInvite,setShowInvite]=useState(false),[showProfile,setShowProfile]=useState(false),[transferReport,setTransferReport]=useState(null);
-  const [devLoginLoading,setDevLoginLoading]=useState(false),[devLoginError,setDevLoginError]=useState(''),[adminMode,setAdminMode]=useState(false),[adminViewingId,setAdminViewingId]=useState(null);
+  const [devLoginLoading,setDevLoginLoading]=useState(false),[devLoginError,setDevLoginError]=useState(''),[adminMode,setAdminMode]=useState(false),[adminViewingId,setAdminViewingId]=useState(null),[endingSimulation,setEndingSimulation]=useState(false);
   const groupRequestRef=useRef(0),loadedGroupIdRef=useRef(null);
   const inviteToken=location.pathname.startsWith('/invite/')?location.pathname.split('/')[2]:null;
   const isLocalDevelopment=['localhost','127.0.0.1','::1','[::1]'].includes(location.hostname);
@@ -64,6 +64,7 @@ export default function ProductApp({Home}){
   const login=()=>{const returnTo=inviteToken?location.pathname:'/app';location.href=`/api/auth/line?returnTo=${encodeURIComponent(returnTo)}`};
   const devLogin=async()=>{setDevLoginLoading(true);setDevLoginError('');try{await api('/api/dev-login',{method:'POST'});const [user,list]=await Promise.all([api('/api/me'),api('/api/groups')]);setGroups(list);setActiveId(list[0]?.id||null);setMe(user);history.replaceState({},'','/app')}catch(error){setDevLoginError(`本機登入失敗：${error.message}`)}finally{setDevLoginLoading(false)}};
   const logout=async()=>{await api('/api/auth/logout',{method:'POST'});setAdminMode(false);setAdminViewingId(null);setMe(null);setGroups([]);setGroup(null);history.replaceState({},'','/')};
+  const endSimulation=async()=>{if(endingSimulation)return;setEndingSimulation(true);try{await api('/api/admin/simulation/exit',{method:'POST'});location.assign('/app')}catch(error){setNotice(error.message);setEndingSimulation(false)}};
   const created=async data=>{setShowCreate(false);await refreshGroups();selectGroup(data.id);history.replaceState({},'','/app')};
   const expenseAdded=async()=>{setShowExpense(false);setEditingExpense(null);await refreshGroup()};
   const groupDeleted=async target=>{await api(`/api/groups/${target.id}`,{method:'DELETE'});const list=await api('/api/groups');setGroups(list);setGroup(null);setActiveId(list[0]?.id||null);setNotice(`已刪除群組「${target.name}」`)};
@@ -75,10 +76,11 @@ export default function ProductApp({Home}){
   if(!me)return <><Home enter={login}/>{isLocalDevelopment&&<DevAccessBar login={devLogin} loading={devLoginLoading} error={devLoginError}/>}</>;
   if(adminMode&&me.isSuperuser)return <AdminConsole me={me} onExit={()=>setAdminMode(false)} onLogout={logout} onOpenGroup={openAdminGroup}/>;
   const adminViewing=Boolean(me.isSuperuser&&group&&adminViewingId===group.id);
-  return <div className="real-app">
+  return <div className={`real-app ${me.simulation?.active?'is-simulating':''}`}>
+    {me.simulation?.active&&<aside className="simulation-banner" aria-label="帳戶模擬狀態"><div><FlaskConical/><span><b>帳戶模擬中：{me.displayName}</b><small>操作會記錄在這個虛擬帳號，且只能使用隔離的測試群組</small></span></div><button type="button" onClick={endSimulation} disabled={endingSimulation} aria-label={`結束模擬，返回 ${me.simulation.actor.displayName}`} title={`返回 ${me.simulation.actor.displayName}`}>{endingSimulation?<LoaderCircle/>:<ArrowRight/>}<span className="simulation-exit-full">{endingSimulation?'正在返回…':`結束模擬，返回 ${me.simulation.actor.displayName}`}</span><span className="simulation-exit-short">{endingSimulation?'返回中…':'結束模擬'}</span></button></aside>}
     <aside className="real-side" aria-label="主要導覽">
       <BrandLogo/>
-      <button type="button" className="login-user" onClick={()=>setShowProfile(true)} aria-label="開啟個人資料與收款帳戶設定"><Person person={me} size={46}/><div><b>{me.displayName}</b><small>{me.bankAccount?.configured?`收款帳戶 •••• ${me.bankAccount.last4}`:'設定常用收款帳戶'}</small></div><ChevronRight className="login-user-chevron"/></button>
+      <button type="button" className="login-user" onClick={()=>setShowProfile(true)} aria-label="開啟個人資料與收款帳戶設定"><Person person={me} size={46}/><div><b>{me.displayName}</b><small>{me.isSimulated?'虛擬測試帳號':me.bankAccount?.configured?`收款帳戶 •••• ${me.bankAccount.last4}`:'設定常用收款帳戶'}</small></div><ChevronRight className="login-user-chevron"/></button>
       <div className="side-label">我的群組</div>
       <div className="group-switcher">{groups.map(item=><button className={activeId===item.id?'active':''} aria-current={activeId===item.id?'page':undefined} key={item.id} onClick={()=>selectGroup(item.id)}><span className="group-icon"><WalletCards/></span><div><b>{item.name}</b><small>{item.memberCount} 位成員</small></div></button>)}</div>
       <button className="new-group" onClick={()=>setShowCreate(true)}><Plus/> 建立新群組</button>

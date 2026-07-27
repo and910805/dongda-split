@@ -17,6 +17,119 @@
   background: var(--operation-bg);
 }
 
+.real-app.is-simulating {
+  --simulation-banner-height: 48px;
+  padding-top: var(--simulation-banner-height);
+}
+
+.simulation-banner {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 100;
+  display: flex;
+  min-height: var(--simulation-banner-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 6px 18px;
+  border-bottom: 1px solid #d8bd82;
+  color: #473614;
+  background: #fff7df;
+  box-shadow: 0 4px 14px rgba(75,56,17,.09);
+}
+
+.simulation-banner > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.simulation-banner > div > svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: #8a6418;
+}
+
+.simulation-banner > div > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.simulation-banner b,
+.simulation-banner small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-banner b {
+  font-size: 12px;
+}
+
+.simulation-banner small {
+  color: #786438;
+  font-size: 9px;
+}
+
+.simulation-banner button {
+  display: inline-flex;
+  min-height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid #b28a36;
+  border-radius: 8px;
+  color: #60470f;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.simulation-banner button:hover:not(:disabled) {
+  color: #fff;
+  background: #765713;
+}
+
+.simulation-banner button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+.simulation-banner button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.simulation-exit-full,
+.simulation-exit-short {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-exit-short {
+  display: none;
+}
+
+.simulation-banner button .lucide-loader-circle {
+  animation: spin 1s linear infinite;
+}
+
+.real-app.is-simulating .real-side {
+  top: var(--simulation-banner-height);
+  height: calc(100dvh - var(--simulation-banner-height));
+}
+
+.real-app.is-simulating .real-workspace > header {
+  top: var(--simulation-banner-height);
+}
+
 .real-app button {
   touch-action: manipulation;
 }
@@ -1728,6 +1841,36 @@
   .real-app {
     display: block;
     padding-bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+
+  .real-app.is-simulating {
+    --simulation-banner-height: 56px;
+  }
+
+  .simulation-banner {
+    gap: 10px;
+    padding: 6px 10px;
+  }
+
+  .simulation-banner small {
+    display: none;
+  }
+
+  .simulation-banner button {
+    height: 44px;
+    min-height: 44px;
+    max-width: 48vw;
+    padding: 0 10px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .simulation-exit-full {
+    display: none;
+  }
+
+  .simulation-exit-short {
+    display: inline;
   }
 
   .real-side {

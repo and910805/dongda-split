@@ -19,7 +19,7 @@ const pool=new Pool({
 
 async function listUsers(){
   const {rows}=await pool.query(`SELECT id::text,display_name AS "顯示名稱",is_superuser AS "超級使用者",created_at AS "建立時間"
-    FROM users WHERE is_virtual=false ORDER BY is_superuser DESC,created_at DESC LIMIT 200`);
+    FROM users WHERE is_virtual=false AND is_simulated=false ORDER BY is_superuser DESC,created_at DESC LIMIT 200`);
   console.table(rows);
 }
 
@@ -29,11 +29,11 @@ async function updateRole(nextValue){
   try{
     await client.query('BEGIN');
     await client.query('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
-    const {rows:[target]}=await client.query('SELECT id,display_name,is_virtual,is_superuser FROM users WHERE id=$1',[userId]);
+    const {rows:[target]}=await client.query('SELECT id,display_name,is_virtual,is_simulated,is_superuser FROM users WHERE id=$1',[userId]);
     if(!target)throw new Error('找不到指定的使用者');
-    if(target.is_virtual)throw new Error('公費帳號不能設為超級使用者');
+    if(target.is_virtual||target.is_simulated)throw new Error('公費或模擬帳號不能設為超級使用者');
     if(!nextValue&&target.is_superuser){
-      const {rows:[count]}=await client.query('SELECT COUNT(*)::int AS total FROM users WHERE is_superuser=true AND is_virtual=false');
+      const {rows:[count]}=await client.query('SELECT COUNT(*)::int AS total FROM users WHERE is_superuser=true AND is_virtual=false AND is_simulated=false');
       if(count.total<=1)throw new Error('系統至少需要保留一位超級使用者');
     }
     await client.query('UPDATE users SET is_superuser=$1,updated_at=now() WHERE id=$2',[nextValue,userId]);
