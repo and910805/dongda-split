@@ -1,9 +1,10 @@
 import React,{useCallback,useDeferredValue,useEffect,useMemo,useState} from 'react';
-import {AlertCircle,ArrowLeft,ArrowRight,Building2,Check,ChevronLeft,ChevronRight,FlaskConical,History,Info,LoaderCircle,LogOut,Play,RefreshCcw,Search,ShieldCheck,UserPlus,Users} from './ui-icons.jsx';
+import {AlertCircle,ArrowLeft,ArrowRight,Building2,Check,ChevronLeft,ChevronRight,FlaskConical,History,Info,LoaderCircle,LogOut,Pencil,Play,Plus,RefreshCcw,Search,ShieldCheck,Trash2,UserPlus,Users} from './ui-icons.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
 import {ConfirmModal} from './ConfirmModal.jsx';
 import {roleChangeConfirmation} from './confirmation-actions.mjs';
 import {filterAdminItems,paginateAdminItems} from './admin-list-state.mjs';
+import {presentAuditItem} from './audit-log.mjs';
 
 const adminApi=async(url,options={})=>{
   const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});
@@ -14,17 +15,7 @@ const adminApi=async(url,options={})=>{
 
 const money=cents=>`NT$ ${Math.round(Number(cents||0)/100).toLocaleString()}`;
 const date=value=>new Intl.DateTimeFormat('zh-TW',{dateStyle:'medium'}).format(new Date(value));
-const auditLabels={
-  grant_superuser:'授予管理者權限',
-  revoke_superuser:'移除管理者權限',
-  update_expense:'以管理者身分修改支出',
-  delete_expense:'以管理者身分刪除支出',
-  delete_group:'以管理者身分刪除群組',
-  create_simulated_account:'建立模擬帳號',
-  start_account_simulation:'開始帳戶模擬',
-  end_account_simulation:'結束帳戶模擬',
-  simulation_action:'模擬帳號執行操作'
-};
+const auditDate=value=>new Intl.DateTimeFormat('zh-TW',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
 const adminTabs=[
   {id:'users',label:'使用者管理',icon:Users,unit:'位'},
   {id:'simulations',label:'帳戶模擬',icon:FlaskConical,unit:'個'},
@@ -39,6 +30,22 @@ function AdminAvatar({user,size=38}){
   return user?.pictureUrl
     ?<img className="admin-avatar" src={user.pictureUrl} alt={user.displayName||'使用者'} style={{width:size,height:size}} referrerPolicy="no-referrer"/>
     :<span className="admin-avatar admin-avatar-initial" style={{width:size,height:size}} aria-label={user?.displayName||'使用者'}>{user?.displayName?.slice(0,1)||'旅'}</span>;
+}
+
+const auditIcons={create:Plus,update:Pencil,delete:Trash2,join:UserPlus,settlement:Check,system:History};
+function AuditLogItem({item}){
+  const ActionIcon=auditIcons[item.actionTone]||History;
+  return <article className={`admin-audit-item is-${item.actionTone}`}>
+    <AdminAvatar user={{displayName:item.actorName,pictureUrl:item.actorPictureUrl}} size={34}/>
+    <div className="admin-audit-event">
+      <div className="admin-audit-summary">
+        <b>{item.summary}</b>
+        <span className="admin-audit-action"><ActionIcon aria-hidden="true"/>{item.actionLabel}</span>
+      </div>
+      {item.detail&&<p>{item.detail}</p>}
+    </div>
+    <time dateTime={item.createdAt}>{auditDate(item.createdAt)}</time>
+  </article>;
 }
 
 function AdminPanelHeader({id,eyebrow,title,description,query,onQuery,placeholder,count,total,unit}){
@@ -188,7 +195,7 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
     users:data?.users||[],
     simulations:data?.simulatedAccounts||[],
     groups:data?.groups||[],
-    audit:(data?.auditLog||[]).map(item=>({...item,actionLabel:auditLabels[item.action]||item.action}))
+    audit:(data?.auditLog||[]).map(presentAuditItem)
   }),[data]);
   const filteredItems=useMemo(()=>({
     users:filterAdminItems('users',sourceItems.users,deferredQueries.users),
@@ -344,10 +351,10 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
           </section>
 
           <section className="admin-panel admin-tab-panel" id="admin-panel-audit" role="tabpanel" aria-labelledby="admin-tab-audit" tabIndex="0" hidden={activeTab!=='audit'}>
-            <AdminPanelHeader {...panelHeaderProps('audit',{eyebrow:'安全紀錄',title:'稽核紀錄',description:'保留管理權限與跨群組操作，方便追查異常變更',placeholder:'搜尋動作、操作者、目標或識別碼'})}/>
+            <AdminPanelHeader {...panelHeaderProps('audit',{eyebrow:'異動軌跡',title:'稽核紀錄',description:'查看誰在何時對哪個群組、哪個項目進行新增、修改或刪除',placeholder:'搜尋人員、群組、項目或動作'})}/>
             <div className="admin-audit-list">
-              {paginatedItems.audit.items.map(item=><article key={item.id}><span><History/></span><div><b>{item.actionLabel}</b><p>{item.actorName} · {item.metadata?.displayName||item.metadata?.title||item.targetType}</p></div><time dateTime={item.createdAt}>{date(item.createdAt)}</time></article>)}
-              {!paginatedItems.audit.items.length&&<div className="admin-empty"><Check/><p>{queries.audit?`找不到符合「${queries.audit}」的稽核紀錄`:'目前沒有管理操作紀錄'}</p></div>}
+              {paginatedItems.audit.items.map(item=><AuditLogItem key={item.id} item={item}/>)}
+              {!paginatedItems.audit.items.length&&<div className="admin-empty"><Check/><p>{queries.audit?`找不到符合「${queries.audit}」的稽核紀錄`:'目前沒有異動紀錄'}</p></div>}
             </div>
             <AdminPagination {...paginationProps('audit')}/>
           </section>

@@ -71,7 +71,7 @@ const requireUser=asyncRoute(async(req,res,next)=>{
   req.simulationSession=simulation;
   if(!['GET','HEAD','OPTIONS'].includes(req.method)){
     res.once('finish',()=>{
-      if(res.statusCode<200||res.statusCode>=400)return;
+      if(res.statusCode<200||res.statusCode>=400||req.auditRecorded)return;
       const route=String(req.route?.path||req.path||'').replace(/[?#].*$/,'').slice(0,160);
       pool.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata)
         VALUES($1,'simulation_action','simulation_session',$2,$3::jsonb)`,
@@ -90,6 +90,17 @@ function splitMetaFromRequest(mode,body,participantIds){
   if(mode==='hybrid')return{participantIds,fixedShares:(body?.fixedShares||[]).map(item=>({userId:String(item.userId),amount:Number(item.amount)}))};
   if(mode==='weights')return{weights:(body?.weights||[]).map(item=>({userId:String(item.userId),weight:Number(item.weight)}))};
   return{participantIds};
+}
+async function writeAudit(client,req,{action,targetType,targetId,metadata={}}){
+  const simulation=req.simulationSession;
+  const actorId=simulation?.actorId||req.userId;
+  const auditMetadata=simulation
+    ?{...metadata,actedAsId:req.userId,actedAsName:simulation.subjectDisplayName}
+    :metadata;
+  await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata)
+    VALUES($1,$2,$3,$4,$5::jsonb)`,
+  [actorId,action,targetType,String(targetId),JSON.stringify(auditMetadata)]);
+  req.auditRecorded=true;
 }
 
 async function migrate(){
@@ -422,7 +433,8 @@ app.get('/api/admin/overview',requireUser,requireSuperuser,asyncRoute(async(req,
       ) expenses ON true
       ORDER BY g.created_at DESC
       LIMIT 200`),
-    pool.query(`SELECT log.id,log.action,log.target_type AS "targetType",log.target_id AS "targetId",log.metadata,log.created_at AS "createdAt",actor.display_name AS "actorName"
+    pool.query(`SELECT log.id,log.action,log.target_type AS "targetType",log.target_id AS "targetId",log.metadata,log.created_at AS "createdAt",
+      actor.id AS "actorId",actor.display_name AS "actorName",actor.picture_url AS "actorPictureUrl"
       FROM admin_audit_log log JOIN users actor ON actor.id=log.actor_id
       ORDER BY log.created_at DESC LIMIT 200`),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_simulated AS "isSimulated",u.simulated_note AS "note",u.created_at AS "createdAt",
@@ -565,21 +577,51 @@ app.patch('/api/admin/users/:id/superuser',requireUser,requireSuperuser,asyncRou
 }));
 
 app.get('/api/groups',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query(`SELECT g.id,g.name,g.description,g.currency,g.invite_token AS "inviteToken",COUNT(gm2.user_id) FILTER(WHERE COALESCE(u2.is_virtual,false)=false)::int AS "memberCount" FROM groups g JOIN group_members mine ON mine.group_id=g.id AND mine.user_id=$1 LEFT JOIN group_members gm2 ON gm2.group_id=g.id LEFT JOIN users u2 ON u2.id=gm2.user_id GROUP BY g.id ORDER BY g.created_at DESC`,[req.userId]);res.json(rows)}));
-app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{const name=String(req.body?.name||'').trim();const description=String(req.body?.description||'').trim().slice(0,200);if(!name||name.length>60)return res.status(400).json({error:'群組名稱需為 1–60 字'});const client=await pool.connect();try{await client.query('BEGIN');const token=crypto.randomBytes(18).toString('base64url');const {rows}=await client.query('INSERT INTO groups(name,description,currency,invite_token,owner_id) VALUES($1,$2,$3,$4,$5) RETURNING id,name,description,currency,invite_token AS "inviteToken"',[name,description,'TWD',token,req.userId]);await client.query("INSERT INTO group_members(group_id,user_id,role) VALUES($1,$2,'owner')",[rows[0].id,req.userId]);await client.query('COMMIT');res.status(201).json(rows[0])}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}));
+app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{
+  const name=String(req.body?.name||'').trim();
+  const description=String(req.body?.description||'').trim().slice(0,200);
+  if(!name||name.length>60)return res.status(400).json({error:'群組名稱需為 1–60 字'});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const token=crypto.randomBytes(18).toString('base64url');
+    const {rows}=await client.query('INSERT INTO groups(name,description,currency,invite_token,owner_id) VALUES($1,$2,$3,$4,$5) RETURNING id,name,description,currency,invite_token AS "inviteToken"',[name,description,'TWD',token,req.userId]);
+    await client.query("INSERT INTO group_members(group_id,user_id,role) VALUES($1,$2,'owner')",[rows[0].id,req.userId]);
+    await writeAudit(client,req,{
+      action:'create_group',
+      targetType:'group',
+      targetId:rows[0].id,
+      metadata:{groupId:rows[0].id,groupName:name,itemType:'群組',itemName:name}
+    });
+    await client.query('COMMIT');
+    res.status(201).json(rows[0]);
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}));
 app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{
-  const {rows:[group]}=await pool.query(`SELECT g.id,owner.is_simulated AS "ownerIsSimulated",owner.simulated_created_by AS "ownerSimulationCreator",
-    joining.is_simulated AS "joiningIsSimulated",joining.simulated_created_by AS "joiningSimulationCreator"
-    FROM groups g JOIN users owner ON owner.id=g.owner_id JOIN users joining ON joining.id=$2
-    WHERE g.invite_token=$1`,[req.params.token,req.userId]);
-  if(!group)return res.status(404).json({error:'邀請連結無效'});
-  if(group.ownerIsSimulated||group.joiningIsSimulated){
-    const sameSimulationOwner=group.ownerIsSimulated&&group.joiningIsSimulated&&
-      group.ownerSimulationCreator&&group.joiningSimulationCreator&&
-      String(group.ownerSimulationCreator||'')===String(group.joiningSimulationCreator||'');
-    if(!sameSimulationOwner)return res.status(403).json({error:'模擬帳號只能加入同一位管理者建立的測試群組'});
-  }
-  await pool.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[group.id,req.userId]);
-  res.json({groupId:group.id});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[group]}=await client.query(`SELECT g.id,g.name,owner.is_simulated AS "ownerIsSimulated",owner.simulated_created_by AS "ownerSimulationCreator",
+      joining.display_name AS "joiningName",joining.is_simulated AS "joiningIsSimulated",joining.simulated_created_by AS "joiningSimulationCreator"
+      FROM groups g JOIN users owner ON owner.id=g.owner_id JOIN users joining ON joining.id=$2
+      WHERE g.invite_token=$1`,[req.params.token,req.userId]);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'邀請連結無效'})}
+    if(group.ownerIsSimulated||group.joiningIsSimulated){
+      const sameSimulationOwner=group.ownerIsSimulated&&group.joiningIsSimulated&&
+        group.ownerSimulationCreator&&group.joiningSimulationCreator&&
+        String(group.ownerSimulationCreator||'')===String(group.joiningSimulationCreator||'');
+      if(!sameSimulationOwner){await client.query('ROLLBACK');return res.status(403).json({error:'模擬帳號只能加入同一位管理者建立的測試群組'})}
+    }
+    const {rows:[membership]}=await client.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING user_id',[group.id,req.userId]);
+    if(membership)await writeAudit(client,req,{
+      action:'join_group',
+      targetType:'member',
+      targetId:req.userId,
+      metadata:{groupId:group.id,groupName:group.name,itemType:'成員',itemName:group.joiningName}
+    });
+    await client.query('COMMIT');
+    res.json({groupId:group.id});
+  }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
 }));
 
 async function assertMember(groupId,userId){const {rows}=await pool.query('SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2',[groupId,userId]);return Boolean(rows[0])}
@@ -599,7 +641,7 @@ async function invalidateSettlementPlan(client,groupId){
   await client.query('DELETE FROM bank_account_access_grants WHERE group_id=$1',[groupId]);
 }
 async function ensureSettlementPlan(client,groupId){
-  const {rows:[group]}=await client.query('SELECT id,owner_id,settlement_plan_ready AS "settlementPlanReady" FROM groups WHERE id=$1 FOR UPDATE',[groupId]);
+  const {rows:[group]}=await client.query('SELECT id,name,owner_id,settlement_plan_ready AS "settlementPlanReady" FROM groups WHERE id=$1 FOR UPDATE',[groupId]);
   if(!group||group.settlementPlanReady)return group||null;
   const {rows}=await client.query(BALANCE_SQL,[groupId]);
   const balances=rows.map(row=>({...row,balanceCents:Number(row.balanceCents)}));
@@ -663,13 +705,23 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   res.json({...groupResult.rows[0],members:membersResult.rows,expenses:expensesResult.rows.map(x=>({...x,amountCents:Number(x.amountCents),payments:(x.payments||[]).map(p=>({...p,amountCents:Number(p.amountCents)})),shares:(x.shares||[]).map(s=>({...s,amountCents:Number(s.amountCents)}))})),balances,settlements,settlementHistory});
 }));
 app.delete('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
-  const {rows:[group]}=await pool.query('SELECT id,owner_id FROM groups WHERE id=$1',[req.params.id]);
-  if(!group)return res.status(404).json({error:'找不到群組'});
   const elevated=await isSuperuser(req.userId);
-  if(group.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有群組建立者或管理者能刪除群組'});
-  await pool.query('DELETE FROM groups WHERE id=$1',[req.params.id]);
-  if(elevated&&group.owner_id!==req.userId)await pool.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata) VALUES($1,'delete_group','group',$2,'{}'::jsonb)`,[req.userId,req.params.id]);
-  res.json({ok:true});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[group]}=await client.query('SELECT id,name,owner_id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(group.owner_id!==req.userId&&!elevated){await client.query('ROLLBACK');return res.status(403).json({error:'只有群組建立者或管理者能刪除群組'})}
+    await client.query('DELETE FROM groups WHERE id=$1',[req.params.id]);
+    await writeAudit(client,req,{
+      action:'delete_group',
+      targetType:'group',
+      targetId:group.id,
+      metadata:{groupId:group.id,groupName:group.name,itemType:'群組',itemName:group.name}
+    });
+    await client.query('COMMIT');
+    res.json({ok:true});
+  }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
 }));
 app.post('/api/groups/:id/funds',requireUser,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
 app.post('/api/groups/:id/funds/:fundId/contributions',requireUser,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
@@ -690,11 +742,29 @@ app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
     else{if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))throw new Error('請選擇有效的分攤成員');shares=allocateEqual(amountCents,participantIds)}
   }catch(error){return res.status(400).json({error:error.message})}
   const splitMeta=splitMetaFromRequest(mode,req.body,participantIds);
-  const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);const {rows:[expense]}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING id`,[req.params.id,title,amountCents,payments[0].userId,req.userId,String(req.body?.category||'其他').slice(0,20),mode,JSON.stringify(splitMeta)]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,share.userId,share.shareCents]);await invalidateSettlementPlan(client,req.params.id);await client.query('COMMIT');res.status(201).json({id:expense.id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  const category=String(req.body?.category||'其他').slice(0,20);
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[group]}=await client.query('SELECT id,name FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
+    const {rows:[expense]}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING id`,[req.params.id,title,amountCents,payments[0].userId,req.userId,category,mode,JSON.stringify(splitMeta)]);
+    for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,payment.userId,payment.paymentCents]);
+    for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,share.userId,share.shareCents]);
+    await writeAudit(client,req,{
+      action:'create_expense',
+      targetType:'expense',
+      targetId:expense.id,
+      metadata:{groupId:group.id,groupName:group.name,itemType:'支出',itemName:title,amountCents,category}
+    });
+    await invalidateSettlementPlan(client,req.params.id);
+    await client.query('COMMIT');
+    res.status(201).json({id:expense.id});
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req,res)=>{
   if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
-  const {rows:[existing]}=await pool.query(`SELECT e.created_by,g.owner_id FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
+  const {rows:[existing]}=await pool.query(`SELECT e.created_by,e.title,e.amount_cents,e.category,e.split_mode,g.owner_id,g.name AS group_name
+    FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
   if(!existing)return res.status(404).json({error:'找不到這筆支出'});
   const elevated=await isSuperuser(req.userId);
   if(existing.created_by!==req.userId&&existing.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有記帳人、群組建立者或管理者能修改'});
@@ -713,11 +783,49 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
     else{if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))throw new Error('請選擇有效的分攤成員');shares=allocateEqual(amountCents,participantIds)}
   }catch(error){return res.status(400).json({error:error.message})}
   const splitMeta=splitMetaFromRequest(mode,req.body,participantIds);
-  const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,split_mode=$5,split_meta=$6::jsonb WHERE id=$7`,[title,amountCents,payments[0].userId,String(req.body?.category||'其他').slice(0,20),mode,JSON.stringify(splitMeta),req.params.expenseId]);await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,share.userId,share.shareCents]);if(elevated&&existing.created_by!==req.userId&&existing.owner_id!==req.userId)await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata) VALUES($1,'update_expense','expense',$2,$3::jsonb)`,[req.userId,req.params.expenseId,JSON.stringify({groupId:req.params.id,title})]);await invalidateSettlementPlan(client,req.params.id);await client.query('COMMIT');res.json({id:req.params.expenseId})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  const category=String(req.body?.category||'其他').slice(0,20);
+  const changedFields=[
+    existing.title!==title&&'名稱',
+    Number(existing.amount_cents)!==amountCents&&'金額',
+    existing.category!==category&&'分類',
+    existing.split_mode!==mode&&'分攤方式',
+    '付款與分攤'
+  ].filter(Boolean);
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
+    await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);
+    await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,split_mode=$5,split_meta=$6::jsonb WHERE id=$7`,[title,amountCents,payments[0].userId,category,mode,JSON.stringify(splitMeta),req.params.expenseId]);
+    await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);
+    await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);
+    for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);
+    for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,share.userId,share.shareCents]);
+    await writeAudit(client,req,{
+      action:'update_expense',
+      targetType:'expense',
+      targetId:req.params.expenseId,
+      metadata:{
+        groupId:req.params.id,
+        groupName:existing.group_name,
+        itemType:'支出',
+        itemName:title,
+        amountCents,
+        category,
+        previousItemName:existing.title,
+        previousAmountCents:Number(existing.amount_cents),
+        changedFields
+      }
+    });
+    await invalidateSettlementPlan(client,req.params.id);
+    await client.query('COMMIT');
+    res.json({id:req.params.expenseId});
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.delete('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req,res)=>{
   if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
-  const {rows:[expense]}=await pool.query(`SELECT e.id,e.created_by,g.owner_id FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
+  const {rows:[expense]}=await pool.query(`SELECT e.id,e.created_by,e.title,e.amount_cents,e.category,g.owner_id,g.name AS group_name
+    FROM expenses e JOIN groups g ON g.id=e.group_id WHERE e.id=$1 AND e.group_id=$2`,[req.params.expenseId,req.params.id]);
   if(!expense)return res.status(404).json({error:'找不到這筆支出'});
   const elevated=await isSuperuser(req.userId);
   if(expense.created_by!==req.userId&&expense.owner_id!==req.userId&&!elevated)return res.status(403).json({error:'只有記帳人、群組建立者或管理者能刪除'});
@@ -726,7 +834,19 @@ app.delete('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(re
     await client.query('BEGIN');
     await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
     await client.query('DELETE FROM expenses WHERE id=$1',[req.params.expenseId]);
-    if(elevated&&expense.created_by!==req.userId&&expense.owner_id!==req.userId)await client.query(`INSERT INTO admin_audit_log(actor_id,action,target_type,target_id,metadata) VALUES($1,'delete_expense','expense',$2,$3::jsonb)`,[req.userId,req.params.expenseId,JSON.stringify({groupId:req.params.id})]);
+    await writeAudit(client,req,{
+      action:'delete_expense',
+      targetType:'expense',
+      targetId:req.params.expenseId,
+      metadata:{
+        groupId:req.params.id,
+        groupName:expense.group_name,
+        itemType:'支出',
+        itemName:expense.title,
+        amountCents:Number(expense.amount_cents),
+        category:expense.category
+      }
+    });
     await invalidateSettlementPlan(client,req.params.id);
     await client.query('COMMIT');
     res.json({ok:true});
@@ -794,8 +914,44 @@ app.get('/api/groups/:id/settlements/:toUserId/bank-account',requireUser,asyncRo
   res.json({recipient,amountCents,bankAccount:bankAccountCipher.decrypt(recipient.id,accountRow)});
 }));
 app.post('/api/groups/:id/settlements',requireUser,asyncRoute(async(req,res)=>{
-  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});const requestedFrom=String(req.body?.fromUserId||req.userId),toUserId=String(req.body?.toUserId||''),amountCents=toWholeTwdCents(req.body?.amount);if(!toUserId||toUserId===requestedFrom||!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'轉帳金額必須是整數元'});
-  const client=await pool.connect();try{await client.query('BEGIN');const group=await ensureSettlementPlan(client,req.params.id);if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}const {rows:[planItem]}=await client.query(`SELECT item.id,fu.is_virtual AS "isFund" FROM settlement_plan_items item JOIN users fu ON fu.id=item.from_user_id WHERE item.group_id=$1 AND item.from_user_id=$2 AND item.to_user_id=$3 AND item.amount_cents=$4 FOR UPDATE`,[req.params.id,requestedFrom,toUserId,amountCents]);if(!planItem){await client.query('ROLLBACK');return res.status(400).json({error:'這筆轉帳已完成或結算方案已更新，請重新整理'})}if(requestedFrom!==req.userId&&!(planItem.isFund&&group.owner_id===req.userId)){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人本人能回報；公費款項由群組建立者回報'})}const {rows:[report]}=await client.query('INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by) VALUES($1,$2,$3,$4,$5) RETURNING created_at AS "reportedAt"',[req.params.id,requestedFrom,toUserId,amountCents,req.userId]);await client.query('DELETE FROM settlement_plan_items WHERE id=$1',[planItem.id]);await pruneInactiveBankAccessGrants(client,req.params.id);await client.query('COMMIT');res.status(201).json({ok:true,reportStatus:'reported',verificationStatus:'unverified',reportedAt:report.reportedAt})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  const requestedFrom=String(req.body?.fromUserId||req.userId);
+  const toUserId=String(req.body?.toUserId||'');
+  const amountCents=toWholeTwdCents(req.body?.amount);
+  if(!toUserId||toUserId===requestedFrom||!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'轉帳金額必須是整數元'});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const group=await ensureSettlementPlan(client,req.params.id);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    const {rows:[planItem]}=await client.query(`SELECT item.id,fu.is_virtual AS "isFund",
+      fu.display_name AS "fromName",tu.display_name AS "toName"
+      FROM settlement_plan_items item
+      JOIN users fu ON fu.id=item.from_user_id
+      JOIN users tu ON tu.id=item.to_user_id
+      WHERE item.group_id=$1 AND item.from_user_id=$2 AND item.to_user_id=$3 AND item.amount_cents=$4
+      FOR UPDATE`,[req.params.id,requestedFrom,toUserId,amountCents]);
+    if(!planItem){await client.query('ROLLBACK');return res.status(400).json({error:'這筆轉帳已完成或結算方案已更新，請重新整理'})}
+    if(requestedFrom!==req.userId&&!(planItem.isFund&&group.owner_id===req.userId)){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人本人能回報；公費款項由群組建立者回報'})}
+    const {rows:[report]}=await client.query(`INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by)
+      VALUES($1,$2,$3,$4,$5) RETURNING id,created_at AS "reportedAt"`,[req.params.id,requestedFrom,toUserId,amountCents,req.userId]);
+    await client.query('DELETE FROM settlement_plan_items WHERE id=$1',[planItem.id]);
+    await writeAudit(client,req,{
+      action:'report_settlement',
+      targetType:'settlement',
+      targetId:report.id,
+      metadata:{
+        groupId:group.id,
+        groupName:group.name,
+        itemType:'轉帳',
+        itemName:`${planItem.fromName} → ${planItem.toName}`,
+        amountCents
+      }
+    });
+    await pruneInactiveBankAccessGrants(client,req.params.id);
+    await client.query('COMMIT');
+    res.status(201).json({ok:true,reportStatus:'reported',verificationStatus:'unverified',reportedAt:report.reportedAt});
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.post('/api/groups/:id/expenses-v1',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
@@ -811,13 +967,54 @@ app.post('/api/groups/:id/expenses-v1',requireUser,asyncRoute(async(req,res)=>{
     if(!participantIds.length||participantIds.some(id=>!allowed.has(id)))return res.status(400).json({error:'請選擇有效的分攤成員'});
     shares=allocateEqual(amountCents,participantIds);
   }
-  const client=await pool.connect();try{await client.query('BEGIN');await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[req.params.id,title,amountCents,payerId,req.userId,String(req.body?.category||'其他').slice(0,20)]);await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,payerId,amountCents]);for(const share of shares){await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,share.userId,share.shareCents])}await invalidateSettlementPlan(client,req.params.id);await client.query('COMMIT');res.status(201).json({id:rows[0].id})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  const category=String(req.body?.category||'其他').slice(0,20);
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[group]}=await client.query('SELECT id,name FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
+    const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[req.params.id,title,amountCents,payerId,req.userId,category]);
+    await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,payerId,amountCents]);
+    for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,share.userId,share.shareCents]);
+    await writeAudit(client,req,{
+      action:'create_expense',
+      targetType:'expense',
+      targetId:rows[0].id,
+      metadata:{groupId:group.id,groupName:group.name,itemType:'支出',itemName:title,amountCents,category}
+    });
+    await invalidateSettlementPlan(client,req.params.id);
+    await client.query('COMMIT');
+    res.status(201).json({id:rows[0].id});
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.post('/api/groups/:id/settlements-v1',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
   const toUserId=String(req.body?.toUserId||''),amountCents=toWholeTwdCents(req.body?.amount);
   if(!toUserId||toUserId===req.userId||!Number.isSafeInteger(amountCents)||amountCents<=0)return res.status(400).json({error:'轉帳資料不正確'});
-  const client=await pool.connect();try{await client.query('BEGIN');if(!await ensureSettlementPlan(client,req.params.id)){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}const {rows:[planItem]}=await client.query('SELECT id FROM settlement_plan_items WHERE group_id=$1 AND from_user_id=$2 AND to_user_id=$3 AND amount_cents=$4 FOR UPDATE',[req.params.id,req.userId,toUserId,amountCents]);if(!planItem){await client.query('ROLLBACK');return res.status(400).json({error:'這筆轉帳已完成或結算方案已更新，請重新整理'})}await client.query('INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by) VALUES($1,$2,$3,$4,$2)',[req.params.id,req.userId,toUserId,amountCents]);await client.query('DELETE FROM settlement_plan_items WHERE id=$1',[planItem.id]);await pruneInactiveBankAccessGrants(client,req.params.id);await client.query('COMMIT');res.status(201).json({ok:true})}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const group=await ensureSettlementPlan(client,req.params.id);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    const {rows:[planItem]}=await client.query(`SELECT item.id,fu.display_name AS "fromName",tu.display_name AS "toName"
+      FROM settlement_plan_items item
+      JOIN users fu ON fu.id=item.from_user_id
+      JOIN users tu ON tu.id=item.to_user_id
+      WHERE item.group_id=$1 AND item.from_user_id=$2 AND item.to_user_id=$3 AND item.amount_cents=$4
+      FOR UPDATE`,[req.params.id,req.userId,toUserId,amountCents]);
+    if(!planItem){await client.query('ROLLBACK');return res.status(400).json({error:'這筆轉帳已完成或結算方案已更新，請重新整理'})}
+    const {rows:[report]}=await client.query(`INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by)
+      VALUES($1,$2,$3,$4,$2) RETURNING id`,[req.params.id,req.userId,toUserId,amountCents]);
+    await client.query('DELETE FROM settlement_plan_items WHERE id=$1',[planItem.id]);
+    await writeAudit(client,req,{
+      action:'report_settlement',
+      targetType:'settlement',
+      targetId:report.id,
+      metadata:{groupId:group.id,groupName:group.name,itemType:'轉帳',itemName:`${planItem.fromName} → ${planItem.toName}`,amountCents}
+    });
+    await pruneInactiveBankAccessGrants(client,req.params.id);
+    await client.query('COMMIT');
+    res.status(201).json({ok:true});
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 
 app.use(express.static(path.join(__dirname,'dist'),{maxAge:'1h'}));

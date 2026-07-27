@@ -1,5 +1,12 @@
 export const ADMIN_TABS=Object.freeze(['users','simulations','groups','audit']);
 
+function flattenSearchValues(value){
+  if(value===null||value===undefined)return[];
+  if(Array.isArray(value))return value.flatMap(flattenSearchValues);
+  if(typeof value==='object')return Object.values(value).flatMap(flattenSearchValues);
+  return[value];
+}
+
 const searchableValues={
   users:item=>[
     item?.displayName,
@@ -24,7 +31,9 @@ const searchableValues={
     item?.actorName,
     item?.targetType,
     item?.targetId,
-    ...Object.values(item?.metadata||{})
+    item?.summary,
+    item?.detail,
+    ...flattenSearchValues(item?.metadata)
   ]
 };
 

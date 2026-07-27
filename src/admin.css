@@ -746,11 +746,11 @@
 
 .admin-audit-list article {
   display: grid;
-  min-height: 64px;
+  min-height: 72px;
   grid-template-columns: 36px minmax(0,1fr) auto;
   align-items: center;
-  gap: 11px;
-  padding: 10px 20px;
+  gap: 12px;
+  padding: 12px 20px;
   border-bottom: 1px solid #edf2ef;
 }
 
@@ -758,33 +758,90 @@
   border-bottom: 0;
 }
 
-.admin-audit-list article > span {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--admin-green);
-  background: var(--admin-soft);
+.admin-audit-list article > .admin-avatar {
+  align-self: start;
 }
 
-.admin-audit-list svg {
-  width: 16px;
+.admin-audit-event {
+  min-width: 0;
 }
 
-.admin-audit-list b {
+.admin-audit-summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-audit-summary b {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-ink);
   font-size: 11px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.admin-audit-list p {
-  margin: 3px 0 0;
+.admin-audit-action {
+  display: inline-flex;
+  min-height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-audit-action svg {
+  width: 12px;
+  height: 12px;
+}
+
+.admin-audit-item.is-create .admin-audit-action,
+.admin-audit-item.is-join .admin-audit-action {
+  border-color: #cce6d7;
+  color: #17673c;
+  background: #edf8f1;
+}
+
+.admin-audit-item.is-update .admin-audit-action {
+  border-color: #ead7ad;
+  color: #825812;
+  background: #fff7e6;
+}
+
+.admin-audit-item.is-delete .admin-audit-action {
+  border-color: #efd2d2;
+  color: #a33a3a;
+  background: #fff1f1;
+}
+
+.admin-audit-item.is-settlement .admin-audit-action,
+.admin-audit-item.is-system .admin-audit-action {
+  border-color: #d8e0e6;
+  color: #49606e;
+  background: #f4f7f8;
+}
+
+.admin-audit-event p {
+  overflow: hidden;
+  margin: 4px 0 0;
   color: var(--admin-muted);
   font-size: 9px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-audit-list time {
   color: var(--admin-muted);
   font-size: 10px;
+  white-space: nowrap;
 }
 
 .admin-pagination {
@@ -1601,16 +1658,27 @@
   }
 
   .admin-audit-list article {
-    grid-template-columns: 30px minmax(0,1fr);
+    grid-template-columns: 32px minmax(0,1fr);
+    gap: 10px;
   }
 
-  .admin-audit-list article > span {
-    width: 30px;
-    height: 30px;
+  .admin-audit-list article > .admin-avatar {
+    width: 32px !important;
+    height: 32px !important;
   }
 
   .admin-audit-list time {
     grid-column: 2;
+    margin-top: -3px;
+  }
+
+  .admin-audit-summary {
+    align-items: flex-start;
+  }
+
+  .admin-audit-summary b {
+    overflow: visible;
+    white-space: normal;
   }
 }
 

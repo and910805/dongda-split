@@ -133,6 +133,29 @@ try{
   const {data:adminGroupView}=await request(`/api/groups/${group.id}`,{cookie:admin.cookie});
   assert.equal(adminGroupView.id,group.id);
 
+  const auditGroup=await post(owner.cookie,'/api/groups',{name:'audit-lifecycle-e2e',description:'scenario automated test'});
+  const auditExpense=await post(owner.cookie,`/api/groups/${auditGroup.id}/expenses`,{
+    title:'稽核新增項目',
+    amount:800,
+    payerId:owner.user.id,
+    participantIds:[owner.user.id],
+    splitMode:'equal'
+  });
+  await request(`/api/groups/${auditGroup.id}/expenses/${auditExpense.id}`,{
+    cookie:owner.cookie,
+    method:'PATCH',
+    body:{title:'稽核修改項目',amount:900,payerId:owner.user.id,participantIds:[owner.user.id],splitMode:'equal'}
+  });
+  await request(`/api/groups/${auditGroup.id}/expenses/${auditExpense.id}`,{cookie:owner.cookie,method:'DELETE'});
+  await request(`/api/groups/${auditGroup.id}`,{cookie:owner.cookie,method:'DELETE'});
+  const {data:auditOverview}=await request('/api/admin/overview',{cookie:admin.cookie});
+  const lifecycleAudit=auditOverview.auditLog.filter(item=>item.metadata?.groupId===auditGroup.id);
+  assert.ok(lifecycleAudit.some(item=>item.action==='create_group'&&item.metadata.groupName==='audit-lifecycle-e2e'));
+  assert.ok(lifecycleAudit.some(item=>item.action==='create_expense'&&item.metadata.itemName==='稽核新增項目'));
+  assert.ok(lifecycleAudit.some(item=>item.action==='update_expense'&&item.metadata.itemName==='稽核修改項目'&&item.metadata.previousItemName==='稽核新增項目'));
+  assert.ok(lifecycleAudit.some(item=>item.action==='delete_expense'&&item.metadata.itemName==='稽核修改項目'));
+  assert.ok(lifecycleAudit.some(item=>item.action==='delete_group'&&item.metadata.groupName==='audit-lifecycle-e2e'));
+
   await post(owner.cookie,`/api/groups/${group.id}/expenses`,{title:'多人共同墊付',amount:14000,payers:[{userId:ids[0],amount:10000},{userId:ids[1],amount:4000}],participantIds:ids,splitMode:'equal'});
   await post(owner.cookie,`/api/groups/${group.id}/expenses`,{title:'只有十人喝酒',amount:1200,payerId:ids[0],participantIds:ids.slice(0,10),splitMode:'equal'});
   await post(owner.cookie,`/api/groups/${group.id}/expenses`,{title:'熱炒指定後均分',amount:4500,payerId:ids[2],participantIds:ids,splitMode:'hybrid',fixedShares:[{userId:ids[0],amount:800},{userId:ids[1],amount:200}]});
@@ -324,6 +347,9 @@ try{
   assert.equal(lockedAfterExpenseChange.balances.reduce((sum,item)=>sum+item.balanceCents,0),0);
   console.log('ALL_DATABASE_SCENARIOS_OK');
 }finally{
+  await pool.query(`DELETE FROM admin_audit_log
+    WHERE actor_id IN (SELECT id FROM users WHERE line_user_id LIKE 'dev-ScenarioMember%')
+       OR metadata->>'groupId' IN (SELECT id::text FROM groups WHERE description='scenario automated test')`);
   await pool.query("DELETE FROM groups WHERE description='scenario automated test'");
   if(simulatedUserIds.length){
     await pool.query(`DELETE FROM admin_audit_log
