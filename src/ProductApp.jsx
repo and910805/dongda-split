@@ -166,9 +166,10 @@ function SettlementBankShare({groupId,settlement,shared,configured,refresh,openP
   </div>;
 }
 function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refresh,refreshing=false,openAdmin,openProfile,adminViewing=false}){
-  const [paying,setPaying]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[selectedExpenseShares,setSelectedExpenseShares]=useState(null),[actionError,setActionError]=useState('');
+  const [paying,setPaying]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[selectedExpenseShares,setSelectedExpenseShares]=useState(null),[selectedMemberId,setSelectedMemberId]=useState(null),[actionError,setActionError]=useState('');
   const [activityTab,setActivityTab]=useState('expenses'),[expensePage,setExpensePage]=useState(1),[settlementPage,setSettlementPage]=useState(1);
   const expenseMembers=useMemo(()=>group.members.filter(member=>!member.isFund),[group.members]);
+  const selectedMember=expenseMembers.find(member=>String(member.id)===selectedMemberId);
   const [expenseMemberId,setExpenseMemberId]=useState(()=>expenseMembers.some(member=>String(member.id)===String(me.id))?String(me.id):'all');
   const visibleExpenses=useMemo(()=>expenseMemberId==='all'?group.expenses:group.expenses.filter(expense=>
     [...(expense.payments||[]),...(expense.shares||[])].some(entry=>String(entry.userId)===expenseMemberId)
@@ -217,9 +218,9 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
         </div>
         <div className="group-member-wall" aria-label={`同行成員，共 ${memberCount} 位`}>
           <div className="group-member-wall-head"><span>同行成員</span><strong>{memberCount} 位</strong></div>
-          <div className="group-member-avatars" role="list">
-            {group.members.filter(member=>!member.isFund).map(member=><span className="group-member-avatar" role="listitem" title={member.displayName||'成員'} key={member.id}><Person person={member} size={32}/></span>)}
-          </div>
+          <ul className="group-member-avatars">
+            {expenseMembers.map(member=><li key={member.id}><button type="button" className="group-member-avatar" onClick={()=>setSelectedMemberId(String(member.id))} aria-label={`查看 ${member.displayName||'成員'} 的個人資訊`} aria-haspopup="dialog" title={`查看 ${member.displayName||'成員'} 的個人資訊`}><Person person={member} size={32}/></button></li>)}
+          </ul>
         </div>
       </div>
       <div className="group-overview-side">
@@ -285,8 +286,23 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
       </aside>
       <footer className="workspace-footer"><span>服務條款 · 隱私權政策</span><b>© 2026 TripTab</b></footer>
     </div>
-    {showSettlementHelp&&<SettlementHelp close={()=>setShowSettlementHelp(false)}/>} {showBalances&&<BalanceChart group={group} close={()=>setShowBalances(false)}/>} {selectedExpenseShares&&<ExpenseSharesModal expense={selectedExpenseShares} members={group.members} close={()=>setSelectedExpenseShares(null)}/>}
+    {showSettlementHelp&&<SettlementHelp close={()=>setShowSettlementHelp(false)}/>} {showBalances&&<BalanceChart group={group} close={()=>setShowBalances(false)}/>} {selectedExpenseShares&&<ExpenseSharesModal expense={selectedExpenseShares} members={group.members} close={()=>setSelectedExpenseShares(null)}/>} {selectedMember&&<MemberInfoModal member={selectedMember} group={group} me={me} close={()=>setSelectedMemberId(null)}/>}
   </main>
+}
+function MemberInfoModal({member,group,me,close}){
+ const isOwner=member.role==='owner'||String(member.id)===String(group.ownerId),isMe=String(member.id)===String(me.id),roleLabel=isOwner?'群組建立者':'同行成員';
+ return <Modal close={close} label={`${member.displayName||'成員'}的個人資訊`}>
+  <div className="member-profile-content">
+   <div className="member-profile-heading"><Person person={member} size={72}/><div><span className="eyebrow"><Users/> 群組成員</span><h2>{member.displayName||'未命名成員'}</h2><p>{roleLabel}{isMe?' · 這是你':''}</p></div></div>
+   <dl className="member-profile-details">
+    <div><dt>顯示名稱</dt><dd>{member.displayName||'未設定'}</dd></div>
+    <div><dt>群組身分</dt><dd>{roleLabel}</dd></div>
+    <div><dt>成員狀態</dt><dd><Check/>已加入「{group.name}」</dd></div>
+   </dl>
+   <div className="member-profile-privacy"><ShieldCheck/><div><b>只顯示群組公開資訊</b><p>收款帳戶與其他私人資料不會顯示在成員資訊中。</p></div></div>
+   <button type="button" className="primary wide" onClick={close}>完成</button>
+  </div>
+ </Modal>;
 }
 function ExpenseSharesModal({expense,members,close}){
  const rows=expenseShareRows(expense,members),isRefund=Number(expense.amountCents)<0,kindLabel=isRefund?'退款':'分攤';
