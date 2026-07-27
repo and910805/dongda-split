@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {AlertCircle,Check,LoaderCircle,ReceiptText,X} from 'lucide-react';
+import {AlertCircle,Check,LoaderCircle,ReceiptText,X} from './ui-icons.jsx';
 
 const api=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json'}}),data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'操作失敗');return data};
 function Person({person,size=32,decorative=false}){return person.pictureUrl?<img className="avatar" src={person.pictureUrl} alt={decorative?'':person.displayName} aria-hidden={decorative||undefined} style={{width:size,height:size}}/>:<span className="avatar initial" style={{width:size,height:size,background:'#1f9d69'}} aria-label={decorative?undefined:person.displayName} aria-hidden={decorative||undefined}>{person.displayName.slice(0,1)}</span>}

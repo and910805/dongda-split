@@ -5,6 +5,17 @@ const numericValue=value=>{
   return Number.isFinite(number)?number:null;
 };
 
+const normalizeExpenseSearch=value=>String(value??'').normalize('NFKC').trim().toLocaleLowerCase('zh-TW');
+
+export const filterExpenses=(expenses,query)=>{
+  const normalizedQuery=normalizeExpenseSearch(query);
+  if(!normalizedQuery)return [...(expenses||[])];
+  return (expenses||[]).filter(expense=>{
+    const category=Number(expense?.amountCents)<0?'退款':expense?.category||'其他';
+    return [expense?.title,expense?.payerName,category].some(value=>normalizeExpenseSearch(value).includes(normalizedQuery));
+  });
+};
+
 const expenseDateValue=expense=>{
   const timestamp=Date.parse(expense?.createdAt);
   return Number.isFinite(timestamp)?timestamp:null;

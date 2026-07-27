@@ -25,6 +25,7 @@
   --z-menu: 30;
   --z-progress: 40;
   --z-overlay: 60;
+  --z-confirm: 120;
 }
 
 .sr-only {
@@ -105,8 +106,7 @@
 }
 
 .real-side .brand-english,
-.side-label,
-.side-footer small {
+.side-label {
   color: var(--text-muted);
   font-size: 12px;
 }

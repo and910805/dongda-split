@@ -117,10 +117,6 @@
   display: none;
 }
 
-.simulation-banner button .lucide-loader-circle {
-  animation: spin 1s linear infinite;
-}
-
 .real-app.is-simulating .real-side {
   top: var(--simulation-banner-height);
   height: calc(100dvh - var(--simulation-banner-height));
@@ -327,18 +323,6 @@
   height: 17px;
 }
 
-.side-footer > span {
-  display: flex;
-  flex-direction: column;
-  color: var(--operation-muted);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.side-footer > span b {
-  font-weight: 500;
-}
-
 .real-app > .real-workspace {
   width: calc(100% - var(--operation-sidebar));
   min-width: 0;
@@ -456,6 +440,7 @@
   height: auto;
   min-height: 132px;
   grid-template-columns: 62px minmax(0,1fr) 220px;
+  grid-template-areas: "icon copy admin";
   gap: 18px;
   align-items: center;
   padding: 20px 22px;
@@ -466,6 +451,7 @@
 }
 
 .group-summary-icon {
+  grid-area: icon;
   display: grid;
   width: 58px;
   height: 58px;
@@ -481,6 +467,7 @@
 }
 
 .group-overview-copy {
+  grid-area: copy;
   min-width: 0;
 }
 
@@ -621,9 +608,12 @@
 }
 
 .group-overview-side {
+  grid-area: admin;
   display: flex;
   min-width: 220px;
+  align-self: start;
   align-items: stretch;
+  justify-content: flex-end;
 }
 
 .group-admin-menu {
@@ -654,8 +644,14 @@
 }
 
 .group-admin-menu > div p {
+  display: block;
+  overflow: visible;
+  max-width: none;
   margin: 4px 8px 10px;
   font-size: 12px;
+  text-overflow: clip;
+  white-space: normal;
+  -webkit-line-clamp: unset;
 }
 
 .group-admin-menu > div button {
@@ -878,6 +874,54 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.expense-search {
+  display: flex;
+  width: min(220px,28vw);
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid var(--operation-border);
+  border-radius: 11px;
+  color: var(--operation-muted);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(22,52,42,.035);
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.expense-search:hover {
+  border-color: #b8ccc2;
+  background: #fbfdfc;
+}
+
+.expense-search:focus-within {
+  border-color: var(--operation-green);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(26,127,86,.12);
+}
+
+.expense-search svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.expense-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--operation-text);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+}
+
+.expense-search input::placeholder {
+  color: #7d8d86;
 }
 
 .expense-member-filter {
@@ -1139,7 +1183,6 @@
   width: 13px;
   height: 13px;
   flex: 0 0 13px;
-  stroke-width: 2.2;
 }
 
 .record-sort-cell.numeric .expense-sort-button {
@@ -1846,24 +1889,6 @@
   color: #9caaa3;
 }
 
-.workspace-footer {
-  display: flex;
-  min-height: 92px;
-  grid-column: 2;
-  align-items: flex-end;
-  justify-content: flex-end;
-  flex-direction: column;
-  gap: 5px;
-  padding: 16px 4px;
-  color: var(--operation-muted);
-  background: transparent;
-  font-size: 10px;
-}
-
-.workspace-footer b {
-  font-weight: 500;
-}
-
 .mobile-shortcuts {
   display: none;
 }
@@ -1883,14 +1908,8 @@
   }
 
   .settlements,
-  .repayment-panel,
-  .workspace-footer {
+  .repayment-panel {
     grid-column: 1;
-  }
-
-  .workspace-footer {
-    min-height: 56px;
-    align-items: center;
   }
 
   .record-table-head,
@@ -2053,7 +2072,11 @@
     height: auto;
     min-height: 0;
     grid-template-columns: 48px minmax(0,1fr);
+    grid-template-areas:
+      "icon admin"
+      "copy copy";
     gap: 12px;
+    align-items: start;
     padding: 16px;
   }
 
@@ -2068,19 +2091,22 @@
   }
 
   .group-overview-side {
-    grid-column: 1 / -1;
-    min-width: 0;
-    align-items: stretch;
-  }
-
-  .group-admin-menu,
-  .group-admin-menu > summary {
     width: 100%;
+    min-width: 0;
+    align-items: flex-start;
+    justify-self: stretch;
+  }
+
+  .group-admin-menu {
+    width: min(220px,100%);
+    margin-left: auto;
   }
 
   .group-admin-menu > summary {
+    width: auto;
     min-height: 44px;
     justify-content: center;
+    margin-left: auto;
   }
 
   .group-admin-menu[open] {
@@ -2172,7 +2198,6 @@
     color: var(--operation-green);
     background: transparent;
     overflow: visible;
-    stroke-width: 2.2;
   }
 
   .mobile-shortcuts button:hover {
@@ -2210,7 +2235,6 @@
     border-radius: 0;
     color: currentColor;
     background: transparent;
-    stroke-width: 2;
   }
 
   .mobile-shortcuts .shortcut-label {
@@ -2276,6 +2300,15 @@
 
   .expense-head-actions {
     flex: 0 0 auto;
+  }
+
+  .expense-search {
+    width: min(210px,30vw);
+    min-height: 44px;
+  }
+
+  .expense-search input {
+    font-size: 16px;
   }
 
   .expense-member-filter {
@@ -2494,10 +2527,6 @@
     grid-row: 2;
   }
 
-  .workspace-footer {
-    display: none;
-  }
-
   .mobile-expense-fab {
     position: fixed;
     right: 18px;
@@ -2562,7 +2591,13 @@
 
   .expense-head-actions {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: stretch;
+  }
+
+  .expense-search {
+    width: 100%;
+    flex: 1 0 100%;
   }
 
   .expense-member-filter {
@@ -2763,9 +2798,8 @@
   font-size: 12px;
 }
 
-.profile-loading svg {
+.profile-loading .icon-spinner {
   width: 19px;
-  animation: spin 1s linear infinite;
 }
 
 .profile-actions {
@@ -3095,10 +3129,6 @@
   width: 15px;
 }
 
-.settlement-bank-share > button:disabled svg {
-  animation: spin 1s linear infinite;
-}
-
 .settlement-bank-share.is-shared {
   border-color: #b9ddc8;
   background: var(--operation-green-soft);
@@ -3142,10 +3172,6 @@
 
 .settlement-bank-toggle[aria-expanded="true"] > svg:last-child {
   transform: rotate(180deg);
-}
-
-.settlement-bank-toggle:disabled > svg:first-child {
-  animation: spin 1s linear infinite;
 }
 
 .settlements .settlement-bank-panel {
@@ -3353,7 +3379,6 @@
 .transfer-modal-icon svg {
   width: 23px;
   height: 23px;
-  stroke-width: 2.4;
 }
 
 .transfer-modal-heading .eyebrow {
@@ -3836,5 +3861,178 @@
     height: 22px;
     margin: 0 auto;
     transform: rotate(90deg);
+  }
+}
+
+.confirm-overlay {
+  z-index: var(--z-confirm);
+}
+
+.confirm-modal {
+  width: min(100%,460px);
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.confirm-modal-heading {
+  display: grid;
+  grid-template-columns: 48px minmax(0,1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 28px 72px 0 28px;
+}
+
+.confirm-modal-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid #c8e3d2;
+  border-radius: var(--radius-md);
+  color: var(--green-dark);
+  background: var(--surface-brand);
+}
+
+.confirm-modal-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.confirm-modal.is-danger .confirm-modal-icon {
+  border-color: #efc7c2;
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.confirm-modal-heading .eyebrow {
+  margin: 1px 0 3px;
+  color: var(--green-dark);
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+.confirm-modal.is-danger .confirm-modal-heading .eyebrow {
+  color: var(--danger);
+}
+
+.confirm-modal-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.35;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+
+.confirm-modal-copy {
+  margin: 18px 28px 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.confirm-modal-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 14px 28px 0;
+  border: 1px solid #efceca;
+  color: #9f3d34;
+  background: #fff5f3;
+  line-height: 1.55;
+}
+
+.confirm-modal-error svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.confirm-modal-actions {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: 10px;
+  padding: 24px 28px 28px;
+}
+
+.confirm-modal-actions > button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.confirm-modal-actions > button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.confirm-modal-danger {
+  border: 1px solid var(--danger);
+  color: #fff;
+  background: var(--danger);
+  box-shadow: 0 4px 12px rgba(180,35,24,.14);
+}
+
+.confirm-modal-danger:hover {
+  border-color: #8f1c13;
+  color: #fff;
+  background: #8f1c13;
+  box-shadow: 0 6px 16px rgba(180,35,24,.18);
+}
+
+.confirm-modal-danger:active:not(:disabled) {
+  background: #79180f;
+}
+
+@media (max-width: 680px) {
+  .confirm-modal {
+    width: 100%;
+    max-height: min(92dvh,680px);
+    border-radius: 22px 22px 0 0;
+  }
+
+  .confirm-modal-heading {
+    padding: 24px 64px 0 20px;
+  }
+
+  .confirm-modal-copy {
+    margin: 16px 20px 0;
+  }
+
+  .confirm-modal-error {
+    margin: 14px 20px 0;
+  }
+
+  .confirm-modal-actions {
+    padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 420px) {
+  .confirm-modal-heading {
+    grid-template-columns: 44px minmax(0,1fr);
+    gap: 12px;
+  }
+
+  .confirm-modal-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .confirm-modal-heading h2 {
+    font-size: 20px;
+  }
+
+  .confirm-modal-actions {
+    grid-template-columns: 1fr;
   }
 }

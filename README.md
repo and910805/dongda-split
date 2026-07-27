@@ -25,7 +25,7 @@
 
 複製 `.env.example` 為 `.env`，填入 PostgreSQL 與 LINE Login 設定，`.env` 已被 Git 忽略
 
-正式環境必須設定 `SESSION_SECRET`。建議另外設定穩定的 `BANK_ACCOUNT_ENCRYPTION_KEY`（32-byte base64）保護收款帳戶；金鑰不可直接更換，輪替前必須先完成舊資料解密與重新加密，否則既有帳戶將無法讀取。
+正式環境必須設定 `SESSION_SECRET` 建議另外設定穩定的 `BANK_ACCOUNT_ENCRYPTION_KEY`（32-byte base64）保護收款帳戶；金鑰不可直接更換，輪替前必須先完成舊資料解密與重新加密，否則既有帳戶將無法讀取
 
 LINE Developers Callback URL：
 

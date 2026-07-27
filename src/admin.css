@@ -290,10 +290,6 @@
   opacity: .55;
 }
 
-.admin-refresh:disabled svg {
-  animation: spin 1s linear infinite;
-}
-
 .admin-mobile-mark,
 .admin-mobile-exit {
   display: none;
@@ -303,68 +299,6 @@
   width: min(1420px,100%);
   padding: 24px 28px 50px;
   margin: auto;
-}
-
-.admin-intro {
-  display: flex;
-  min-height: 164px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 28px;
-  padding: 28px 32px;
-  border: 1px solid #cfe4d8;
-  border-radius: 16px;
-  background: linear-gradient(120deg,#f7fcf8,#eaf7ee);
-}
-
-.admin-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--admin-green-dark);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.admin-eyebrow svg {
-  width: 15px;
-}
-
-.admin-intro h2 {
-  margin: 10px 0 7px;
-  font-size: clamp(22px,2vw,30px);
-}
-
-.admin-intro p {
-  max-width: 680px;
-  margin: 0;
-  color: var(--admin-muted);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.admin-intro > button {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 16px;
-  border: 1px solid var(--admin-green);
-  border-radius: 10px;
-  color: var(--admin-green-dark);
-  background: #fff;
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.admin-intro > button:hover {
-  color: #fff;
-  background: var(--admin-green);
-}
-
-.admin-intro > button svg {
-  width: 17px;
 }
 
 .admin-alert {
@@ -408,9 +342,8 @@
   color: var(--admin-muted);
 }
 
-.admin-loading svg {
+.admin-loading .icon-spinner {
   width: 34px;
-  animation: spin 1s linear infinite;
 }
 
 .admin-stats {
@@ -774,11 +707,6 @@
   width: 15px;
 }
 
-.admin-role-grant .lucide-loader-circle,
-.admin-role-remove .lucide-loader-circle {
-  animation: spin 1s linear infinite;
-}
-
 .admin-group-table strong {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -1139,11 +1067,6 @@
   height: 17px;
 }
 
-.admin-simulator-submit .lucide-loader-circle,
-.admin-simulator-accounts .lucide-loader-circle {
-  animation: spin 1s linear infinite;
-}
-
 .admin-simulator-list {
   min-width: 0;
   padding: 24px;
@@ -1444,23 +1367,6 @@
     grid-column: 1 / -1;
   }
 
-  .admin-intro {
-    min-height: 0;
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 18px;
-    padding: 22px 18px;
-  }
-
-  .admin-intro h2 {
-    font-size: 22px;
-  }
-
-  .admin-intro > button {
-    width: 100%;
-    justify-content: center;
-  }
-
   .admin-stats {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
@@ -1682,11 +1588,7 @@
     transition-duration: .01ms !important;
   }
 
-  .admin-refresh:disabled svg,
-  .admin-role-grant .lucide-loader-circle,
-  .admin-role-remove .lucide-loader-circle,
-  .admin-simulator-submit .lucide-loader-circle,
-  .admin-simulator-accounts .lucide-loader-circle {
+  .admin-shell .icon-spinner {
     animation: none;
   }
 

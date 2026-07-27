@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {ArrowRight, BarChart3, Bell, Check, ChevronRight, CircleDollarSign, Menu, Plus, ReceiptText, Search, Sparkles, Users, WalletCards, X} from 'lucide-react';
+import {ArrowRight,BarChart3,Bell,Check,ChevronRight,CircleDollarSign,Menu,Plus,ReceiptText,Search,Sparkles,Users,WalletCards,X} from './ui-icons.jsx';
 import './style.css';
 import './mobile.css';
 import './dashboard.css';

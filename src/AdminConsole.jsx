@@ -1,6 +1,8 @@
 import React,{useCallback,useDeferredValue,useEffect,useMemo,useState} from 'react';
-import {AlertCircle,ArrowLeft,ArrowRight,Building2,Check,ChevronLeft,ChevronRight,FlaskConical,History,Info,LoaderCircle,LogOut,Play,RefreshCcw,Search,ShieldCheck,UserPlus,Users} from 'lucide-react';
+import {AlertCircle,ArrowLeft,ArrowRight,Building2,Check,ChevronLeft,ChevronRight,FlaskConical,History,Info,LoaderCircle,LogOut,Play,RefreshCcw,Search,ShieldCheck,UserPlus,Users} from './ui-icons.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
+import {ConfirmModal} from './ConfirmModal.jsx';
+import {roleChangeConfirmation} from './confirmation-actions.mjs';
 import {filterAdminItems,paginateAdminItems} from './admin-list-state.mjs';
 
 const adminApi=async(url,options={})=>{
@@ -119,7 +121,7 @@ function AccountSimulator({accounts,refresh,onNotice,search}){
   return <div className="admin-account-simulator">
     <div className="admin-simulator-body">
       <form className="admin-simulator-form" onSubmit={submit} noValidate>
-        <div className="admin-simulator-card-title"><span><UserPlus/></span><div><h3>建立虛擬帳號</h3><p>帳號只會存在 TripTab，並與真實使用者及真實群組隔離。</p></div></div>
+        <div className="admin-simulator-card-title"><span><UserPlus/></span><div><h3>建立虛擬帳號</h3><p>帳號只會存在 TripTab，並與真實使用者及真實群組隔離</p></div></div>
         <div className="admin-simulator-field">
           <label htmlFor="simulated-display-name">顯示名稱 <b aria-hidden="true">*</b></label>
           <input id="simulated-display-name" value={form.displayName} onChange={event=>update('displayName',event.target.value)} onBlur={()=>setAttempted(true)} maxLength="40" placeholder="例如：測試旅伴 A" autoComplete="off" required aria-required="true" disabled={busy} aria-invalid={Boolean(displayNameError)} aria-describedby={displayNameError?'simulated-display-name-error':'simulated-display-name-help'}/>
@@ -137,7 +139,7 @@ function AccountSimulator({accounts,refresh,onNotice,search}){
       </form>
 
       <section className="admin-simulator-list" aria-label="虛擬帳號清單">
-        <div className="admin-simulator-list-head"><div><h3>可用帳號</h3><p>進入後會顯示持續狀態列，可隨時安全返回管理帳號。</p></div><span><Info/>僅限測試群組</span></div>
+        <div className="admin-simulator-list-head"><div><h3>可用帳號</h3><p>進入後會顯示持續狀態列，可隨時安全返回管理帳號</p></div><span><Info/>僅限測試群組</span></div>
         <div className="admin-simulator-accounts">
           {accounts.map(account=><article key={account.id}>
             <div className="admin-simulator-identity"><AdminAvatar user={account} size={44}/><div><b>{account.displayName}</b><small>{account.note||'尚未填寫使用情境'}</small></div></div>
@@ -167,6 +169,8 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
   const [activeTab,setActiveTab]=useState('users');
   const [queries,setQueries]=useState(initialQueries);
   const [pages,setPages]=useState(initialPages);
+  const [pendingRoleChange,setPendingRoleChange]=useState(null);
+  const [roleError,setRoleError]=useState('');
   const deferredQueries=useDeferredValue(queries);
 
   const load=useCallback(async()=>{
@@ -220,17 +224,25 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
     activateTab(adminTabs[nextIndex].id);
   };
 
-  const updateSuperuser=async user=>{
-    const nextValue=!user.isSuperuser;
-    const action=nextValue?'授予管理者權限':'移除管理者權限';
-    if(!confirm(`確定要${action}給「${user.displayName}」嗎？`))return;
+  const requestSuperuserUpdate=user=>{
+    const target={id:user.id,displayName:user.displayName,isSuperuser:Boolean(user.isSuperuser)};
+    setError('');
+    setRoleError('');
+    setPendingRoleChange({user:target,...roleChangeConfirmation(target)});
+  };
+  const closeRoleConfirmation=()=>{if(updating)return;setRoleError('');setPendingRoleChange(null)};
+  const updateSuperuser=async()=>{
+    if(!pendingRoleChange||updating)return;
+    const {user,nextValue,action}=pendingRoleChange;
     setUpdating(user.id);
     setError('');
+    setRoleError('');
     try{
       await adminApi(`/api/admin/users/${user.id}/superuser`,{method:'PATCH',body:JSON.stringify({isSuperuser:nextValue})});
       await load();
       setNotice(`已${action}：${user.displayName}`);
-    }catch(updateError){setError(updateError.message)}
+      setPendingRoleChange(null);
+    }catch(updateError){setRoleError(updateError.message)}
     finally{setUpdating('')}
   };
 
@@ -273,10 +285,6 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
         <button className="admin-mobile-exit" onClick={onExit}><ArrowLeft/><span>返回</span></button>
       </header>
       <main className="admin-main">
-        <section className="admin-intro">
-          <div><span className="admin-eyebrow"><ShieldCheck/>管理者模式已啟用</span><h2>掌握系統狀態，處理需要協助的帳本</h2><p>所有權限操作都由伺服器驗證並留下稽核紀錄。一般使用者不會看到這個管理入口。</p></div>
-          <button onClick={onExit}><ArrowLeft/>回到我的旅帳</button>
-        </section>
         {error&&<div className="admin-alert" role="alert"><AlertCircle/><span>{error}</span><button onClick={()=>setError('')} aria-label="關閉錯誤訊息">×</button></div>}
         {loading&&!data?<div className="admin-loading" aria-busy="true"><LoaderCircle/><p>正在整理管理資料…</p></div>:data&&<>
           <section className="admin-stats" aria-label="系統統計">
@@ -301,7 +309,7 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
                 <span data-label="加入群組">{user.groupCount} 個</span>
                 <time data-label="建立時間" dateTime={user.createdAt}>{date(user.createdAt)}</time>
                 <span className={`admin-role ${user.isSuperuser?'is-superuser':''}`}><ShieldCheck/>{user.isSuperuser?'管理者':'一般使用者'}</span>
-                <button className={user.isSuperuser?'admin-role-remove':'admin-role-grant'} disabled={updating===user.id||user.id===me.id} onClick={()=>updateSuperuser(user)}>
+                <button className={user.isSuperuser?'admin-role-remove':'admin-role-grant'} disabled={updating===user.id||user.id===me.id} onClick={()=>requestSuperuserUpdate(user)}>
                   {updating===user.id?<LoaderCircle/>:<ShieldCheck/>}
                   {user.id===me.id?'目前帳號':user.isSuperuser?'移除管理權限':'設為管理者'}
                 </button>
@@ -347,5 +355,6 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
       </main>
     </section>
     {notice&&<button type="button" className="admin-toast" onClick={()=>setNotice('')} aria-live="polite"><Check/>{notice}</button>}
+    {pendingRoleChange&&<ConfirmModal title={pendingRoleChange.title} description={pendingRoleChange.description} confirmLabel={pendingRoleChange.confirmLabel} tone={pendingRoleChange.tone} busy={updating===pendingRoleChange.user.id} error={roleError} onCancel={closeRoleConfirmation} onConfirm={updateSuperuser}/>}
   </div>;
 }
