@@ -211,9 +211,15 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
         <div className="group-title-row"><h1 id="group-title">{group.name}</h1><span className="currency-badge">TWD</span></div>
         <p>{group.description||'一起記下每筆共同花費，最後輕鬆結清'}</p>
         <div className="group-meta">
-          <span><Users/>{memberCount} 位成員</span>
+          <span className="member-count-meta"><Users/>{memberCount} 位成員</span>
           <span><CircleHelp/>TWD 台幣</span>
           <span><History/>上次更新：{lastUpdated}</span>
+        </div>
+        <div className="group-member-wall" aria-label={`同行成員，共 ${memberCount} 位`}>
+          <div className="group-member-wall-head"><span>同行成員</span><strong>{memberCount} 位</strong></div>
+          <div className="group-member-avatars" role="list">
+            {group.members.filter(member=>!member.isFund).map(member=><span className="group-member-avatar" role="listitem" title={member.displayName||'成員'} key={member.id}><Person person={member} size={32}/></span>)}
+          </div>
         </div>
       </div>
       <div className="group-overview-side">
@@ -221,11 +227,11 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
       </div>
     </section>
     <nav className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} aria-label="群組快捷功能">
-      <button onClick={()=>{setActivityTab('expenses');requestAnimationFrame(()=>document.querySelector('.activity-column')?.scrollIntoView({behavior:'smooth'}))}}><ReceiptText/><span>支出</span></button>
-      <button onClick={()=>setShowBalances(true)}><WalletCards/><span>結餘</span></button>
-      <button onClick={()=>document.querySelector('.settlements')?.scrollIntoView({behavior:'smooth'})}><Check/><span>結算</span></button>
-      <button onClick={invite} disabled={adminViewing}><Users/><span>邀請</span></button>
-      {openAdmin&&<button className="mobile-admin-shortcut" onClick={openAdmin}><ShieldCheck/><span>管理</span></button>}
+      <button className="shortcut-card shortcut-expenses" onClick={()=>{setActivityTab('expenses');requestAnimationFrame(()=>document.querySelector('.activity-column')?.scrollIntoView({behavior:'smooth'}))}}><span className="shortcut-icon" aria-hidden="true"><ReceiptText/></span><span className="shortcut-label">支出</span></button>
+      <button className="shortcut-card shortcut-balances" onClick={()=>setShowBalances(true)}><span className="shortcut-icon" aria-hidden="true"><WalletCards/></span><span className="shortcut-label">結餘</span></button>
+      <button className="shortcut-card shortcut-settlements" onClick={()=>document.querySelector('.settlements')?.scrollIntoView({behavior:'smooth'})}><span className="shortcut-icon" aria-hidden="true"><Check/></span><span className="shortcut-label">結算</span></button>
+      <button className="shortcut-card shortcut-invite" onClick={invite} disabled={adminViewing}><span className="shortcut-icon" aria-hidden="true"><Users/></span><span className="shortcut-label">邀請</span></button>
+      {openAdmin&&<button className="shortcut-card mobile-admin-shortcut" onClick={openAdmin}><span className="shortcut-icon" aria-hidden="true"><ShieldCheck/></span><span className="shortcut-label">管理</span></button>}
     </nav>
     <div className="real-stats">
       <article className="stat-card"><span className="stat-icon"><WalletCards/></span><div><small>我的餘額</small><h3 className={mine>=0?'positive':'negative'}>{mine>=0?'應收 ':'應付 '}{money(Math.abs(mine))}</h3><p>{mine===0?'目前沒有待結算款項':mine>0?'其他成員需要付給你':'你需要付給其他成員'}</p></div></article>

@@ -432,6 +432,10 @@
   height: 15px;
 }
 
+.group-member-wall {
+  display: none;
+}
+
 .group-overview-side {
   display: flex;
   min-width: 220px;
@@ -1714,15 +1718,67 @@
     border: 0;
   }
 
+  .group-meta .member-count-meta {
+    display: none;
+  }
+
+  .group-member-wall {
+    display: grid;
+    gap: 7px;
+    margin-top: 12px;
+    padding-top: 11px;
+    border-top: 1px solid var(--operation-border);
+  }
+
+  .group-member-wall-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--operation-muted);
+    font-size: 11px;
+  }
+
+  .group-member-wall-head strong {
+    color: var(--operation-text);
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  .group-member-avatars {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .group-member-avatar {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--operation-green-soft);
+    box-shadow: 0 0 0 1px var(--operation-border-strong);
+  }
+
+  .group-member-avatar .avatar {
+    width: 30px !important;
+    height: 30px !important;
+    border: 0;
+  }
+
   .mobile-shortcuts {
     display: grid;
     grid-template-columns: repeat(4,minmax(0,1fr)) !important;
     gap: 8px;
-    padding: 8px;
-    margin: 10px 0;
-    border: 1px solid var(--operation-border);
-    border-radius: 10px;
-    background: #fff;
+    padding: 0;
+    margin: 10px 0 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .mobile-shortcuts.has-admin {
@@ -1731,17 +1787,22 @@
 
   .mobile-shortcuts button {
     display: flex;
-    min-height: 54px;
+    min-width: 0;
+    min-height: 78px;
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 4px;
-    padding: 6px;
-    border: 0;
-    border-radius: 8px;
-    color: var(--operation-muted);
-    background: transparent;
-    font-size: 10px;
+    gap: 7px;
+    padding: 8px 4px;
+    border: 1px solid var(--operation-border);
+    border-radius: 14px;
+    color: var(--operation-text);
+    background: #fff;
+    box-shadow: 0 3px 12px rgba(19,75,56,.05);
+    font-size: 11px;
+    font-weight: 750;
+    touch-action: manipulation;
+    transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
   }
 
   .mobile-shortcuts button svg {
@@ -1756,10 +1817,63 @@
     stroke-width: 2.2;
   }
 
-  .mobile-shortcuts .mobile-admin-shortcut {
+  .mobile-shortcuts button:hover {
+    border-color: #9fcdb8;
+    background: #fbfefc;
+    box-shadow: 0 5px 16px rgba(19,75,56,.08);
+  }
+
+  .mobile-shortcuts button:active:not(:disabled) {
+    transform: scale(.97);
+    background: var(--operation-green-soft);
+  }
+
+  .mobile-shortcuts button:disabled {
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: .52;
+  }
+
+  .mobile-shortcuts .shortcut-icon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    place-items: center;
+    border-radius: 12px;
     color: var(--operation-green);
     background: var(--operation-green-soft);
+  }
+
+  .mobile-shortcuts button .shortcut-icon svg {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 0;
+    color: currentColor;
+    background: transparent;
+    stroke-width: 2;
+  }
+
+  .mobile-shortcuts .shortcut-label {
+    overflow: hidden;
+    max-width: 100%;
+    color: inherit;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-shortcuts .mobile-admin-shortcut {
+    color: var(--operation-green-dark);
+    border-color: #b8d9c9;
+    background: #f8fcfa;
     font-weight: 800;
+  }
+
+  .mobile-shortcuts .mobile-admin-shortcut .shortcut-icon {
+    color: #fff;
+    background: var(--operation-green);
   }
 
   .activity-tabs button {
