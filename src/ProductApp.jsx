@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertCircle,ArrowRight,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,DoorOpen,History,Link2,LoaderCircle,LogOut,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,ShieldCheck,Trash2,Users,WalletCards,X} from 'lucide-react';
+import {AlertCircle,ArrowRight,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,History,Link2,LoaderCircle,LogOut,Pencil,Plus,ReceiptText,RefreshCcw,Settings2,ShieldCheck,Trash2,Users,WalletCards,X} from 'lucide-react';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
@@ -272,13 +272,18 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
           <div className="settlement-list">{pagedSettlements.map(s=>{
             const actionable=canConfirm(s),fundPayment=canManageFundPayment(s),bankAccess=s.bankAccountAccess||{},canShareBank=Boolean(bankAccess.canShare&&String(s.to.id)===String(me.id));
             return <article className={`settlement-row ${actionable?'payable':''}`} key={settlementKey(s)}>
-              <span className={`settlement-status ${actionable?'needs-action':''}`}>{actionable?'待你處理':'等待對方'}</span>
-              <div className="settlement-person"><Person person={s.from} size={44}/><span className="settlement-person-copy"><small>付款人</small><b>{s.from.displayName}</b></span></div>
-              <div className="settlement-flow"><ArrowRight/><small>應付金額</small><strong>{money(s.amountCents)}</strong></div>
-              <div className="settlement-person receiver"><Person person={s.to} size={44}/><span className="settlement-person-copy"><small>收款人</small><b>{s.to.displayName}</b></span></div>
+              <div className="settlement-card-head">
+                <span className={`settlement-status ${actionable?'needs-action':''}`}><Clock3/>{actionable?'待你付款':'等待付款'}</span>
+                <span className="settlement-amount"><small>{actionable?(fundPayment?'公費需支付':'你需支付'):'轉帳金額'}</small><strong>{money(s.amountCents)}</strong></span>
+              </div>
+              <div className="settlement-route" role="group" aria-label={`${s.from.displayName} 支付給 ${s.to.displayName}`}>
+                <div className="settlement-person"><Person person={s.from} size={40}/><span className="settlement-person-copy"><small>付款人</small><b>{s.from.displayName}</b></span></div>
+                <span className="settlement-route-arrow" aria-hidden="true"><ArrowRight/></span>
+                <div className="settlement-person receiver"><Person person={s.to} size={40}/><span className="settlement-person-copy"><small>收款人</small><b>{s.to.displayName}</b></span></div>
+              </div>
               {canShareBank&&<SettlementBankShare groupId={group.id} settlement={s} shared={bankAccess.shared} configured={Boolean(me.bankAccount?.configured)} refresh={refresh} openProfile={openProfile}/>}
               {actionable&&(bankAccess.shared?<SettlementBankDetails groupId={group.id} settlement={s}/>:<SettlementBankUnavailable/>)}
-              {actionable?<button className="settlement-confirm" disabled={Boolean(paying)} onClick={()=>markPaid(s)}>{paying===settlementKey(s)?<><LoaderCircle/>處理中…</>:fundPayment?'從公費付款':'我已轉帳'}</button>:<div className="settlement-waiting">等待付款人轉帳</div>}
+              {actionable?<button className="settlement-confirm" disabled={Boolean(paying)} onClick={()=>markPaid(s)}>{paying===settlementKey(s)?<><LoaderCircle/>處理中…</>:<><Check/>{fundPayment?'從公費付款':'我已轉帳'}</>}</button>:<div className="settlement-waiting" role="status"><Clock3/><span><b>等待 {s.from.displayName} 轉帳</b><small>付款人確認後會更新結算狀態</small></span></div>}
             </article>;
           })}</div>
           <RecordPagination page={currentSettlementPage} totalItems={group.settlements.length} pageSize={SETTLEMENT_PAGE_SIZE} onPageChange={setSettlementPage} label="待辦結算" compact/>

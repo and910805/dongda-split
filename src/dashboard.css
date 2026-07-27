@@ -1121,6 +1121,10 @@
 
 .advanced-modal {
   width: min(100%, 680px);
+  max-height: min(90dvh, 840px);
+  padding: 0;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .modal-head {
@@ -1130,6 +1134,47 @@
   padding: 20px 22px 16px;
   border-bottom: 1px solid var(--border);
   background: rgba(255, 255, 255, .97);
+}
+
+.expense-modal-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 13px;
+  align-items: center;
+  padding: 19px 22px 17px;
+  backdrop-filter: blur(10px);
+}
+
+.expense-modal-symbol {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid #cce3d4;
+  border-radius: 12px;
+  color: var(--green-dark);
+  background: var(--surface-brand);
+}
+
+.expense-modal-symbol svg {
+  width: 21px;
+}
+
+.expense-modal-heading {
+  min-width: 0;
+}
+
+.expense-modal-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--green-dark);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.expense-modal-head .modal-x {
+  position: static;
 }
 
 .modal-head h2 {
@@ -1143,6 +1188,7 @@
   margin: 4px 0 0;
   color: var(--text-muted);
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .modal-x {
@@ -1173,6 +1219,37 @@
   padding: 20px 22px 22px;
 }
 
+.expense-form {
+  padding: 18px 22px 0;
+}
+
+.expense-kind-row {
+  display: grid;
+  grid-template-columns: minmax(150px, .7fr) minmax(280px, 1.3fr);
+  gap: 16px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.expense-kind-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.expense-kind-copy b {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.expense-kind-copy small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .type-toggle,
 .kind-toggle,
 .mini-toggle,
@@ -1188,6 +1265,11 @@
 .type-toggle {
   grid-template-columns: 1fr 1fr;
   margin-bottom: 18px;
+}
+
+.kind-toggle {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: #f1f5f2;
 }
 
 .type-toggle button,
@@ -1316,9 +1398,74 @@
   font-weight: 800;
 }
 
+.expense-form-section {
+  padding-top: 21px;
+  margin-top: 21px;
+}
+
+.expense-form-section legend {
+  max-width: 100%;
+  padding-right: 12px;
+}
+
+.expense-section-title {
+  display: inline-grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.expense-section-number {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid #c8dfd0;
+  border-radius: 9px;
+  color: var(--green-dark);
+  background: var(--surface-brand);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.expense-section-title > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.expense-section-title b {
+  font-size: 14px;
+}
+
+.expense-section-title small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.expense-form-section > label,
+.expense-form-section .form-two > label {
+  margin: 14px 0 0;
+}
+
+.expense-form-section .form-two {
+  margin-top: 14px;
+}
+
+.expense-form-section .form-two > label {
+  margin-top: 0;
+}
+
+.expense-amount-field input {
+  color: var(--green-dark);
+  font-size: 17px;
+  font-weight: 800;
+}
+
 .mini-toggle {
   grid-template-columns: 1fr 1fr;
-  margin-top: 10px;
+  margin-top: 14px;
 }
 
 .split-tabs {
@@ -1466,6 +1613,42 @@
   padding: 15px 0 2px;
   border-top: 1px solid var(--border);
   background: rgba(255, 255, 255, .98);
+}
+
+.expense-form-actions {
+  bottom: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 14px 22px;
+  margin: 22px -22px 0;
+  box-shadow: 0 -10px 24px rgba(18, 52, 42, .045);
+  backdrop-filter: blur(10px);
+}
+
+.expense-save-summary {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.expense-save-summary small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-save-summary strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.expense-action-buttons {
+  display: flex;
+  gap: 9px;
 }
 
 .form-actions .primary,
@@ -1828,7 +2011,7 @@
   .modal,
   .advanced-modal {
     width: 100%;
-    max-height: 92vh;
+    max-height: 92dvh;
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
@@ -1839,14 +2022,42 @@
     padding: 17px 16px 14px;
   }
 
+  .expense-modal-head {
+    grid-template-columns: 40px minmax(0, 1fr) 44px;
+    gap: 11px;
+  }
+
+  .expense-modal-symbol {
+    width: 40px;
+    height: 40px;
+  }
+
+  .expense-modal-eyebrow {
+    font-size: 10px;
+  }
+
   .advanced-form,
   .modal > form:not(.advanced-form),
   .modal-body {
     padding: 16px;
   }
 
+  .expense-form {
+    padding: 16px 16px 0;
+  }
+
+  .expense-kind-row {
+    grid-template-columns: minmax(125px, .65fr) minmax(260px, 1.35fr);
+  }
+
   .split-tabs {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .expense-form .amount-rows,
+  .expense-form .advanced-participants {
+    max-height: none;
+    overflow: visible;
   }
 
   .advanced-participants.with-values > div {
@@ -1858,10 +2069,27 @@
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 
+  .expense-form-actions {
+    bottom: 0;
+    padding: 13px 16px calc(13px + env(safe-area-inset-bottom));
+    margin: 20px -16px 0;
+  }
+
   .form-actions .primary,
   .form-actions .secondary-button {
     min-width: 0;
     flex: 1;
+  }
+}
+
+@media (max-width: 560px) {
+  .expense-kind-row,
+  .expense-form .form-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .expense-kind-row {
+    gap: 10px;
   }
 }
 
@@ -1890,6 +2118,40 @@
 
   .advanced-participants > div > label {
     grid-template-columns: 72px 1fr;
+  }
+
+  .expense-modal-head {
+    grid-template-columns: 38px minmax(0, 1fr) 40px;
+    gap: 9px;
+  }
+
+  .expense-modal-symbol {
+    width: 38px;
+    height: 38px;
+  }
+
+  .expense-modal-head h2 {
+    font-size: 19px;
+  }
+
+  .expense-modal-head p {
+    font-size: 11px;
+  }
+
+  .expense-form-actions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .expense-save-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .expense-action-buttons {
+    width: 100%;
   }
 }
 

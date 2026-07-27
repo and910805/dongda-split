@@ -3,7 +3,7 @@ import {AlertCircle,Check,LoaderCircle,ReceiptText,X} from 'lucide-react';
 
 const api=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json'}}),data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'操作失敗');return data};
 function Person({person,size=32,decorative=false}){return person.pictureUrl?<img className="avatar" src={person.pictureUrl} alt={decorative?'':person.displayName} aria-hidden={decorative||undefined} style={{width:size,height:size}}/>:<span className="avatar initial" style={{width:size,height:size,background:'#1f9d69'}} aria-label={decorative?undefined:person.displayName} aria-hidden={decorative||undefined}>{person.displayName.slice(0,1)}</span>}
-function Modal({children,close}){const overlayRef=useRef(null),dialogRef=useRef(null),closeRef=useRef(close),returnFocus=useRef(document.activeElement);closeRef.current=close;useEffect(()=>{const overlay=overlayRef.current,dialog=dialogRef.current,focusable='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',blocked=[...(overlay?.parentElement?.children||[])].filter(item=>item!==overlay).map(item=>({item,inert:item.inert,hidden:item.getAttribute('aria-hidden')}));blocked.forEach(({item})=>{item.inert=true;item.setAttribute('aria-hidden','true')});const initialTimer=setTimeout(()=>{if(dialog&&!dialog.contains(document.activeElement))dialog.querySelector(focusable)?.focus()},0);const onKeyDown=event=>{if(event.key==='Escape'){event.preventDefault();closeRef.current();return}if(event.key!=='Tab'||!dialog)return;const items=[...dialog.querySelectorAll(focusable)].filter(item=>item.getClientRects().length);if(!items.length)return;const first=items[0],last=items.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener('keydown',onKeyDown);return()=>{clearTimeout(initialTimer);document.removeEventListener('keydown',onKeyDown);blocked.forEach(({item,inert,hidden})=>{item.inert=inert;if(hidden===null)item.removeAttribute('aria-hidden');else item.setAttribute('aria-hidden',hidden)});returnFocus.current?.focus?.()}},[]);return <div ref={overlayRef} className="overlay" onMouseDown={e=>e.target===e.currentTarget&&close()}><div ref={dialogRef} className="modal real-modal advanced-modal" role="dialog" aria-modal="true" aria-label="共同支出表單"><button type="button" className="modal-x" onClick={close} aria-label="關閉共同支出表單"><X/></button>{children}</div></div>}
+function Modal({children,close,labelledBy,describedBy}){const overlayRef=useRef(null),dialogRef=useRef(null),closeRef=useRef(close),returnFocus=useRef(document.activeElement);closeRef.current=close;useEffect(()=>{const overlay=overlayRef.current,dialog=dialogRef.current,focusable='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',blocked=[...(overlay?.parentElement?.children||[])].filter(item=>item!==overlay).map(item=>({item,inert:item.inert,hidden:item.getAttribute('aria-hidden')})),previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';blocked.forEach(({item})=>{item.inert=true;item.setAttribute('aria-hidden','true')});const initialTimer=setTimeout(()=>{if(dialog&&!dialog.contains(document.activeElement))dialog.querySelector(focusable)?.focus()},0);const onKeyDown=event=>{if(event.key==='Escape'){event.preventDefault();closeRef.current();return}if(event.key!=='Tab'||!dialog)return;const items=[...dialog.querySelectorAll(focusable)].filter(item=>item.getClientRects().length);if(!items.length)return;const first=items[0],last=items.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener('keydown',onKeyDown);return()=>{clearTimeout(initialTimer);document.removeEventListener('keydown',onKeyDown);document.body.style.overflow=previousOverflow;blocked.forEach(({item,inert,hidden})=>{item.inert=inert;if(hidden===null)item.removeAttribute('aria-hidden');else item.setAttribute('aria-hidden',hidden)});returnFocus.current?.focus?.()}},[]);return <div ref={overlayRef} className="overlay" onMouseDown={e=>e.target===e.currentTarget&&close()}><div ref={dialogRef} className="modal real-modal advanced-modal" role="dialog" aria-modal="true" aria-labelledby={labelledBy} aria-describedby={describedBy}>{children}</div></div>}
 
 export function AdvancedExpenseModal({group,expense=null,currentUserId,close,done}){
   const formRef=useRef(null),errorRef=useRef(null);
@@ -23,17 +23,86 @@ export function AdvancedExpenseModal({group,expense=null,currentUserId,close,don
   const valueLabel=mode==='weights'?'份數／權重':'負擔金額';
   const splitHelp={equal:'所有已選成員平均分攤，尾差會自動分配',exact:'逐一輸入每位成員應負擔的確切金額',hybrid:'先指定部分金額，剩餘金額由留空成員平均分攤',weights:'依住宿天數、家庭人數等份數比例分攤'}[mode];
   const displayError=error||(attempted?validationError:'');
-return <Modal close={close}>
-  <div className="kind-toggle" role="group" aria-label="紀錄類型"><button type="button" aria-pressed={kind==='expense'} className={kind==='expense'?'active':''} onClick={()=>setKind('expense')}>一般支出</button><button type="button" aria-pressed={kind==='refund'} className={kind==='refund'?'active refund':''} onClick={()=>setKind('refund')}>退款／退押金</button></div>
-  <h2>{expense?'修改支出':kind==='expense'?'新增共同支出':'記錄一筆退款'}</h2>
-  <p className="modal-copy">先記錄款項，再確認付款人與分攤方式，所有成員會立即看到更新</p>
-  <form ref={formRef} onSubmit={submit} noValidate>
-    <label>項目名稱 <span className="required-mark" aria-hidden="true">*</span><input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder={kind==='expense'?'例如：民宿尾款':'例如：民宿退押金'} required aria-invalid={attempted&&!title.trim()}/><small className="field-help">使用旅伴都能辨識的名稱，日後比較容易查找</small></label>
-    <div className="form-two"><label>{kind==='expense'?'總金額':'退款金額'} <span className="required-mark" aria-hidden="true">*</span><input type="number" min="1" step="1" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="NT$ 0" required aria-invalid={attempted&&total<=0}/></label><label>分類<select value={category} onChange={e=>setCategory(e.target.value)}><option>餐飲</option><option>住宿</option><option>交通</option><option>購物</option><option>其他</option></select></label></div>
-    <fieldset className="form-section"><legend>{kind==='expense'?'誰先付款？':'誰收到退款？'}</legend><div className="mini-toggle" role="group" aria-label={kind==='expense'?'付款人數':'退款接收人數'}><button type="button" aria-pressed={payMode==='single'} className={payMode==='single'?'active':''} onClick={()=>setPayMode('single')}>單人</button><button type="button" aria-pressed={payMode==='multiple'} className={payMode==='multiple'?'active':''} onClick={()=>setPayMode('multiple')}>{kind==='expense'?'多人湊款':'多人收款'}</button></div>{payMode==='single'?<label className="select-field">{kind==='expense'?'付款人':'退款接收者'}<select value={payerId} onChange={e=>setPayerId(e.target.value)}>{payers.map(p=><option value={p.id} key={p.id}>{p.displayName}</option>)}</select></label>:<div className="amount-rows">{payers.map(p=><div key={p.id}><Person person={p}/><span>{p.displayName}</span><label>NT$<input type="number" min="0" inputMode="numeric" value={payerAmounts[p.id]||''} onChange={e=>setPayerAmounts(old=>({...old,[p.id]:e.target.value}))} placeholder="0"/></label></div>)}<p className={payerTotal===total?'ok':''}>{kind==='expense'?'付款':'退款接收'}加總 {payerTotal.toLocaleString()}／{total.toLocaleString()}</p></div>}</fieldset>
-    <fieldset className="form-section"><legend>怎麼分攤？</legend><div className="split-tabs" role="group" aria-label="分攤方式">{[['equal','平均'],['exact','指定金額'],['hybrid','指定＋均分'],['weights','比例／份數']].map(([id,label])=><button type="button" key={id} aria-pressed={mode===id} className={mode===id?'active':''} onClick={()=>setMode(id)}>{label}</button>)}</div><p className="split-help">{splitHelp}</p>{legacyHybrid&&mode==='hybrid'&&<p className="split-warning" role="note">這筆舊資料未保留原始指定欄位，請確認固定金額，並將要均分的成員留空後再儲存</p>}<div className="participant-heading"><b>參與成員</b><small>已選 {selected.length}／{people.length} 人</small></div><div className={'advanced-participants '+(mode!=='equal'?'with-values':'')}>{people.map(p=><div className={selected.includes(p.id)?'selected':''} key={p.id}><button type="button" aria-pressed={selected.includes(p.id)} onClick={()=>toggle(p.id)}><Person person={p} decorative/><span>{p.displayName}</span>{selected.includes(p.id)&&<Check/>}</button>{selected.includes(p.id)&&mode!=='equal'&&<label>{valueLabel}<input type="number" min={mode==='weights'?'0.01':'0'} step={mode==='weights'?'0.1':'1'} inputMode="decimal" value={values[p.id]||''} onChange={e=>setValues(old=>({...old,[p.id]:e.target.value}))} placeholder={mode==='weights'?'1':mode==='hybrid'?'留空＝均分':'0'}/></label>}</div>)}</div>{mode==='exact'&&<div className={'share-summary '+(valueTotal===total?'balanced':'')}><span>已分配 NT$ {valueTotal.toLocaleString()}</span><b>還差 NT$ {(total-valueTotal).toLocaleString()}</b></div>}{mode==='hybrid'&&<div className={'share-summary '+(valueTotal<total&&blankCount?'balanced':'')}><span>指定 NT$ {valueTotal.toLocaleString()}</span><b>剩餘 NT$ {(total-valueTotal).toLocaleString()} 由 {blankCount} 人均分</b></div>}</fieldset>
+return <Modal close={close} labelledBy="expense-modal-title" describedBy="expense-modal-description">
+  <header className="modal-head expense-modal-head">
+    <span className="expense-modal-symbol" aria-hidden="true"><ReceiptText/></span>
+    <div className="expense-modal-heading">
+      <span className="expense-modal-eyebrow">{expense?'編輯帳目':'建立帳目'}</span>
+      <h2 id="expense-modal-title">{expense?'修改支出':kind==='expense'?'新增共同支出':'記錄一筆退款'}</h2>
+      <p id="expense-modal-description">記下款項、付款人與分攤方式</p>
+    </div>
+    <button type="button" className="modal-x" onClick={close} aria-label="關閉共同支出表單"><X/></button>
+  </header>
+
+  <form ref={formRef} className="advanced-form expense-form" onSubmit={submit} noValidate aria-busy={busy}>
+    <div className="expense-kind-row">
+      <div className="expense-kind-copy">
+        <b>紀錄類型</b>
+        <small>選擇一般支出或收到的退款</small>
+      </div>
+      <div className="kind-toggle" role="group" aria-label="紀錄類型">
+        <button type="button" aria-pressed={kind==='expense'} className={kind==='expense'?'active':''} onClick={()=>setKind('expense')}>一般支出</button>
+        <button type="button" aria-pressed={kind==='refund'} className={kind==='refund'?'active refund':''} onClick={()=>setKind('refund')}>退款／退押金</button>
+      </div>
+    </div>
+
+    <fieldset className="form-section expense-form-section expense-basics">
+      <legend>
+        <span className="expense-section-title">
+          <span className="expense-section-number" aria-hidden="true">1</span>
+          <span><b>支出內容</b><small>填寫方便旅伴辨識的項目與金額</small></span>
+        </span>
+      </legend>
+      <label className="expense-title-field">項目名稱 <span className="required-mark" aria-hidden="true">*</span><input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder={kind==='expense'?'例如：民宿尾款':'例如：民宿退押金'} required aria-invalid={attempted&&!title.trim()}/><small className="field-help">清楚的名稱能讓日後查找與對帳更容易</small></label>
+      <div className="form-two">
+        <label className="expense-amount-field">{kind==='expense'?'總金額':'退款金額'} <span className="required-mark" aria-hidden="true">*</span><input type="number" min="1" step="1" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="NT$ 0" required aria-invalid={attempted&&total<=0}/></label>
+        <label>分類<select value={category} onChange={e=>setCategory(e.target.value)}><option>餐飲</option><option>住宿</option><option>交通</option><option>購物</option><option>其他</option></select></label>
+      </div>
+    </fieldset>
+
+    <fieldset className="form-section expense-form-section">
+      <legend>
+        <span className="expense-section-title">
+          <span className="expense-section-number" aria-hidden="true">2</span>
+          <span><b>{kind==='expense'?'付款方式':'退款去向'}</b><small>{kind==='expense'?'確認誰先代墊這筆款項':'確認誰收到這筆退款'}</small></span>
+        </span>
+      </legend>
+      <div className="mini-toggle" role="group" aria-label={kind==='expense'?'付款人數':'退款接收人數'}>
+        <button type="button" aria-pressed={payMode==='single'} className={payMode==='single'?'active':''} onClick={()=>setPayMode('single')}>單人</button>
+        <button type="button" aria-pressed={payMode==='multiple'} className={payMode==='multiple'?'active':''} onClick={()=>setPayMode('multiple')}>{kind==='expense'?'多人湊款':'多人收款'}</button>
+      </div>
+      {payMode==='single'
+        ?<label className="select-field">{kind==='expense'?'付款人':'退款接收者'}<select value={payerId} onChange={e=>setPayerId(e.target.value)}>{payers.map(p=><option value={p.id} key={p.id}>{p.displayName}</option>)}</select></label>
+        :<div className="amount-rows">{payers.map(p=><div key={p.id}><Person person={p}/><span>{p.displayName}</span><label>NT$<input type="number" min="0" inputMode="numeric" aria-label={`${p.displayName}的${kind==='expense'?'付款':'退款接收'}金額`} value={payerAmounts[p.id]||''} onChange={e=>setPayerAmounts(old=>({...old,[p.id]:e.target.value}))} placeholder="0"/></label></div>)}<p className={payerTotal===total?'ok':''}>{kind==='expense'?'付款':'退款接收'}加總 {payerTotal.toLocaleString()}／{total.toLocaleString()}</p></div>}
+    </fieldset>
+
+    <fieldset className="form-section expense-form-section">
+      <legend>
+        <span className="expense-section-title">
+          <span className="expense-section-number" aria-hidden="true">3</span>
+          <span><b>分攤方式</b><small>選擇成員與這筆款項的計算方式</small></span>
+        </span>
+      </legend>
+      <div className="split-tabs" role="group" aria-label="分攤方式">{[['equal','平均'],['exact','指定金額'],['hybrid','指定＋均分'],['weights','比例／份數']].map(([id,label])=><button type="button" key={id} aria-pressed={mode===id} className={mode===id?'active':''} onClick={()=>setMode(id)}>{label}</button>)}</div>
+      <p className="split-help">{splitHelp}</p>
+      {legacyHybrid&&mode==='hybrid'&&<p className="split-warning" role="note">這筆舊資料未保留原始指定欄位，請確認固定金額，並將要均分的成員留空後再儲存</p>}
+      <div className="participant-heading"><b>參與成員</b><small>已選 {selected.length}／{people.length} 人</small></div>
+      <div className={'advanced-participants '+(mode!=='equal'?'with-values':'')}>{people.map(p=><div className={selected.includes(p.id)?'selected':''} key={p.id}><button type="button" aria-pressed={selected.includes(p.id)} onClick={()=>toggle(p.id)}><Person person={p} decorative/><span>{p.displayName}</span>{selected.includes(p.id)&&<Check/>}</button>{selected.includes(p.id)&&mode!=='equal'&&<label>{valueLabel}<input type="number" min={mode==='weights'?'0.01':'0'} step={mode==='weights'?'0.1':'1'} inputMode="decimal" aria-label={`${p.displayName}的${valueLabel}`} value={values[p.id]||''} onChange={e=>setValues(old=>({...old,[p.id]:e.target.value}))} placeholder={mode==='weights'?'1':mode==='hybrid'?'留空＝均分':'0'}/></label>}</div>)}</div>
+      {mode==='exact'&&<div className={'share-summary '+(valueTotal===total?'balanced':'')}><span>已分配 NT$ {valueTotal.toLocaleString()}</span><b>還差 NT$ {(total-valueTotal).toLocaleString()}</b></div>}
+      {mode==='hybrid'&&<div className={'share-summary '+(valueTotal<total&&blankCount?'balanced':'')}><span>指定 NT$ {valueTotal.toLocaleString()}</span><b>剩餘 NT$ {(total-valueTotal).toLocaleString()} 由 {blankCount} 人均分</b></div>}
+    </fieldset>
+
     {displayError&&<p ref={errorRef} className="form-error" role="alert" tabIndex="-1"><AlertCircle/>{displayError}</p>}
-    <div className="form-actions sticky-actions"><button type="button" className="secondary-button" onClick={close} disabled={busy}>取消</button><button className="primary" disabled={busy}>{busy?<LoaderCircle/>:<ReceiptText/>}{busy?'儲存中…':expense?'儲存修改':kind==='refund'?'儲存退款':'儲存支出'}</button></div>
+    <div className="form-actions sticky-actions expense-form-actions">
+      <div className="expense-save-summary" aria-live="polite">
+        <small>{kind==='expense'?'共同支出':'退款'} · {selected.length} 位成員</small>
+        <strong>NT$ {total.toLocaleString()}</strong>
+      </div>
+      <div className="expense-action-buttons">
+        <button type="button" className="secondary-button" onClick={close} disabled={busy}>取消</button>
+        <button type="submit" className="primary" disabled={busy}>{busy?<LoaderCircle/>:<ReceiptText/>}{busy?'儲存中…':expense?'儲存修改':kind==='refund'?'儲存退款':'儲存支出'}</button>
+      </div>
+    </div>
   </form>
 </Modal>
 }

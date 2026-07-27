@@ -2542,6 +2542,195 @@
   width: 15px;
 }
 
+.settlements .settlement-list {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.settlements .settlement-row {
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid var(--operation-border);
+  border-radius: 12px;
+  background: var(--operation-surface);
+}
+
+.settlements .settlement-row.payable {
+  border-width: 1px;
+  border-color: #a8d2ba;
+  box-shadow: inset 3px 0 0 var(--operation-green);
+}
+
+.settlements .settlement-card-head {
+  display: flex;
+  flex: none;
+  flex-direction: row;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settlement-amount {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  text-align: right;
+}
+
+.settlement-amount small {
+  color: var(--operation-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.settlements .settlement-amount strong {
+  color: var(--operation-green-dark);
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.settlement-status {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid #dce5e0;
+  border-radius: 999px;
+  color: #53675e;
+  background: #f5f7f6;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.settlement-status.needs-action {
+  border-color: #b8dcc8;
+  color: var(--operation-green-dark);
+  background: var(--operation-green-soft);
+}
+
+.settlement-status svg {
+  width: 13px;
+  height: 13px;
+}
+
+.settlements .settlement-route {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 30px minmax(0,1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.settlements .settlement-person {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 40px minmax(0,1fr);
+  gap: 9px;
+  align-items: center;
+}
+
+.settlements .settlement-person .avatar {
+  flex: 0 0 auto;
+}
+
+.settlements .settlement-person-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.settlements .settlement-person-copy small {
+  color: var(--operation-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.settlements .settlement-person-copy b {
+  overflow: hidden;
+  color: var(--operation-text);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settlement-route-arrow {
+  position: relative;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: var(--operation-green);
+}
+
+.settlement-route-arrow::before {
+  position: absolute;
+  right: -5px;
+  left: -5px;
+  height: 1px;
+  background: #d8e6de;
+  content: "";
+}
+
+.settlement-route-arrow svg {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  padding: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-sizing: content-box;
+}
+
+.settlements .settlement-waiting {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 30px minmax(0,1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid #dfe6e2;
+  border-radius: 10px;
+  color: var(--operation-text);
+  background: #f6f8f7;
+  text-align: left;
+}
+
+.settlement-waiting > svg {
+  width: 15px;
+  height: 15px;
+  padding: 7px;
+  border-radius: 9px;
+  color: #687b72;
+  background: #e9eeeb;
+  box-sizing: content-box;
+}
+
+.settlement-waiting > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.settlement-waiting b {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settlement-waiting small {
+  color: var(--operation-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .settlements .settlement-bank {
   display: grid;
   width: 100%;
@@ -2630,7 +2819,7 @@
 .settlement-bank-share > button {
   display: inline-flex;
   width: 100%;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -2668,7 +2857,7 @@
 .settlement-bank-toggle {
   display: flex;
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 7px;
@@ -2784,7 +2973,7 @@
 .settlement-bank-copy {
   display: inline-flex;
   width: 100%;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -2850,8 +3039,42 @@
 }
 
 .settlements .settlement-row > .settlement-confirm {
+  display: inline-flex;
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 0;
+  border: 1px solid var(--operation-green);
+  border-radius: 10px;
+  color: #fff;
+  background: var(--operation-green);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.settlements .settlement-row > .settlement-confirm:hover {
+  color: #fff;
+  border-color: var(--operation-green-dark);
+  background: var(--operation-green-dark);
+}
+
+.settlements .settlement-row > .settlement-confirm svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (min-width: 901px) {
+  .settlements {
+    order: initial;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1500px) {
+  .settlements .settlement-list {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -2896,5 +3119,50 @@
     width: 100%;
     grid-column: 1 / -1;
     margin: 0;
+  }
+
+  .settlements .settlement-list {
+    padding: 12px;
+  }
+
+  .settlements .settlement-row {
+    gap: 11px;
+    padding: 13px;
+  }
+
+  .settlements .settlement-route {
+    grid-template-columns: minmax(0,1fr) 26px minmax(0,1fr);
+    gap: 6px;
+  }
+
+  .settlements .settlement-person {
+    grid-template-columns: 36px minmax(0,1fr);
+    gap: 7px;
+  }
+
+  .settlements .settlement-person .avatar {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .settlement-route-arrow {
+    width: 26px;
+  }
+
+  .settlements .settlement-amount strong {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 350px) {
+  .settlements .settlement-route {
+    grid-template-columns: minmax(0,1fr);
+    gap: 4px;
+  }
+
+  .settlement-route-arrow {
+    height: 22px;
+    margin: 0 auto;
+    transform: rotate(90deg);
   }
 }
