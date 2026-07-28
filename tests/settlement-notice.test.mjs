@@ -66,12 +66,27 @@ test('群組建立者代成員確認時會保留付款人與實際回報人',()=
 
 test('金額、時間與 LINE 分享網址維持可預期格式',()=>{
   assert.equal(formatSettlementReportAmount(746_00),'NT$ 746');
+  assert.equal(formatSettlementReportAmount(12_600_00,'JPY'),'¥ 12,600');
+  assert.equal(formatSettlementReportAmount(1_234,'USD'),'US$ 12.34');
   assert.equal(formatSettlementReportAmount('invalid'),'NT$ 0');
   assert.equal(formatSettlementReportAmount(-100),'NT$ 0');
   assert.equal(formatSettlementReportTime('invalid'),'時間未記錄');
   const url=settlementLineShareUrl(report);
   assert.match(url,/^https:\/\/line\.me\/R\/share\?text=/);
   assert.match(decodeURIComponent(url),/旅帳 TripTab｜轉帳紀錄/);
+});
+
+test('換算後通知保留實際原回報幣別與金額',()=>{
+  const {text,amountLabel}=buildSettlementNotice({
+    ...report,
+    currency:'USD',
+    amountCents:4_000,
+    reportedCurrency:'JPY',
+    reportedAmountCents:20_000_00
+  });
+  assert.equal(amountLabel,'US$ 40.00');
+  assert.match(text,/轉帳金額：US\$ 40\.00/);
+  assert.match(text,/原回報金額：¥ 20,000/);
 });
 
 test('名稱中的換行不會破壞制式通知欄位',()=>{

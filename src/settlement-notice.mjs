@@ -1,3 +1,5 @@
+import {formatCurrencyAmount,isSupportedCurrency} from '../currency.mjs';
+
 const safeText=value=>String(value||'').replace(/\s+/g,' ').trim();
 
 export function formatSettlementReportTime(value){
@@ -15,10 +17,12 @@ export function formatSettlementReportTime(value){
   return `${part('year')}/${part('month')}/${part('day')} ${part('hour')}:${part('minute')}`;
 }
 
-export function formatSettlementReportAmount(amountCents){
+export function formatSettlementReportAmount(amountCents,currency='TWD'){
   const numeric=Number(amountCents);
-  const safeCents=Number.isFinite(numeric)&&numeric>0?numeric:0;
-  return `NT$ ${Math.round(safeCents/100).toLocaleString('zh-TW')}`;
+  const currencyCode=isSupportedCurrency(currency)?String(currency).toUpperCase():'TWD';
+  const safeCents=Number.isSafeInteger(numeric)&&numeric>0?numeric:0;
+  try{return formatCurrencyAmount(safeCents,currencyCode)}
+  catch{return formatCurrencyAmount(0,currencyCode)}
 }
 
 export function buildSettlementNotice(report){
@@ -26,9 +30,16 @@ export function buildSettlementNotice(report){
   const payerName=safeText(report?.from?.displayName)||'付款人';
   const recipientName=safeText(report?.to?.displayName)||'收款人';
   const reporterName=safeText(report?.reportedBy?.displayName)||payerName;
-  const amountLabel=formatSettlementReportAmount(report?.amountCents);
+  const currency=isSupportedCurrency(report?.currency)?String(report.currency).toUpperCase():'TWD';
+  const amountLabel=formatSettlementReportAmount(report?.amountCents,currency);
+  const reportedCurrency=isSupportedCurrency(report?.reportedCurrency)?String(report.reportedCurrency).toUpperCase():currency;
+  const reportedAmountCents=Number(report?.reportedAmountCents??report?.amountCents);
+  const originalAmountLabel=reportedCurrency!==currency||reportedAmountCents!==Number(report?.amountCents)
+    ?formatSettlementReportAmount(reportedAmountCents,reportedCurrency)
+    :'';
   const timeLabel=formatSettlementReportTime(report?.reportedAt);
   const reporterLine=reporterName===payerName?'':`\n回報人：${reporterName}`;
+  const originalAmountLine=originalAmountLabel?`\n原回報金額：${originalAmountLabel}`:'';
 
   return {
     amountLabel,
@@ -39,7 +50,7 @@ ${reporterName} 已將這筆款項標記為「已轉帳」
 旅程：${groupName}
 付款人：${payerName}
 收款人：${recipientName}
-轉帳金額：${amountLabel}
+轉帳金額：${amountLabel}${originalAmountLine}
 記錄時間：${timeLabel}${reporterLine}
 
 請 ${recipientName} 留意收款帳戶

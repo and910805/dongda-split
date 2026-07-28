@@ -5,6 +5,7 @@ import {ConfirmModal} from './ConfirmModal.jsx';
 import {roleChangeConfirmation} from './confirmation-actions.mjs';
 import {filterAdminItems,paginateAdminItems} from './admin-list-state.mjs';
 import {presentAuditItem} from './audit-log.mjs';
+import {formatCurrencyAmount} from '../currency.mjs';
 
 const adminApi=async(url,options={})=>{
   const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});
@@ -13,7 +14,7 @@ const adminApi=async(url,options={})=>{
   return data;
 };
 
-const money=cents=>`NT$ ${Math.round(Number(cents||0)/100).toLocaleString()}`;
+const money=(cents,currency='TWD')=>formatCurrencyAmount(Number(cents||0),currency);
 const date=value=>new Intl.DateTimeFormat('zh-TW',{dateStyle:'medium'}).format(new Date(value));
 const auditDate=value=>new Intl.DateTimeFormat('zh-TW',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
 const adminTabs=[
@@ -337,11 +338,11 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
             <div className="admin-group-table">
               <div className="admin-table-head" aria-hidden="true"><span>群組</span><span>建立者</span><span>成員</span><span>支出</span><span>累計金額</span><span>建立時間</span><span>操作</span></div>
               {paginatedItems.groups.items.map(group=><article key={group.id}>
-                <div className="admin-group-name"><span><Building2/></span><div><b>{group.name}</b><small>{group.description||'未填寫說明'}</small></div></div>
+                <div className="admin-group-name"><span><Building2/></span><div><b>{group.name} <em className="admin-group-currency">{group.currency||'TWD'}</em></b><small>{group.description||'未填寫說明'}</small></div></div>
                 <span data-label="建立者">{group.ownerName}</span>
                 <span data-label="成員">{group.memberCount} 位</span>
                 <span data-label="支出">{group.expenseCount} 筆</span>
-                <strong data-label="累計金額">{money(group.totalCents)}</strong>
+                <strong data-label={`累計金額（${group.currency||'TWD'}）`}>{money(group.totalCents,group.currency)}</strong>
                 <time data-label="建立時間" dateTime={group.createdAt}>{date(group.createdAt)}</time>
                 <button className="admin-open-group" onClick={()=>onOpenGroup(group)}>開啟帳本<ArrowRight/></button>
               </article>)}

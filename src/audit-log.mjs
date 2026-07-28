@@ -1,3 +1,5 @@
+import {formatCurrencyAmount,isSupportedCurrency} from '../currency.mjs';
+
 const actionDefinitions=Object.freeze({
   create_group:{label:'新增',tone:'create'},
   join_group:{label:'加入',tone:'join'},
@@ -6,6 +8,9 @@ const actionDefinitions=Object.freeze({
   update_expense:{label:'修改',tone:'update'},
   delete_expense:{label:'刪除',tone:'delete'},
   report_settlement:{label:'回報',tone:'settlement'},
+  void_settlement:{label:'撤銷',tone:'delete'},
+  convert_group_currency:{label:'換算',tone:'update'},
+  sync_exchange_rates:{label:'同步',tone:'system'},
   grant_superuser:{label:'授權',tone:'update'},
   revoke_superuser:{label:'移除',tone:'delete'},
   create_simulated_account:{label:'建立',tone:'create'},
@@ -19,10 +24,11 @@ const safeText=(value,fallback='')=>{
   return normalized||fallback;
 };
 
-export function formatAuditAmount(cents){
+export function formatAuditAmount(cents,currency='TWD'){
   const value=Number(cents);
   if(!Number.isFinite(value))return '';
-  return `NT$ ${Math.round(value/100).toLocaleString('zh-TW')}`;
+  const code=isSupportedCurrency(currency)?String(currency).toUpperCase():'TWD';
+  return formatCurrencyAmount(value,code);
 }
 
 export function presentAuditItem(item){
@@ -58,6 +64,15 @@ export function presentAuditItem(item){
     case 'report_settlement':
       summary=`${actorName}${groupName?` 在${quoted(groupName)}`:''}回報轉帳${itemName?quoted(itemName):''}`;
       break;
+    case 'void_settlement':
+      summary=`${actorName}${groupName?` 在${quoted(groupName)}`:''}撤銷轉帳回報${itemName?quoted(itemName):''}`;
+      break;
+    case 'convert_group_currency':
+      summary=`${actorName}${groupName?` 將${quoted(groupName)}`:' 將群組'}幣別由 ${safeText(metadata.fromCurrency,'—')} 變更為 ${safeText(metadata.toCurrency,'—')}`;
+      break;
+    case 'sync_exchange_rates':
+      summary=`${actorName} 手動同步每日匯率`;
+      break;
     case 'grant_superuser':
       summary=`${actorName} 授予${itemName?quoted(itemName):'使用者'}管理者權限`;
       break;
@@ -81,8 +96,11 @@ export function presentAuditItem(item){
   }
 
   const detailParts=[];
-  const amount=formatAuditAmount(metadata.amountCents);
+  const amount=formatAuditAmount(metadata.amountCents,metadata.currency);
   if(amount)detailParts.push(amount);
+  if(action==='convert_group_currency'&&metadata.rate){
+    detailParts.push(`匯率 ${safeText(metadata.rate)} · ${safeText(metadata.rateDate,'日期未記錄')}`);
+  }
   if(Array.isArray(metadata.changedFields)&&metadata.changedFields.length){
     detailParts.push(`修改：${metadata.changedFields.map(value=>safeText(value)).filter(Boolean).join('、')}`);
   }else if(itemType&&itemName&&!summary.includes(itemName)){

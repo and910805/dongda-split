@@ -5,7 +5,8 @@ import {
   bankAccountRemovalConfirmation,
   expenseDeletionConfirmation,
   groupDeletionConfirmation,
-  roleChangeConfirmation
+  roleChangeConfirmation,
+  settlementVoidConfirmation
 } from '../src/confirmation-actions.mjs';
 
 test('刪除支出確認會顯示項目名稱與不可復原影響',()=>{
@@ -27,6 +28,18 @@ test('移除帳戶確認會說明付款人將失去轉帳資訊',()=>{
   const confirmation=bankAccountRemovalConfirmation();
   assert.match(confirmation.description,/無法查看這組轉帳資訊/);
   assert.equal(confirmation.confirmLabel,'移除帳戶');
+  assert.equal(confirmation.tone,'danger');
+});
+
+test('撤銷轉帳回報會說明只重算帳本、不會取消實際轉帳',()=>{
+  const confirmation=settlementVoidConfirmation({
+    from:{displayName:'Andy'},
+    to:{displayName:'本機小羅'}
+  });
+  assert.equal(confirmation.title,'撤銷「Andy → 本機小羅」的轉帳回報？');
+  assert.match(confirmation.description,/重新計算群組結餘/);
+  assert.match(confirmation.description,/不會取消銀行/);
+  assert.equal(confirmation.confirmLabel,'撤銷回報');
   assert.equal(confirmation.tone,'danger');
 });
 

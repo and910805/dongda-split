@@ -1,42 +1,76 @@
 import crypto from 'node:crypto';
+import {
+  allocateLargestRemainder,
+  getCurrencyQuantum,
+  isValidAmountCents,
+} from './currency.mjs';
 
 const signOf = value => value < 0 ? -1 : 1;
-const TWD_CENTS = 100;
-const isWholeTwd = value => Number.isSafeInteger(value) && value !== 0 && value % TWD_CENTS === 0;
+export const TWD_CENTS = 100;
+export const isWholeTwd = value => isValidAmountCents(value, 'TWD', { allowZero: false });
 
-export function allocateEqual(totalCents, memberIds, randomize = true) {
+function allocationOptions(options = {}) {
+  if (typeof options === 'string') return { currency: options };
+  return options && typeof options === 'object' ? options : {};
+}
+
+function allocationQuantum(options = {}) {
+  const normalized = allocationOptions(options);
+  const quantum = normalized.quantum ?? (normalized.currency ? getCurrencyQuantum(normalized.currency) : TWD_CENTS);
+  if (!Number.isSafeInteger(quantum) || quantum <= 0) throw new Error('invalid allocation quantum');
+  return quantum;
+}
+
+function isValidAllocationAmount(value, quantum) {
+  return Number.isSafeInteger(value) && value !== 0 && value % quantum === 0;
+}
+
+export function allocateEqual(totalCents, memberIds, randomizeOrOptions = true, maybeOptions = {}) {
+  const randomize = typeof randomizeOrOptions === 'boolean'
+    ? randomizeOrOptions
+    : randomizeOrOptions.randomize ?? true;
+  const options = typeof randomizeOrOptions === 'boolean'
+    ? allocationOptions(maybeOptions)
+    : allocationOptions(randomizeOrOptions);
+  const quantum = allocationQuantum(options);
   const ids = [...new Set(memberIds)];
-  if (!isWholeTwd(totalCents) || !ids.length) throw new Error('invalid equal split');
+  if (!isValidAllocationAmount(totalCents, quantum) || !ids.length) throw new Error('invalid equal split');
   if (randomize) {
     for (let i = ids.length - 1; i > 0; i--) {
       const j = crypto.randomInt(i + 1);
       [ids[i], ids[j]] = [ids[j], ids[i]];
     }
   }
-  const sign = signOf(totalCents), absoluteDollars = Math.abs(totalCents) / TWD_CENTS;
-  const base = Math.floor(absoluteDollars / ids.length), remainder = absoluteDollars % ids.length;
-  if (base === 0) throw new Error('金額太小，無法讓每位成員至少分攤 1 元');
-  return ids.map((userId, index) => ({ userId, shareCents: sign * (base + (index < remainder ? 1 : 0)) * TWD_CENTS }));
+  const sign = signOf(totalCents), absoluteUnits = Math.abs(totalCents) / quantum;
+  const base = Math.floor(absoluteUnits / ids.length), remainder = absoluteUnits % ids.length;
+  if (base === 0) throw new Error('金額太小，無法讓每位成員至少分攤一個最小單位');
+  return ids.map((userId, index) => ({ userId, shareCents: sign * (base + (index < remainder ? 1 : 0)) * quantum }));
 }
 
-export function allocateByWeights(totalCents, weights) {
-  const clean = weights.map(x => ({ userId: String(x.userId), weight: Number(x.weight) }));
-  if (!isWholeTwd(totalCents) || !clean.length || clean.some(x => !Number.isFinite(x.weight) || x.weight <= 0) || new Set(clean.map(x => x.userId)).size !== clean.length) throw new Error('invalid weights');
-  const totalWeight = clean.reduce((sum, x) => sum + x.weight, 0), absoluteDollars = Math.abs(totalCents) / TWD_CENTS, sign = signOf(totalCents);
-  const result = clean.map(x => { const raw = absoluteDollars * x.weight / totalWeight, floor = Math.floor(raw); return { userId: x.userId, shareDollars: floor, fraction: raw - floor } });
-  let remainder = absoluteDollars - result.reduce((sum, x) => sum + x.shareDollars, 0);
-  result.sort((a, b) => b.fraction - a.fraction || a.userId.localeCompare(b.userId));
-  for (let i = 0; i < remainder; i++) result[i % result.length].shareDollars++;
-  if (result.some(x => x.shareDollars === 0)) throw new Error('金額太小，無法讓每位成員至少分攤 1 元');
-  return result.map(({ userId, shareDollars }) => ({ userId, shareCents: sign * shareDollars * TWD_CENTS }));
+export function allocateByWeights(totalCents, weights, options = {}) {
+  const normalizedOptions = allocationOptions(options);
+  const quantum = allocationQuantum(normalizedOptions);
+  const clean = weights.map(x => ({ userId: String(x.userId), weight: x.weight }));
+  if (!isValidAllocationAmount(totalCents, quantum) || !clean.length || new Set(clean.map(x => x.userId)).size !== clean.length) throw new Error('invalid weights');
+  try {
+    return allocateLargestRemainder(totalCents, clean, {
+      quantum,
+      amountKey: 'shareCents',
+      requirePositive: true,
+    }).map(({ userId, shareCents }) => ({ userId, shareCents }));
+  } catch {
+    throw new Error('invalid weights');
+  }
 }
 
-export function allocateHybrid(totalCents, participantIds, fixedShares) {
+export function allocateHybrid(totalCents, participantIds, fixedShares, options = {}) {
+  const normalizedOptions = allocationOptions(options);
+  const quantum = allocationQuantum(normalizedOptions);
   const ids = [...new Set(participantIds.map(String))], fixed = fixedShares.map(x => ({ userId: String(x.userId), shareCents: Number(x.shareCents) }));
-  if (!isWholeTwd(totalCents) || !ids.length || fixed.some(x => !ids.includes(x.userId) || !isWholeTwd(x.shareCents)) || new Set(fixed.map(x => x.userId)).size !== fixed.length) throw new Error('invalid hybrid split');
+  if (!isValidAllocationAmount(totalCents, quantum) || !ids.length || fixed.some(x => !ids.includes(x.userId) || !isValidAllocationAmount(x.shareCents, quantum)) || new Set(fixed.map(x => x.userId)).size !== fixed.length) throw new Error('invalid hybrid split');
   const fixedTotal = fixed.reduce((sum, x) => sum + x.shareCents, 0), remaining = totalCents - fixedTotal, fixedIds = new Set(fixed.map(x => x.userId)), flexible = ids.filter(id => !fixedIds.has(id));
   if (!flexible.length ? remaining !== 0 : remaining === 0 || signOf(remaining) !== signOf(totalCents)) throw new Error('invalid hybrid remainder');
-  return [...fixed, ...(flexible.length ? allocateEqual(remaining, flexible) : [])];
+  return [...fixed, ...(flexible.length ? allocateEqual(remaining, flexible, { ...normalizedOptions, quantum }) : [])];
 }
 
 // 只有負餘額的人要實際去轉帳，正餘額的人是被動收款，被拆成幾筆都無感，

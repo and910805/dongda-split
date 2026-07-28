@@ -615,6 +615,21 @@
   white-space: nowrap;
 }
 
+.admin-group-currency {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 0 6px;
+  margin-left: 5px;
+  border-radius: 999px;
+  color: var(--admin-green-dark);
+  background: var(--admin-soft);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 850;
+  vertical-align: 1px;
+}
+
 .admin-user-name small,
 .admin-group-name small {
   display: block;

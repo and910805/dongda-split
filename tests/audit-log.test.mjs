@@ -30,8 +30,44 @@ test('刪除紀錄使用 metadata 快照保留已刪除項目的名稱',()=>{
   assert.equal(item.detail,'NT$ 2,680');
 });
 
+test('撤銷轉帳回報會保留群組、路徑與金額',()=>{
+  const item=presentAuditItem({
+    action:'void_settlement',
+    actorName:'Andy',
+    metadata:{
+      groupName:'開發測試旅程',
+      itemType:'轉帳',
+      itemName:'Andy → 本機小羅',
+      amountCents:50000
+    }
+  });
+  assert.equal(item.actionLabel,'撤銷');
+  assert.equal(item.actionTone,'delete');
+  assert.equal(item.summary,'Andy 在「開發測試旅程」撤銷轉帳回報「Andy → 本機小羅」');
+  assert.equal(item.detail,'NT$ 500');
+});
+
 test('未知與既有系統動作都有安全的顯示文字',()=>{
   assert.equal(presentAuditItem({action:'grant_superuser',actorName:'Kai',metadata:{displayName:'Andy'}}).summary,'Kai 授予「Andy」管理者權限');
   assert.equal(presentAuditItem({action:'custom_action',actorName:'Kai'}).summary,'Kai 執行 custom_action');
   assert.equal(formatAuditAmount(undefined),'');
+});
+
+test('稽核金額與群組換算依實際幣別顯示',()=>{
+  assert.equal(formatAuditAmount(1234,'USD'),'US$ 12.34');
+  assert.equal(formatAuditAmount(126000,'JPY'),'¥ 1,260');
+  const item=presentAuditItem({
+    action:'convert_group_currency',
+    actorName:'Andy',
+    metadata:{
+      groupName:'東京旅行',
+      fromCurrency:'TWD',
+      toCurrency:'JPY',
+      currency:'JPY',
+      rate:'5.05',
+      rateDate:'2026-07-27'
+    }
+  });
+  assert.equal(item.summary,'Andy 將「東京旅行」幣別由 TWD 變更為 JPY');
+  assert.equal(item.detail,'匯率 5.05 · 2026-07-27');
 });

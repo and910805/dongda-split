@@ -1,5 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {AlertCircle,Check,LoaderCircle,ReceiptText,X} from './ui-icons.jsx';
+import {amountCentsToInputValue,formatCurrencyAmount,getCurrency,parseCurrencyAmount} from '../currency.mjs';
 
 const api=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json'}}),data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'操作失敗');return data};
 function Person({person,size=32,decorative=false}){return person.pictureUrl?<img className="avatar" src={person.pictureUrl} alt={decorative?'':person.displayName} aria-hidden={decorative||undefined} style={{width:size,height:size}}/>:<span className="avatar initial" style={{width:size,height:size,background:'#1f9d69'}} aria-label={decorative?undefined:person.displayName} aria-hidden={decorative||undefined}>{person.displayName.slice(0,1)}</span>}
@@ -7,25 +8,37 @@ function Modal({children,close,labelledBy,describedBy}){const overlayRef=useRef(
 
 export function AdvancedExpenseModal({group,expense=null,currentUserId,close,done}){
   const formRef=useRef(null),errorRef=useRef(null);
+  const currencyCode=group.currency||'TWD',currency=getCurrency(currencyCode);
+  const inputAmount=value=>amountCentsToInputValue(Math.abs(Number(value||0)),currencyCode);
+  const parseInput=(value,{allowZero=true}={})=>{
+    const raw=String(value??'').trim();
+    if(!raw)return allowZero?{cents:0,error:''}:{cents:null,error:'請輸入金額'};
+    try{return{cents:parseCurrencyAmount(raw,currencyCode,{allowZero,allowNegative:false}),error:''}}
+    catch(parseError){return{cents:null,error:parseError.message}}
+  };
   const people=group.members.filter(x=>!x.isFund),payers=people;
   const defaultPerson=people.find(person=>String(person.id)===String(currentUserId))||people[0],defaultPersonId=defaultPerson?.id;
-  const storedShares=expense?.shares||[],storedPayments=expense?.payments||[],shareAmounts=storedShares.map(x=>Math.abs(Number(x.amountCents))),looksEqual=shareAmounts.length>0&&Math.max(...shareAmounts)-Math.min(...shareAmounts)<=1;
+  const storedShares=expense?.shares||[],storedPayments=expense?.payments||[],shareAmounts=storedShares.map(x=>Math.abs(Number(x.amountCents))),looksEqual=shareAmounts.length>0&&Math.max(...shareAmounts)-Math.min(...shareAmounts)<=currency.quantum;
   const splitMeta=expense?.splitMeta||{},supportedModes=['equal','exact','hybrid','weights'],initialMode=supportedModes.includes(expense?.splitMode)?expense.splitMode:expense?(looksEqual?'equal':'exact'):'equal';
   const metadataParticipants=Array.isArray(splitMeta.participantIds)?splitMeta.participantIds.map(String):[],metadataRows=initialMode==='weights'&&Array.isArray(splitMeta.weights)?splitMeta.weights:initialMode==='hybrid'&&Array.isArray(splitMeta.fixedShares)?splitMeta.fixedShares:initialMode==='exact'&&Array.isArray(splitMeta.shares)?splitMeta.shares:[];
   const initialSelected=expense?(metadataParticipants.length?metadataParticipants:metadataRows.length?metadataRows.map(x=>String(x.userId)):storedShares.map(x=>String(x.userId))):defaultPersonId===undefined?[]:[defaultPersonId];
-  const initialValueRows=metadataRows.length?metadataRows.map(x=>({userId:String(x.userId),value:initialMode==='weights'?Number(x.weight):Number(x.amount)})):storedShares.map(x=>({userId:String(x.userId),value:Math.abs(Number(x.amountCents))/100}));
+  const initialValueRows=metadataRows.length?metadataRows.map(x=>({userId:String(x.userId),value:initialMode==='weights'?String(x.weight??''):String(x.amount??'')})):storedShares.map(x=>({userId:String(x.userId),value:inputAmount(x.amountCents)}));
   const legacyHybrid=Boolean(expense&&initialMode==='hybrid'&&!Array.isArray(splitMeta.fixedShares));
-  const [kind,setKind]=useState(expense?.amountCents<0?'refund':'expense'),[title,setTitle]=useState(expense?.title||''),[amount,setAmount]=useState(expense?Math.abs(expense.amountCents)/100:''),[category,setCategory]=useState(expense?.category||'餐飲'),[payMode,setPayMode]=useState(storedPayments.length>1?'multiple':'single'),[payerId,setPayerId]=useState(expense?(storedPayments[0]?.userId||payers[0]?.id):defaultPersonId),[payerAmounts,setPayerAmounts]=useState(Object.fromEntries(storedPayments.map(x=>[x.userId,Math.abs(x.amountCents)/100]))),[mode,setMode]=useState(initialMode),[selected,setSelected]=useState(initialSelected),[values,setValues]=useState(Object.fromEntries(initialValueRows.map(x=>[x.userId,x.value]))),[busy,setBusy]=useState(false),[attempted,setAttempted]=useState(false),[error,setError]=useState('');
-  const total=Number(amount||0),toggle=id=>setSelected(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id]);
-  const payerTotal=Object.values(payerAmounts).reduce((s,v)=>s+Number(v||0),0),valueTotal=selected.reduce((s,id)=>s+Number(values[id]||0),0),blankCount=selected.filter(id=>!Number(values[id]||0)).length;
-  const validationError=useMemo(()=>{if(!title.trim())return '請先填寫項目名稱';if(total<=0)return '總金額必須大於 0';if(!selected.length)return '請至少選擇一位分攤成員';if(payMode==='multiple'&&payerTotal!==total)return `付款加總需要是 ${total.toLocaleString()} 元，目前是 ${payerTotal.toLocaleString()} 元`;if(mode==='exact'&&valueTotal!==total)return '每人指定金額的加總必須等於總金額';if(mode==='hybrid'&&(valueTotal>=total||blankCount===0))return '指定金額後，必須保留至少一人分攤剩餘金額';if(mode==='weights'&&selected.some(id=>Number(values[id]||1)<=0))return '每位成員的份數必須大於 0';return ''},[title,total,selected,payMode,payerTotal,mode,valueTotal,blankCount,values]);
-  const submit=async e=>{e.preventDefault();if(busy)return;setAttempted(true);if(validationError){setError('');setTimeout(()=>{const invalid=formRef.current?.querySelector('[aria-invalid="true"]');if(invalid)invalid.focus();else errorRef.current?.focus()},0);return}setBusy(true);setError('');try{const payload={kind,title,amount:total,category,splitMode:mode,participantIds:selected};if(payMode==='single')payload.payerId=payerId;else payload.payers=payers.filter(p=>Number(payerAmounts[p.id])>0).map(p=>({userId:p.id,amount:Number(payerAmounts[p.id])}));if(mode==='exact')payload.shares=selected.map(userId=>({userId,amount:Number(values[userId]||0)}));if(mode==='hybrid')payload.fixedShares=selected.filter(id=>Number(values[id])>0).map(userId=>({userId,amount:Number(values[userId])}));if(mode==='weights')payload.weights=selected.map(userId=>({userId,weight:Number(values[userId]||1)}));await api(expense?`/api/groups/${group.id}/expenses/${expense.id}`:`/api/groups/${group.id}/expenses`,{method:expense?'PATCH':'POST',body:JSON.stringify(payload)});done()}catch(err){setError(err.message);setBusy(false)}};
+  const [kind,setKind]=useState(expense?.amountCents<0?'refund':'expense'),[title,setTitle]=useState(expense?.title||''),[amount,setAmount]=useState(expense?inputAmount(expense.amountCents):''),[category,setCategory]=useState(expense?.category||'餐飲'),[payMode,setPayMode]=useState(storedPayments.length>1?'multiple':'single'),[payerId,setPayerId]=useState(expense?(storedPayments[0]?.userId||payers[0]?.id):defaultPersonId),[payerAmounts,setPayerAmounts]=useState(Object.fromEntries(storedPayments.map(x=>[x.userId,inputAmount(x.amountCents)]))),[mode,setMode]=useState(initialMode),[selected,setSelected]=useState(initialSelected),[values,setValues]=useState(Object.fromEntries(initialValueRows.map(x=>[x.userId,x.value]))),[busy,setBusy]=useState(false),[attempted,setAttempted]=useState(false),[error,setError]=useState('');
+  const toggle=id=>setSelected(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id]);
+  const parsedTotal=parseInput(amount,{allowZero:false}),totalCents=parsedTotal.cents;
+  const parsedPayers=Object.fromEntries(payers.map(person=>[person.id,parseInput(payerAmounts[person.id])]));
+  const payerInputInvalid=Object.values(parsedPayers).some(result=>result.cents===null),payerTotalCents=Object.values(parsedPayers).reduce((sum,result)=>sum+(result.cents||0),0);
+  const parsedValues=Object.fromEntries(selected.map(id=>[id,parseInput(values[id])]));
+  const valueInputInvalid=Object.values(parsedValues).some(result=>result.cents===null),valueTotalCents=Object.values(parsedValues).reduce((sum,result)=>sum+(result.cents||0),0),blankCount=selected.filter(id=>(parsedValues[id]?.cents||0)===0).length;
+  const weightInvalid=selected.some(id=>!/^(\d+)(?:\.\d+)?$/.test(String(values[id]||'1').trim())||Number(values[id]||1)<=0);
+  const validationError=useMemo(()=>{if(!title.trim())return '請先填寫項目名稱';if(totalCents===null)return parsedTotal.error;if(totalCents<=0)return '總金額必須大於 0';if(!selected.length)return '請至少選擇一位分攤成員';if(payMode==='multiple'&&payerInputInvalid)return `共同付款金額必須符合 ${currencyCode} 的小數位規則`;if(payMode==='multiple'&&payerTotalCents!==totalCents)return `付款加總需要是 ${formatCurrencyAmount(totalCents,currencyCode)}，目前是 ${formatCurrencyAmount(payerTotalCents,currencyCode)}`;if(mode==='exact'&&(valueInputInvalid||blankCount>0))return `每位成員都必須填寫符合 ${currencyCode} 規則的負擔金額`;if(mode==='exact'&&valueTotalCents!==totalCents)return '每人指定金額的加總必須等於總金額';if(mode==='hybrid'&&valueInputInvalid)return `指定金額必須符合 ${currencyCode} 的小數位規則`;if(mode==='hybrid'&&(valueTotalCents>=totalCents||blankCount===0))return '指定金額後，必須保留至少一人分攤剩餘金額';if(mode==='weights'&&weightInvalid)return '每位成員的份數必須大於 0';return ''},[title,totalCents,parsedTotal.error,selected,payMode,payerInputInvalid,payerTotalCents,currencyCode,mode,valueInputInvalid,blankCount,valueTotalCents,weightInvalid]);
+  const submit=async e=>{e.preventDefault();if(busy)return;setAttempted(true);if(validationError){setError('');setTimeout(()=>{const invalid=formRef.current?.querySelector('[aria-invalid="true"]');if(invalid)invalid.focus();else errorRef.current?.focus()},0);return}setBusy(true);setError('');try{const payload={kind,title,amount:amount.trim(),currency:currencyCode,ledgerVersion:group.ledgerVersion,category,splitMode:mode,participantIds:selected};if(payMode==='single')payload.payerId=payerId;else payload.payers=payers.filter(p=>(parsedPayers[p.id]?.cents||0)>0).map(p=>({userId:p.id,amount:String(payerAmounts[p.id]).trim()}));if(mode==='exact')payload.shares=selected.map(userId=>({userId,amount:String(values[userId]).trim()}));if(mode==='hybrid')payload.fixedShares=selected.filter(id=>(parsedValues[id]?.cents||0)>0).map(userId=>({userId,amount:String(values[userId]).trim()}));if(mode==='weights')payload.weights=selected.map(userId=>({userId,weight:String(values[userId]||1).trim()}));await api(expense?`/api/groups/${group.id}/expenses/${expense.id}`:`/api/groups/${group.id}/expenses`,{method:expense?'PATCH':'POST',body:JSON.stringify(payload)});done()}catch(err){setError(err.message);setBusy(false)}};
   const valueLabel=mode==='weights'?'份數／權重':'負擔金額';
   const splitHelp={equal:'所有已選成員平均分攤，尾差會自動分配',exact:'逐一輸入每位成員應負擔的確切金額',hybrid:'先指定部分金額，剩餘金額由留空成員平均分攤',weights:'依住宿天數、家庭人數等份數比例分攤'}[mode];
   const displayError=error||(attempted?validationError:'');
 return <Modal close={close} labelledBy="expense-modal-title" describedBy="expense-modal-description">
   <header className="modal-head expense-modal-head">
-    <span className="expense-modal-symbol" aria-hidden="true"><ReceiptText/></span>
     <div className="expense-modal-heading">
       <span className="expense-modal-eyebrow">{expense?'編輯帳目':'建立帳目'}</span>
       <h2 id="expense-modal-title">{expense?'修改支出':kind==='expense'?'新增共同支出':'記錄一筆退款'}</h2>
@@ -55,7 +68,7 @@ return <Modal close={close} labelledBy="expense-modal-title" describedBy="expens
       </legend>
       <label className="expense-title-field">項目名稱 <span className="required-mark" aria-hidden="true">*</span><input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder={kind==='expense'?'例如：民宿尾款':'例如：民宿退押金'} required aria-invalid={attempted&&!title.trim()}/><small className="field-help">清楚的名稱能讓日後查找與對帳更容易</small></label>
       <div className="form-two">
-        <label className="expense-amount-field">{kind==='expense'?'總金額':'退款金額'} <span className="required-mark" aria-hidden="true">*</span><input type="number" min="1" step="1" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="NT$ 0" required aria-invalid={attempted&&total<=0}/></label>
+        <label className="expense-amount-field">{kind==='expense'?'總金額':'退款金額'}（{currencyCode}） <span className="required-mark" aria-hidden="true">*</span><input type="number" min={currency.step} step={currency.step} inputMode={currency.decimals?'decimal':'numeric'} value={amount} onChange={e=>setAmount(e.target.value)} placeholder={`${currency.symbol} 0${currency.decimals?'.00':''}`} required aria-invalid={attempted&&(totalCents===null||totalCents<=0)}/><small className="field-help">{currency.name}最多輸入小數點後 {currency.decimals} 位</small></label>
         <label>分類<select value={category} onChange={e=>setCategory(e.target.value)}><option>餐飲</option><option>住宿</option><option>交通</option><option>購物</option><option>其他</option></select></label>
       </div>
     </fieldset>
@@ -73,7 +86,7 @@ return <Modal close={close} labelledBy="expense-modal-title" describedBy="expens
       </div>
       {payMode==='single'
         ?<label className="select-field">{kind==='expense'?'付款人':'退款接收者'}<select value={payerId} onChange={e=>setPayerId(e.target.value)}>{payers.map(p=><option value={p.id} key={p.id}>{p.displayName}</option>)}</select></label>
-        :<div className="amount-rows">{payers.map(p=><div key={p.id}><Person person={p}/><span>{p.displayName}</span><label>NT$<input type="number" min="0" inputMode="numeric" aria-label={`${p.displayName}的${kind==='expense'?'付款':'退款接收'}金額`} value={payerAmounts[p.id]||''} onChange={e=>setPayerAmounts(old=>({...old,[p.id]:e.target.value}))} placeholder="0"/></label></div>)}<p className={payerTotal===total?'ok':''}>{kind==='expense'?'付款':'退款接收'}加總 {payerTotal.toLocaleString()}／{total.toLocaleString()}</p></div>}
+        :<div className="amount-rows">{payers.map(p=><div key={p.id}><Person person={p}/><span>{p.displayName}</span><label>{currency.symbol}<input type="number" min="0" step={currency.step} inputMode={currency.decimals?'decimal':'numeric'} aria-label={`${p.displayName}的${kind==='expense'?'付款':'退款接收'}金額（${currencyCode}）`} value={payerAmounts[p.id]||''} onChange={e=>setPayerAmounts(old=>({...old,[p.id]:e.target.value}))} placeholder="0"/></label></div>)}<p className={totalCents!==null&&payerTotalCents===totalCents?'ok':''}>{kind==='expense'?'付款':'退款接收'}加總 {formatCurrencyAmount(payerTotalCents,currencyCode)}／{formatCurrencyAmount(totalCents||0,currencyCode)}</p></div>}
     </fieldset>
 
     <fieldset className="form-section expense-form-section">
@@ -87,16 +100,16 @@ return <Modal close={close} labelledBy="expense-modal-title" describedBy="expens
       <p className="split-help">{splitHelp}</p>
       {legacyHybrid&&mode==='hybrid'&&<p className="split-warning" role="note">這筆舊資料未保留原始指定欄位，請確認固定金額，並將要均分的成員留空後再儲存</p>}
       <div className="participant-heading"><b>參與成員</b><small>已選 {selected.length}／{people.length} 人</small></div>
-      <div className={'advanced-participants '+(mode!=='equal'?'with-values':'')}>{people.map(p=><div className={selected.includes(p.id)?'selected':''} key={p.id}><button type="button" aria-pressed={selected.includes(p.id)} onClick={()=>toggle(p.id)}><Person person={p} decorative/><span>{p.displayName}</span>{selected.includes(p.id)&&<Check/>}</button>{selected.includes(p.id)&&mode!=='equal'&&<label>{valueLabel}<input type="number" min={mode==='weights'?'0.01':'0'} step={mode==='weights'?'0.1':'1'} inputMode="decimal" aria-label={`${p.displayName}的${valueLabel}`} value={values[p.id]||''} onChange={e=>setValues(old=>({...old,[p.id]:e.target.value}))} placeholder={mode==='weights'?'1':mode==='hybrid'?'留空＝均分':'0'}/></label>}</div>)}</div>
-      {mode==='exact'&&<div className={'share-summary '+(valueTotal===total?'balanced':'')}><span>已分配 NT$ {valueTotal.toLocaleString()}</span><b>還差 NT$ {(total-valueTotal).toLocaleString()}</b></div>}
-      {mode==='hybrid'&&<div className={'share-summary '+(valueTotal<total&&blankCount?'balanced':'')}><span>指定 NT$ {valueTotal.toLocaleString()}</span><b>剩餘 NT$ {(total-valueTotal).toLocaleString()} 由 {blankCount} 人均分</b></div>}
+      <div className={'advanced-participants '+(mode!=='equal'?'with-values':'')}>{people.map(p=><div className={selected.includes(p.id)?'selected':''} key={p.id}><button type="button" aria-pressed={selected.includes(p.id)} onClick={()=>toggle(p.id)}><Person person={p} decorative/><span>{p.displayName}</span>{selected.includes(p.id)&&<Check/>}</button>{selected.includes(p.id)&&mode!=='equal'&&<label>{valueLabel}<input type="number" min={mode==='weights'?'0.01':'0'} step={mode==='weights'?'0.1':currency.step} inputMode="decimal" aria-label={`${p.displayName}的${valueLabel}${mode==='weights'?'':`（${currencyCode}）`}`} value={values[p.id]||''} onChange={e=>setValues(old=>({...old,[p.id]:e.target.value}))} placeholder={mode==='weights'?'1':mode==='hybrid'?'留空＝均分':'0'}/></label>}</div>)}</div>
+      {mode==='exact'&&<div className={'share-summary '+(totalCents!==null&&valueTotalCents===totalCents&&!blankCount?'balanced':'')}><span>已分配 {formatCurrencyAmount(valueTotalCents,currencyCode)}</span><b>還差 {formatCurrencyAmount((totalCents||0)-valueTotalCents,currencyCode)}</b></div>}
+      {mode==='hybrid'&&<div className={'share-summary '+(totalCents!==null&&valueTotalCents<totalCents&&blankCount?'balanced':'')}><span>指定 {formatCurrencyAmount(valueTotalCents,currencyCode)}</span><b>剩餘 {formatCurrencyAmount((totalCents||0)-valueTotalCents,currencyCode)} 由 {blankCount} 人均分</b></div>}
     </fieldset>
 
     {displayError&&<p ref={errorRef} className="form-error" role="alert" tabIndex="-1"><AlertCircle/>{displayError}</p>}
     <div className="form-actions sticky-actions expense-form-actions">
       <div className="expense-save-summary" aria-live="polite">
         <small>{kind==='expense'?'共同支出':'退款'} · {selected.length} 位成員</small>
-        <strong>NT$ {total.toLocaleString()}</strong>
+        <strong>{formatCurrencyAmount(totalCents||0,currencyCode)}</strong>
       </div>
       <div className="expense-action-buttons">
         <button type="button" className="secondary-button" onClick={close} disabled={busy}>取消</button>

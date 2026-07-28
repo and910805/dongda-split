@@ -23,7 +23,8 @@ const searchableValues={
     item?.name,
     item?.id,
     item?.description,
-    item?.ownerName
+    item?.ownerName,
+    item?.currency
   ],
   audit:item=>[
     item?.actionLabel,

@@ -12,6 +12,7 @@ async function expectStatus(status,promise){try{await promise;assert.fail(`expec
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
 let adminUserId=null,adminRoleBefore=null;
 const simulatedUserIds=[];
+const currencyConversionGroupIds=[];
 const simulationRunId=crypto.randomUUID().slice(0,8);
 const simulationNote=`scenario automated test ${simulationRunId}`;
 
@@ -27,6 +28,217 @@ try{
   const owner=actors[0],group=await post(owner.cookie,'/api/groups',{name:'scenario-e2e',description:'scenario automated test'});
   for(const actor of actors.slice(1))await post(actor.cookie,`/api/invites/${group.inviteToken}/join`,{});
   const ids=actors.map(x=>x.user.id);
+
+  const usdGroup=await post(owner.cookie,'/api/groups',{
+    name:'usd-ledger-e2e',
+    description:'scenario automated test',
+    currency:'USD'
+  });
+  assert.equal(usdGroup.currency,'USD');
+  await post(actors[1].cookie,`/api/invites/${usdGroup.inviteToken}/join`,{});
+  await post(owner.cookie,`/api/groups/${usdGroup.id}/expenses`,{
+    title:'美元小數支出',
+    currency:'USD',
+    amount:'10.55',
+    payerId:owner.user.id,
+    splitMode:'exact',
+    shares:[
+      {userId:owner.user.id,amount:'5.28'},
+      {userId:actors[1].user.id,amount:'5.27'}
+    ]
+  });
+  const {data:usdLedger}=await request(`/api/groups/${usdGroup.id}`,{cookie:owner.cookie});
+  assert.equal(usdLedger.currency,'USD');
+  assert.equal(usdLedger.expenses[0].amountCents,1055);
+  assert.equal(usdLedger.expenses[0].shares.reduce((sum,item)=>sum+item.amountCents,0),1055);
+  assert.equal(usdLedger.balances.reduce((sum,item)=>sum+item.balanceCents,0),0);
+  await expectStatus(400,post(owner.cookie,`/api/groups/${usdGroup.id}/expenses`,{
+    title:'超過兩位小數',
+    currency:'USD',
+    amount:'1.001',
+    payerId:owner.user.id,
+    participantIds:[owner.user.id],
+    splitMode:'equal'
+  }));
+  const jpyGroup=await post(owner.cookie,'/api/groups',{
+    name:'jpy-ledger-e2e',
+    description:'scenario automated test',
+    currency:'JPY'
+  });
+  assert.equal(jpyGroup.currency,'JPY');
+  await expectStatus(400,post(owner.cookie,`/api/groups/${jpyGroup.id}/expenses`,{
+    title:'日圓不可有小數',
+    currency:'JPY',
+    amount:'100.5',
+    payerId:owner.user.id,
+    participantIds:[owner.user.id],
+    splitMode:'equal'
+  }));
+
+  await post(admin.cookie,'/api/admin/exchange-rates/sync',{});
+  const conversionGroup=await post(owner.cookie,'/api/groups',{
+    name:'currency-conversion-e2e',
+    description:'scenario automated test',
+    currency:'TWD'
+  });
+  currencyConversionGroupIds.push(conversionGroup.id);
+  await post(actors[1].cookie,`/api/invites/${conversionGroup.inviteToken}/join`,{});
+  await post(actors[2].cookie,`/api/invites/${conversionGroup.inviteToken}/join`,{});
+  const conversionMembers=[owner,actors[1],actors[2]];
+  await post(owner.cookie,`/api/groups/${conversionGroup.id}/expenses`,{
+    title:'平均分攤',
+    currency:'TWD',
+    amount:'1200',
+    payerId:owner.user.id,
+    participantIds:conversionMembers.map(actor=>actor.user.id),
+    splitMode:'equal'
+  });
+  await post(owner.cookie,`/api/groups/${conversionGroup.id}/expenses`,{
+    title:'指定金額',
+    currency:'TWD',
+    amount:'999',
+    payerId:actors[1].user.id,
+    participantIds:conversionMembers.map(actor=>actor.user.id),
+    splitMode:'exact',
+    shares:conversionMembers.map(actor=>({userId:actor.user.id,amount:'333'}))
+  });
+  await post(owner.cookie,`/api/groups/${conversionGroup.id}/expenses`,{
+    title:'指定加均分',
+    currency:'TWD',
+    amount:'1000',
+    payerId:actors[2].user.id,
+    participantIds:conversionMembers.map(actor=>actor.user.id),
+    splitMode:'hybrid',
+    fixedShares:[{userId:owner.user.id,amount:'200'}]
+  });
+  await post(owner.cookie,`/api/groups/${conversionGroup.id}/expenses`,{
+    title:'多人付款比例分攤',
+    currency:'TWD',
+    amount:'1200',
+    payers:[
+      {userId:owner.user.id,amount:'700'},
+      {userId:actors[1].user.id,amount:'500'}
+    ],
+    participantIds:conversionMembers.map(actor=>actor.user.id),
+    splitMode:'weights',
+    weights:[
+      {userId:owner.user.id,weight:'1'},
+      {userId:actors[1].user.id,weight:'2'},
+      {userId:actors[2].user.id,weight:'3'}
+    ]
+  });
+  const {data:firstSettlementView}=await request(`/api/groups/${conversionGroup.id}`,{cookie:owner.cookie});
+  const firstReported=firstSettlementView.settlements.find(item=>item.from.id===actors[1].user.id);
+  assert.ok(firstReported);
+  await post(actors[1].cookie,`/api/groups/${conversionGroup.id}/settlements`,{
+    currency:'TWD',
+    toUserId:firstReported.to.id,
+    amount:String(firstReported.amountCents/100)
+  });
+  await post(owner.cookie,`/api/groups/${conversionGroup.id}/expenses`,{
+    title:'建立第二筆還款',
+    currency:'TWD',
+    amount:'300',
+    payerId:actors[1].user.id,
+    participantIds:[actors[2].user.id],
+    splitMode:'equal'
+  });
+  const {data:secondSettlementView}=await request(`/api/groups/${conversionGroup.id}`,{cookie:actors[2].cookie});
+  const secondReported=secondSettlementView.settlements.find(item=>item.from.id===actors[2].user.id&&item.to.id===actors[1].user.id);
+  assert.ok(secondReported);
+  await post(actors[2].cookie,`/api/groups/${conversionGroup.id}/settlements`,{
+    currency:'TWD',
+    toUserId:secondReported.to.id,
+    amount:String(secondReported.amountCents/100)
+  });
+  const {data:historyBeforeVoid}=await request(`/api/groups/${conversionGroup.id}`,{cookie:actors[2].cookie});
+  const voidTarget=historyBeforeVoid.settlementHistory.find(item=>item.from.id===actors[2].user.id&&item.to.id===actors[1].user.id);
+  assert.ok(voidTarget);
+  await request(`/api/groups/${conversionGroup.id}/settlements/${voidTarget.id}/void`,{
+    cookie:actors[2].cookie,
+    method:'PATCH',
+    body:{}
+  });
+  await expectStatus(403,request(`/api/groups/${conversionGroup.id}/currency/preview`,{
+    cookie:actors[1].cookie,
+    method:'POST',
+    body:{targetCurrency:'JPY'}
+  }));
+  const {data:twdPreview}=await request(`/api/groups/${conversionGroup.id}/currency/preview`,{
+    cookie:owner.cookie,
+    method:'POST',
+    body:{targetCurrency:'JPY'}
+  });
+  assert.equal(twdPreview.fromCurrency,'TWD');
+  assert.equal(twdPreview.toCurrency,'JPY');
+  assert.equal(twdPreview.targetDecimals,0);
+  assert.equal(twdPreview.counts.settlements,2);
+  const {data:twdToJpy}=await request(`/api/groups/${conversionGroup.id}/currency`,{
+    cookie:owner.cookie,
+    method:'PATCH',
+    body:{previewToken:twdPreview.previewToken}
+  });
+  assert.equal(twdToJpy.currency,'JPY');
+  assert.equal(twdToJpy.alreadyApplied,false);
+  const {data:twdToJpyRetry}=await request(`/api/groups/${conversionGroup.id}/currency`,{
+    cookie:owner.cookie,
+    method:'PATCH',
+    body:{previewToken:twdPreview.previewToken}
+  });
+  assert.equal(twdToJpyRetry.alreadyApplied,true);
+  await expectStatus(409,post(owner.cookie,`/api/groups/${conversionGroup.id}/expenses`,{
+    title:'舊頁面不得誤用新幣別',
+    currency:'TWD',
+    amount:'1000',
+    payerId:owner.user.id,
+    participantIds:[owner.user.id],
+    splitMode:'equal'
+  }));
+  const {data:jpyPreview}=await request(`/api/groups/${conversionGroup.id}/currency/preview`,{
+    cookie:owner.cookie,
+    method:'POST',
+    body:{targetCurrency:'USD'}
+  });
+  const concurrentConversion=await Promise.all([
+    request(`/api/groups/${conversionGroup.id}/currency`,{
+      cookie:owner.cookie,
+      method:'PATCH',
+      body:{previewToken:jpyPreview.previewToken}
+    }),
+    request(`/api/groups/${conversionGroup.id}/currency`,{
+      cookie:owner.cookie,
+      method:'PATCH',
+      body:{previewToken:jpyPreview.previewToken}
+    })
+  ]);
+  assert.equal(concurrentConversion.every(result=>result.data.ok),true);
+  assert.equal(concurrentConversion.filter(result=>result.data.alreadyApplied).length,1);
+  const {data:convertedLedger}=await request(`/api/groups/${conversionGroup.id}`,{cookie:owner.cookie});
+  assert.equal(convertedLedger.currency,'USD');
+  assert.equal(convertedLedger.expenses.length,5);
+  assert.equal(convertedLedger.balances.reduce((sum,item)=>sum+item.balanceCents,0),0);
+  assert.ok(convertedLedger.expenses.every(expense=>
+    expense.payments.reduce((sum,item)=>sum+item.amountCents,0)===expense.amountCents
+    &&expense.shares.reduce((sum,item)=>sum+item.amountCents,0)===expense.amountCents
+  ));
+  assert.equal(convertedLedger.settlementHistory.length,2);
+  assert.ok(convertedLedger.settlementHistory.every(item=>item.reportedCurrency==='TWD'));
+  assert.ok(convertedLedger.settlementHistory.some(item=>item.reportStatus==='voided'));
+  assert.ok(convertedLedger.settlementHistory.some(item=>item.reportStatus==='reported'));
+  const {rows:[snapshotAudit]}=await pool.query(`SELECT item.metadata
+    FROM group_currency_conversion_items item
+    JOIN group_currency_conversions conversion ON conversion.id=item.conversion_id
+    WHERE conversion.group_id=$1 AND item.entity_type='expense'
+      AND item.metadata->>'splitMode'='weights'
+    ORDER BY conversion.created_at
+    LIMIT 1`,[conversionGroup.id]);
+  assert.ok(snapshotAudit?.metadata?.beforeSplitMeta?.weights?.length);
+  await request(`/api/groups/${conversionGroup.id}`,{cookie:owner.cookie,method:'DELETE'});
+  const {rows:[preservedConversion]}=await pool.query(
+    'SELECT COUNT(*)::int AS count FROM group_currency_conversions WHERE group_id=$1',
+    [conversionGroup.id]
+  );
+  assert.equal(preservedConversion.count,2);
 
   await expectStatus(403,request('/api/admin/overview',{cookie:owner.cookie}));
   const {data:adminOverview}=await request('/api/admin/overview',{cookie:admin.cookie});
@@ -197,7 +409,7 @@ try{
   const settleGroup=await post(owner.cookie,'/api/groups',{name:'settle-e2e',description:'scenario automated test'});
   await post(actors[1].cookie,`/api/invites/${settleGroup.inviteToken}/join`,{});
   await post(actors[2].cookie,`/api/invites/${settleGroup.inviteToken}/join`,{});
-  await post(owner.cookie,`/api/groups/${settleGroup.id}/expenses`,{title:'兩人晚餐',amount:1000,payerId:ids[0],participantIds:[ids[0],ids[1]],splitMode:'equal'});
+  const settledExpense=await post(owner.cookie,`/api/groups/${settleGroup.id}/expenses`,{title:'兩人晚餐',amount:1000,payerId:ids[0],participantIds:[ids[0],ids[1]],splitMode:'equal'});
   const {data:before}=await request(`/api/groups/${settleGroup.id}`,{cookie:actors[1].cookie});
   const transfer=before.settlements[0];
   const reportPayload={fromUserId:ids[1],toUserId:ids[0],amount:transfer.amountCents/100};
@@ -222,6 +434,56 @@ try{
   assert.equal(after.settlementHistory[0].reportStatus,'reported');
   assert.equal(after.settlementHistory[0].verificationStatus,'unverified');
   assert.equal(new Date(after.settlementHistory[0].createdAt).getTime(),new Date(reportResult.reportedAt).getTime());
+  const settlementId=after.settlementHistory[0].id;
+  await expectStatus(400,request(`/api/groups/${settleGroup.id}/settlements/not-a-uuid/void`,{cookie:actors[1].cookie,method:'PATCH'}));
+  const newBorrowingPayload={title:'新借款',amount:1100,payerId:ids[1],participantIds:[ids[0]],splitMode:'equal'};
+  await expectStatus(409,request(`/api/groups/${settleGroup.id}/expenses/${settledExpense.id}`,{cookie:owner.cookie,method:'PATCH',body:newBorrowingPayload}));
+  await expectStatus(409,request(`/api/groups/${settleGroup.id}/expenses/${settledExpense.id}`,{cookie:owner.cookie,method:'DELETE'}));
+  const newBorrowing=await post(actors[1].cookie,`/api/groups/${settleGroup.id}/expenses`,newBorrowingPayload);
+  const {data:afterNewBorrowing}=await request(`/api/groups/${settleGroup.id}`,{cookie:owner.cookie});
+  const lockedHistoricalExpense=afterNewBorrowing.expenses.find(item=>item.id===settledExpense.id);
+  const borrowingExpense=afterNewBorrowing.expenses.find(item=>item.id===newBorrowing.id);
+  assert.equal(lockedHistoricalExpense.amountCents,100000);
+  assert.equal(lockedHistoricalExpense.isLocked,true);
+  assert.equal(borrowingExpense.amountCents,110000);
+  assert.equal(borrowingExpense.isLocked,false);
+  assert.deepEqual(borrowingExpense.payments,[{userId:ids[1],amountCents:110000}]);
+  assert.deepEqual(borrowingExpense.shares,[{userId:ids[0],amountCents:110000}]);
+  assert.equal(afterNewBorrowing.balances.find(item=>item.id===ids[0]).balanceCents,-110000);
+  assert.equal(afterNewBorrowing.balances.find(item=>item.id===ids[1]).balanceCents,110000);
+  assert.equal(afterNewBorrowing.balances.reduce((sum,item)=>sum+item.balanceCents,0),0);
+  assert.equal(afterNewBorrowing.settlements.length,1);
+  assert.equal(afterNewBorrowing.settlements[0].from.id,ids[0]);
+  assert.equal(afterNewBorrowing.settlements[0].to.id,ids[1]);
+  assert.equal(afterNewBorrowing.settlements[0].amountCents,110000);
+  assert.notEqual(afterNewBorrowing.settlements[0].amountCents,160000);
+  assert.equal(afterNewBorrowing.settlementHistory[0].id,settlementId);
+  assert.equal(afterNewBorrowing.settlementHistory[0].reportStatus,'reported');
+  await expectStatus(403,request(`/api/groups/${settleGroup.id}/settlements/${settlementId}/void`,{cookie:actors[2].cookie,method:'PATCH'}));
+  const {data:voidResult}=await request(`/api/groups/${settleGroup.id}/settlements/${settlementId}/void`,{cookie:actors[1].cookie,method:'PATCH'});
+  assert.equal(voidResult.ok,true);
+  assert.equal(voidResult.reportStatus,'voided');
+  assert.ok(Number.isFinite(new Date(voidResult.voidedAt).getTime()));
+  await expectStatus(409,request(`/api/groups/${settleGroup.id}/settlements/${settlementId}/void`,{cookie:actors[1].cookie,method:'PATCH'}));
+  const {data:afterVoid}=await request(`/api/groups/${settleGroup.id}`,{cookie:owner.cookie});
+  assert.equal(afterVoid.settlementHistory.length,1);
+  assert.equal(afterVoid.settlementHistory[0].id,settlementId);
+  assert.equal(afterVoid.settlementHistory[0].reportStatus,'voided');
+  assert.equal(afterVoid.settlementHistory[0].voidedBy.id,ids[1]);
+  assert.ok(Number.isFinite(new Date(afterVoid.settlementHistory[0].voidedAt).getTime()));
+  assert.equal(afterVoid.expenses.find(item=>item.id===settledExpense.id).isLocked,false);
+  assert.equal(afterVoid.settlements.length,1);
+  assert.equal(afterVoid.settlements[0].from.id,ids[0]);
+  assert.equal(afterVoid.settlements[0].to.id,ids[1]);
+  assert.equal(afterVoid.settlements[0].amountCents,60000);
+  assert.equal(afterVoid.balances.find(item=>item.id===ids[0]).balanceCents,-60000);
+  assert.equal(afterVoid.balances.find(item=>item.id===ids[1]).balanceCents,60000);
+  assert.equal(afterVoid.balances.reduce((sum,item)=>sum+item.balanceCents,0),0);
+  const {data:settlementAuditOverview}=await request('/api/admin/overview',{cookie:admin.cookie});
+  const voidSettlementAudit=settlementAuditOverview.auditLog.filter(item=>item.action==='void_settlement'&&item.targetId===settlementId&&item.metadata?.groupId===settleGroup.id);
+  assert.equal(voidSettlementAudit.length,1);
+  assert.equal(voidSettlementAudit[0].actorName,actors[1].user.displayName);
+  assert.equal(voidSettlementAudit[0].metadata.amountCents,50000);
 
   const bankOwner=actors[0],bankDebtor=actors[1],bankObserver=actors[2];
   await request('/api/me/bank-account',{cookie:bankOwner.cookie,method:'DELETE'});
@@ -347,6 +609,9 @@ try{
   assert.equal(lockedAfterExpenseChange.balances.reduce((sum,item)=>sum+item.balanceCents,0),0);
   console.log('ALL_DATABASE_SCENARIOS_OK');
 }finally{
+  if(currencyConversionGroupIds.length){
+    await pool.query('DELETE FROM group_currency_conversions WHERE group_id=ANY($1::uuid[])',[currencyConversionGroupIds]);
+  }
   await pool.query(`DELETE FROM admin_audit_log
     WHERE actor_id IN (SELECT id FROM users WHERE line_user_id LIKE 'dev-ScenarioMember%')
        OR metadata->>'groupId' IN (SELECT id::text FROM groups WHERE description='scenario automated test')`);

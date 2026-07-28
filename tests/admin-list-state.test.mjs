@@ -6,6 +6,7 @@ test('管理者清單依各分頁的專屬欄位查詢',()=>{
   assert.equal(filterAdminItems('users',[{id:'user-1',displayName:'Kai',isSuperuser:true}],'管理者').length,1);
   assert.equal(filterAdminItems('simulations',[{id:'sim-1',displayName:'測試旅伴',note:'東京五人行',createdByName:'Kai'}],'東京').length,1);
   assert.equal(filterAdminItems('groups',[{id:'group-1',name:'賞櫻旅行',description:'河口湖',ownerName:'Andy'}],'河口湖').length,1);
+  assert.equal(filterAdminItems('groups',[{id:'group-2',name:'首爾旅行',description:'',ownerName:'Andy',currency:'KRW'}],'krw').length,1);
   assert.equal(filterAdminItems('audit',[{action:'grant_superuser',actionLabel:'授予管理者權限',actorName:'Kai',targetType:'user',targetId:'user-2',metadata:{displayName:'Andy'}}],'授予管理者').length,1);
   const audit=[{action:'update_expense',actionLabel:'修改',actorName:'Kai',metadata:{groupName:'東京旅行',itemName:'築地早餐',changedFields:['名稱','金額']}}];
   assert.equal(filterAdminItems('audit',audit,'東京旅行').length,1);

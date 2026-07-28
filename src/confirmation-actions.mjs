@@ -29,6 +29,17 @@ export function bankAccountRemovalConfirmation(){
   };
 }
 
+export function settlementVoidConfirmation(settlement){
+  const fromName=readableName(settlement?.from?.displayName,'付款人');
+  const toName=readableName(settlement?.to?.displayName,'收款人');
+  return {
+    title:`撤銷「${fromName} → ${toName}」的轉帳回報？`,
+    description:'撤銷後，TripTab 會重新計算群組結餘，但不會取消銀行或其他支付工具中已完成的實際轉帳',
+    confirmLabel:'撤銷回報',
+    tone:'danger'
+  };
+}
+
 export function roleChangeConfirmation(user){
   const displayName=readableName(user?.displayName,'未命名使用者');
   if(user?.isSuperuser){

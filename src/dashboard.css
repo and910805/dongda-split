@@ -1138,26 +1138,11 @@
 
 .expense-modal-head {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  grid-template-columns: minmax(0, 1fr) 44px;
   gap: 13px;
   align-items: center;
   padding: 19px 22px 17px;
   backdrop-filter: blur(10px);
-}
-
-.expense-modal-symbol {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border: 1px solid #cce3d4;
-  border-radius: 12px;
-  color: var(--green-dark);
-  background: var(--surface-brand);
-}
-
-.expense-modal-symbol svg {
-  width: 21px;
 }
 
 .expense-modal-heading {
@@ -1562,6 +1547,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 10px 12px;
   margin-top: 10px;
@@ -1613,6 +1599,11 @@
   padding: 15px 0 2px;
   border-top: 1px solid var(--border);
   background: rgba(255, 255, 255, .98);
+}
+
+.share-summary b {
+  margin-left: auto;
+  text-align: right;
 }
 
 .expense-form-actions {
@@ -2023,13 +2014,8 @@
   }
 
   .expense-modal-head {
-    grid-template-columns: 40px minmax(0, 1fr) 44px;
+    grid-template-columns: minmax(0, 1fr) 44px;
     gap: 11px;
-  }
-
-  .expense-modal-symbol {
-    width: 40px;
-    height: 40px;
   }
 
   .expense-modal-eyebrow {
@@ -2121,13 +2107,8 @@
   }
 
   .expense-modal-head {
-    grid-template-columns: 38px minmax(0, 1fr) 40px;
+    grid-template-columns: minmax(0, 1fr) 40px;
     gap: 9px;
-  }
-
-  .expense-modal-symbol {
-    width: 38px;
-    height: 38px;
   }
 
   .expense-modal-head h2 {
