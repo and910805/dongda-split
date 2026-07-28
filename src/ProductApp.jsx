@@ -9,7 +9,7 @@ import {bankAccountRemovalConfirmation,expenseDeletionConfirmation,groupDeletion
 import {DEFAULT_EXPENSE_SORT,filterExpenses,nextExpenseSort,sortExpenses} from './expense-sort.mjs';
 import {acquireModalEnvironment} from './modal-environment.mjs';
 import {buildSettlementNotice,settlementLineShareUrl} from './settlement-notice.mjs';
-import {prioritizeSettlementsForReceiver} from './settlement-order.mjs';
+import {prioritizeSettlementsForMember} from './settlement-order.mjs';
 import {SUPPORTED_CURRENCIES,amountCentsToInputValue,formatCurrencyAmount,getCurrency} from '../currency.mjs';
 
 const api=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});if(response.status===401)throw Object.assign(new Error('unauthorized'),{status:401});const data=await response.json().catch(()=>({}));if(!response.ok)throw Object.assign(new Error(data.error||'操作失敗'),{status:response.status,data});return data};
@@ -222,11 +222,13 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
   const sortedExpenses=useMemo(()=>sortExpenses(visibleExpenses,expenseSort,expenseParticipantId),[expenseParticipantId,expenseSort,visibleExpenses]);
   const expensePageCount=Math.max(1,Math.ceil(sortedExpenses.length/TABLE_PAGE_SIZE)),currentExpensePage=Math.min(expensePage,expensePageCount);
   const pagedExpenses=sortedExpenses.slice((currentExpensePage-1)*TABLE_PAGE_SIZE,currentExpensePage*TABLE_PAGE_SIZE);
-  const prioritizedSettlements=useMemo(()=>prioritizeSettlementsForReceiver(group.settlements,me.id),[group.settlements,me.id]);
+  const prioritizedSettlements=useMemo(()=>prioritizeSettlementsForMember(group.settlements,me.id),[group.settlements,me.id]);
+  const settlementOrderKey=useMemo(()=>prioritizedSettlements.map(settlement=>`${settlement.from?.id}:${settlement.to?.id}:${settlement.amountCents}`).join('|'),[prioritizedSettlements]);
   const settlementPageCount=Math.max(1,Math.ceil(prioritizedSettlements.length/SETTLEMENT_PAGE_SIZE)),currentSettlementPage=Math.min(settlementPage,settlementPageCount);
   const pagedSettlements=prioritizedSettlements.slice((currentSettlementPage-1)*SETTLEMENT_PAGE_SIZE,currentSettlementPage*SETTLEMENT_PAGE_SIZE);
   useEffect(()=>setExpensePage(page=>Math.min(page,expensePageCount)),[expensePageCount]);
   useEffect(()=>setSettlementPage(page=>Math.min(page,settlementPageCount)),[settlementPageCount]);
+  useEffect(()=>setSettlementPage(1),[group.id,me.id,settlementOrderKey]);
   const changeExpenseSort=field=>{setExpenseSort(current=>nextExpenseSort(current,field));setExpensePage(1)};
   const expenseSortSummary=`目前依${EXPENSE_SORT_LABELS[expenseSort.key]}${expenseSortDirectionLabel(expenseSort.key,expenseSort.direction)}排序`;
   const expenseSearchActive=Boolean(String(deferredExpenseQuery).normalize('NFKC').trim());
