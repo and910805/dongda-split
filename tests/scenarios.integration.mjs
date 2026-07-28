@@ -202,12 +202,12 @@ try{
   const transfer=before.settlements[0];
   const reportPayload={fromUserId:ids[1],toUserId:ids[0],amount:transfer.amountCents/100};
   await expectStatus(403,post(actors[2].cookie,`/api/groups/${settleGroup.id}/settlements`,reportPayload));
-  await expectStatus(403,post(owner.cookie,`/api/groups/${settleGroup.id}/settlements`,reportPayload));
-  const {data:reportResult,response:reportResponse}=await request(`/api/groups/${settleGroup.id}/settlements`,{cookie:actors[1].cookie,method:'POST',body:reportPayload});
+  const {data:reportResult,response:reportResponse}=await request(`/api/groups/${settleGroup.id}/settlements`,{cookie:owner.cookie,method:'POST',body:reportPayload});
   assert.equal(reportResponse.status,201);
   assert.equal(reportResult.ok,true);
   assert.equal(reportResult.reportStatus,'reported');
   assert.equal(reportResult.verificationStatus,'unverified');
+  assert.equal(reportResult.assisted,true);
   assert.ok(Number.isFinite(new Date(reportResult.reportedAt).getTime()));
   await expectStatus(400,post(actors[1].cookie,`/api/groups/${settleGroup.id}/settlements`,reportPayload));
   const {data:after}=await request(`/api/groups/${settleGroup.id}`,{cookie:owner.cookie});
@@ -217,8 +217,8 @@ try{
   assert.equal(after.settlementHistory[0].from.id,ids[1]);
   assert.equal(after.settlementHistory[0].to.id,ids[0]);
   assert.equal(after.settlementHistory[0].amountCents,transfer.amountCents);
-  assert.equal(after.settlementHistory[0].confirmedBy.id,ids[1]);
-  assert.equal(after.settlementHistory[0].reportedBy.id,ids[1]);
+  assert.equal(after.settlementHistory[0].confirmedBy.id,ids[0]);
+  assert.equal(after.settlementHistory[0].reportedBy.id,ids[0]);
   assert.equal(after.settlementHistory[0].reportStatus,'reported');
   assert.equal(after.settlementHistory[0].verificationStatus,'unverified');
   assert.equal(new Date(after.settlementHistory[0].createdAt).getTime(),new Date(reportResult.reportedAt).getTime());

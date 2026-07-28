@@ -227,9 +227,10 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
     ...(group.settlementHistory||[]).flatMap(item=>[item.createdAt,item.voidedAt])
   ].map(value=>new Date(value).getTime()).filter(Number.isFinite).sort((a,b)=>b-a)[0];
   const lastUpdated=latestActivity?new Intl.DateTimeFormat('zh-TW',{dateStyle:'medium',timeStyle:'short'}).format(new Date(latestActivity)):'尚未有紀錄';
-  const canPay=settlement=>settlement.from.id===me.id;
-  const canManageFundPayment=settlement=>settlement.from.isFund&&group.ownerId===me.id&&settlement.to.id!==me.id;
-  const canConfirm=settlement=>canPay(settlement)||canManageFundPayment(settlement);
+  const canPay=settlement=>String(settlement.from.id)===String(me.id);
+  const canManageFundPayment=settlement=>settlement.from.isFund&&String(group.ownerId)===String(me.id)&&String(settlement.to.id)!==String(me.id);
+  const canAssistMemberPayment=settlement=>!settlement.from.isFund&&String(group.ownerId)===String(me.id)&&String(settlement.from.id)!==String(me.id);
+  const canConfirm=settlement=>canPay(settlement)||canManageFundPayment(settlement)||canAssistMemberPayment(settlement);
   const settlementKey=settlement=>`${settlement.from.id}:${settlement.to.id}:${settlement.amountCents}`;
   const beginTransferReport=settlement=>{setTransferError('');setPendingSettlement(settlement)};
   const closeTransferReport=()=>{if(paying)return;setTransferError('');setPendingSettlement(null)};
@@ -401,11 +402,12 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
         <div className="settlement-heading"><div><span className="section-kicker">待辦事項</span><h2 id="settlement-title" tabIndex={-1}>結算</h2><p>依支出與還款後的群組淨額計算，共 {group.settlements.length} 筆</p></div><button className="settlement-help-button" onClick={()=>setShowSettlementHelp(true)} aria-label="了解結算演算法"><CircleHelp/></button></div>
         {!group.settlements.length?<div className="all-clear"><Check/><b>目前都結清了</b><p>新增支出後，旅帳會在這裡整理最少轉帳路徑</p></div>:<>
           <div className="settlement-list">{pagedSettlements.map(s=>{
-            const actionable=canConfirm(s),fundPayment=canManageFundPayment(s),bankAccess=s.bankAccountAccess||{},canShareBank=Boolean(bankAccess.canShare&&String(s.to.id)===String(me.id));
+            const ownPayment=canPay(s),fundPayment=canManageFundPayment(s),assistedPayment=canAssistMemberPayment(s);
+            const actionable=ownPayment||fundPayment||assistedPayment,bankAccess=s.bankAccountAccess||{},canShareBank=Boolean(bankAccess.canShare&&String(s.to.id)===String(me.id));
             return <article className={`settlement-row ${actionable?'payable':''}`} key={settlementKey(s)}>
               <div className="settlement-card-head">
-                <span className={`settlement-status ${actionable?'needs-action':''}`}><Clock3/>{actionable?'待你付款':'等待付款'}</span>
-                <span className="settlement-amount"><small>{actionable?(fundPayment?'公費需支付':'你需支付'):'轉帳金額'}</small><strong>{money(s.amountCents)}</strong></span>
+                <span className={`settlement-status ${actionable?'needs-action':''}`}><Clock3/>{assistedPayment?'可代為確認':actionable?'待你付款':'等待付款'}</span>
+                <span className="settlement-amount"><small>{assistedPayment?'代確認金額':actionable?(fundPayment?'公費需支付':'你需支付'):'轉帳金額'}</small><strong>{money(s.amountCents)}</strong></span>
               </div>
               <div className="settlement-route" role="group" aria-label={`${s.from.displayName} 支付給 ${s.to.displayName}`}>
                 <div className="settlement-person"><Person person={s.from} size={40}/><span className="settlement-person-copy"><small>付款人</small><b>{s.from.displayName}</b></span></div>
@@ -413,8 +415,8 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
                 <div className="settlement-person receiver"><Person person={s.to} size={40}/><span className="settlement-person-copy"><small>收款人</small><b>{s.to.displayName}</b></span></div>
               </div>
               {canShareBank&&<SettlementBankShare groupId={group.id} settlement={s} shared={bankAccess.shared} configured={Boolean(me.bankAccount?.configured)} refresh={refresh} openProfile={openProfile}/>}
-              {actionable&&(bankAccess.shared?<SettlementBankDetails groupId={group.id} settlement={s}/>:<SettlementBankUnavailable/>)}
-              {actionable?<button className="settlement-confirm" disabled={Boolean(paying)} onClick={()=>beginTransferReport(s)}><Check/>{fundPayment?'從公費付款':'我已轉帳'}</button>:<div className="settlement-waiting" role="status"><Clock3/><span><b>等待 {s.from.displayName} 轉帳</b><small>付款人回報後會更新結算狀態</small></span></div>}
+              {(ownPayment||fundPayment)&&(bankAccess.shared?<SettlementBankDetails groupId={group.id} settlement={s}/>:<SettlementBankUnavailable/>)}
+              {actionable?<button className="settlement-confirm" disabled={Boolean(paying)} onClick={()=>beginTransferReport(s)}><Check/>{assistedPayment?'代為標記已轉帳':fundPayment?'從公費付款':'我已轉帳'}</button>:<div className="settlement-waiting" role="status"><Clock3/><span><b>等待 {s.from.displayName} 轉帳</b><small>付款人回報後會更新結算狀態</small></span></div>}
             </article>;
           })}</div>
           <RecordPagination page={currentSettlementPage} totalItems={group.settlements.length} pageSize={SETTLEMENT_PAGE_SIZE} onPageChange={setSettlementPage} label="待辦結算" compact/>
@@ -457,9 +459,10 @@ function ExpenseSharesModal({expense,members,close}){
 }
 function TransferConfirmationModal({group,settlement,reportedBy,busy,error,close,confirm}){
  const isFund=Boolean(settlement.from.isFund);
+ const isAssisted=String(settlement.from.id)!==String(reportedBy.id);
  return <Modal close={close} closeDisabled={busy} className="transfer-confirm-modal" label="確認轉帳回報">
   <div className="transfer-confirm-content" aria-busy={busy}>
-   <div className="transfer-modal-heading"><span className="transfer-modal-icon"><Check/></span><div><span className="eyebrow">完成轉帳通知</span><h2>確認已完成這筆轉帳？</h2><p>送出後會更新帳本，並為你準備可分享到 LINE 的通知文字</p></div></div>
+   <div className="transfer-modal-heading"><span className="transfer-modal-icon"><Check/></span><div><span className="eyebrow">完成轉帳通知</span><h2>{isAssisted?'代為確認這筆轉帳已完成？':'確認已完成這筆轉帳？'}</h2><p>{isAssisted?'送出後會以群組建立者身分代為記錄，並更新帳本':'送出後會更新帳本，並為你準備可分享到 LINE 的通知文字'}</p></div></div>
    <div className="transfer-summary-card">
     <div className="transfer-report-route" role="group" aria-label={`${settlement.from.displayName} 轉帳給 ${settlement.to.displayName}`}>
      <div><Person person={settlement.from} size={42}/><span><small>付款人</small><b>{settlement.from.displayName}</b></span></div>
@@ -467,19 +470,20 @@ function TransferConfirmationModal({group,settlement,reportedBy,busy,error,close
      <div><Person person={settlement.to} size={42}/><span><small>收款人</small><b>{settlement.to.displayName}</b></span></div>
     </div>
     <div className="transfer-summary-amount"><small>回報金額</small><strong>{money(settlement.amountCents)}</strong></div>
-    <p className="transfer-summary-group"><WalletCards/>{group.name}{isFund&&<span>由 {reportedBy.displayName} 代管回報</span>}</p>
+    <p className="transfer-summary-group"><WalletCards/>{group.name}{isAssisted&&<span>由 {reportedBy.displayName} 代為確認</span>}{!isAssisted&&isFund&&<span>由 {reportedBy.displayName} 代管回報</span>}</p>
    </div>
-   <div className="transfer-verification-note" id="transfer-confirm-note"><AlertCircle/><div><b>這是自行回報，不是入帳驗證</b><p>TripTab 未連線銀行，無法確認收款人是否實際收到款項 請確認你已在銀行或其他支付工具完成轉帳後再送出</p></div></div>
+   <div className="transfer-verification-note" id="transfer-confirm-note"><AlertCircle/><div><b>{isAssisted?'這是管理員代為回報，不是入帳驗證':'這是自行回報，不是入帳驗證'}</b><p>{isAssisted?'TripTab 未連線銀行，請先向付款人或收款人確認款項已完成，再代為送出。':'TripTab 未連線銀行，無法確認收款人是否實際收到款項 請確認你已在銀行或其他支付工具完成轉帳後再送出'}</p></div></div>
    {error&&<p className="transfer-report-error" role="alert"><AlertCircle/>{error}</p>}
    <div className="transfer-confirm-actions">
     <button type="button" className="secondary-button" onClick={close} disabled={busy}>先不要</button>
-    <button type="button" className="primary" onClick={confirm} disabled={busy} aria-describedby="transfer-confirm-note">{busy?<LoaderCircle/>:<Check/>}{busy?'記錄中…':'確認已轉帳並記錄'}</button>
+    <button type="button" className="primary" onClick={confirm} disabled={busy} aria-describedby="transfer-confirm-note">{busy?<LoaderCircle/>:<Check/>}{busy?'記錄中…':isAssisted?'代為確認並記錄':'確認已轉帳並記錄'}</button>
    </div>
   </div>
  </Modal>;
 }
 function TransferNoticeModal({report,close}){
  const {text,amountLabel,timeLabel}=buildSettlementNotice(report);
+ const isAssisted=Boolean(report.reportedBy)&&String(report.reportedBy.id)!==String(report.from.id);
  const [copyState,setCopyState]=useState(''),[shareOpened,setShareOpened]=useState(false);
  const copy=async()=>{
   setCopyState('');
@@ -502,7 +506,7 @@ function TransferNoticeModal({report,close}){
     <div className="transfer-summary-amount"><small>已回報金額</small><strong>{amountLabel}</strong></div>
     <dl className="transfer-report-meta"><div><dt>旅程</dt><dd>{report.groupName}</dd></div><div><dt>記錄時間</dt><dd>{timeLabel}</dd></div>{report.reportedBy&&<div><dt>回報人</dt><dd>{report.reportedBy.displayName}</dd></div>}</dl>
    </div>
-   <div className="transfer-verification-note" id="transfer-report-note"><ShieldCheck/><div><b>付款人自行回報</b><p>TripTab 未連線銀行驗證入帳，實際收款狀態請以收款人的銀行或支付工具紀錄為準</p></div></div>
+   <div className="transfer-verification-note" id="transfer-report-note"><ShieldCheck/><div><b>{isAssisted?'群組建立者代為回報':'付款人自行回報'}</b><p>TripTab 未連線銀行驗證入帳，實際收款狀態請以收款人的銀行或支付工具紀錄為準</p></div></div>
    {report.refreshWarning&&<p className="transfer-refresh-warning" role="alert"><RefreshCcw/>{report.refreshWarning}</p>}
    <details className="transfer-report-preview"><summary>預覽通知文字</summary><pre>{text}</pre></details>
    <div className="transfer-report-actions">

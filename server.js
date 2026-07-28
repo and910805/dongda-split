@@ -1030,7 +1030,9 @@ app.post('/api/groups/:id/settlements',requireUser,asyncRoute(async(req,res)=>{
       WHERE item.group_id=$1 AND item.from_user_id=$2 AND item.to_user_id=$3 AND item.amount_cents=$4
       FOR UPDATE`,[req.params.id,requestedFrom,toUserId,amountCents]);
     if(!planItem){await client.query('ROLLBACK');return res.status(400).json({error:'這筆轉帳已完成或結算方案已更新，請重新整理'})}
-    if(requestedFrom!==req.userId&&!(planItem.isFund&&group.owner_id===req.userId)){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人本人能回報；公費款項由群組建立者回報'})}
+    const isGroupOwner=String(group.owner_id)===String(req.userId);
+    const isAssisted=String(requestedFrom)!==String(req.userId);
+    if(isAssisted&&!isGroupOwner){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人本人或群組建立者能回報轉帳'})}
     const {rows:[report]}=await client.query(`INSERT INTO settlement_payments(group_id,from_user_id,to_user_id,amount_cents,created_by)
       VALUES($1,$2,$3,$4,$5) RETURNING id,created_at AS "reportedAt"`,[req.params.id,requestedFrom,toUserId,amountCents,req.userId]);
     await client.query('DELETE FROM settlement_plan_items WHERE id=$1',[planItem.id]);
@@ -1043,12 +1045,14 @@ app.post('/api/groups/:id/settlements',requireUser,asyncRoute(async(req,res)=>{
         groupName:group.name,
         itemType:'轉帳',
         itemName:`${planItem.fromName} → ${planItem.toName}`,
-        amountCents
+        amountCents,
+        payerId:requestedFrom,
+        assisted:isAssisted
       }
     });
     await pruneInactiveBankAccessGrants(client,req.params.id);
     await client.query('COMMIT');
-    res.status(201).json({ok:true,reportStatus:'reported',verificationStatus:'unverified',reportedAt:report.reportedAt});
+    res.status(201).json({ok:true,reportStatus:'reported',verificationStatus:'unverified',reportedAt:report.reportedAt,assisted:isAssisted});
   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.post('/api/groups/:id/expenses-v1',requireUser,asyncRoute(async(req,res)=>{

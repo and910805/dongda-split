@@ -54,6 +54,16 @@ test('代管公費回報時會另外標示實際回報人',()=>{
   assert.match(text,/回報人：群組管理員/);
 });
 
+test('群組建立者代成員確認時會保留付款人與實際回報人',()=>{
+  const {text}=buildSettlementNotice({
+    ...report,
+    reportedBy:{id:'owner',displayName:'群組管理員'}
+  });
+  assert.match(text,/付款人：小明/);
+  assert.match(text,/回報人：群組管理員/);
+  assert.match(text,/群組管理員 已將這筆款項標記為「已轉帳」/);
+});
+
 test('金額、時間與 LINE 分享網址維持可預期格式',()=>{
   assert.equal(formatSettlementReportAmount(746_00),'NT$ 746');
   assert.equal(formatSettlementReportAmount('invalid'),'NT$ 0');
