@@ -6,7 +6,6 @@ const actionDefinitions=Object.freeze({
   update_expense:{label:'修改',tone:'update'},
   delete_expense:{label:'刪除',tone:'delete'},
   report_settlement:{label:'回報',tone:'settlement'},
-  void_settlement:{label:'撤銷',tone:'delete'},
   grant_superuser:{label:'授權',tone:'update'},
   revoke_superuser:{label:'移除',tone:'delete'},
   create_simulated_account:{label:'建立',tone:'create'},
@@ -58,9 +57,6 @@ export function presentAuditItem(item){
       break;
     case 'report_settlement':
       summary=`${actorName}${groupName?` 在${quoted(groupName)}`:''}回報轉帳${itemName?quoted(itemName):''}`;
-      break;
-    case 'void_settlement':
-      summary=`${actorName}${groupName?` 在${quoted(groupName)}`:''}撤銷轉帳回報${itemName?quoted(itemName):''}`;
       break;
     case 'grant_superuser':
       summary=`${actorName} 授予${itemName?quoted(itemName):'使用者'}管理者權限`;

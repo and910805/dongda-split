@@ -10,20 +10,6 @@ export function expenseDeletionConfirmation(title){
   };
 }
 
-export function settlementVoidConfirmation(item){
-  const fromName=readableName(item?.from?.displayName,'付款人');
-  const toName=readableName(item?.to?.displayName,'收款人');
-  const amount=Number(item?.amountCents);
-  const amountLabel=Number.isFinite(amount)?`NT$ ${Math.round(Math.abs(amount)/100).toLocaleString('zh-TW')}`:'這筆款項';
-  return {
-    title:'撤銷這筆轉帳回報？',
-    description:`${fromName} → ${toName}，${amountLabel}。撤銷後會重新計算群組淨額與待辦結算，但不會取消銀行或支付工具中已完成的實際轉帳。`,
-    confirmLabel:'撤銷回報',
-    cancelLabel:'保留回報',
-    tone:'warning'
-  };
-}
-
 export function groupDeletionConfirmation(name){
   const groupName=readableName(name,'未命名群組');
   return {

@@ -1,6 +1,6 @@
 import React,{useEffect,useId,useRef} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertCircle,Check,LoaderCircle,RefreshCcw,ShieldCheck,Trash2,X} from './ui-icons.jsx';
+import {AlertCircle,Check,LoaderCircle,ShieldCheck,Trash2,X} from './ui-icons.jsx';
 import {acquireModalEnvironment} from './modal-environment.mjs';
 
 export function ConfirmModal({
@@ -51,7 +51,7 @@ export function ConfirmModal({
     };
   },[]);
 
-  const ActionIcon=tone==='danger'?Trash2:tone==='warning'?RefreshCcw:ShieldCheck;
+  const ActionIcon=tone==='danger'?Trash2:ShieldCheck;
   const describedBy=error?`${descriptionId} ${errorId}`:descriptionId;
 
   return createPortal(
@@ -69,7 +69,7 @@ export function ConfirmModal({
         <div className="confirm-modal-heading">
           <span className="confirm-modal-icon" aria-hidden="true"><ActionIcon/></span>
           <div>
-            <span className="eyebrow">{tone==='danger'?'危險操作':tone==='warning'?'帳務調整':'權限確認'}</span>
+            <span className="eyebrow">{tone==='danger'?'危險操作':'權限確認'}</span>
             <h2 id={titleId}>{title}</h2>
           </div>
         </div>
@@ -77,8 +77,8 @@ export function ConfirmModal({
         {error&&<p className="form-error confirm-modal-error" id={errorId} role="alert"><AlertCircle/>{error}</p>}
         <div className="confirm-modal-actions">
           <button ref={cancelRef} type="button" className="secondary-button" onClick={onCancel} disabled={busy}>{cancelLabel}</button>
-          <button type="button" className={tone==='danger'?'confirm-modal-danger':tone==='warning'?'confirm-modal-warning':'primary'} onClick={onConfirm} disabled={busy}>
-            {busy?<LoaderCircle/>:tone==='danger'?<Trash2/>:tone==='warning'?<RefreshCcw/>:<Check/>}
+          <button type="button" className={tone==='danger'?'confirm-modal-danger':'primary'} onClick={onConfirm} disabled={busy}>
+            {busy?<LoaderCircle/>:tone==='danger'?<Trash2/>:<Check/>}
             {busy?'處理中…':confirmLabel}
           </button>
         </div>

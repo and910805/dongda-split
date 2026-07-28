@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
   bankAccountRemovalConfirmation,
   expenseDeletionConfirmation,
-  settlementVoidConfirmation,
   groupDeletionConfirmation,
   roleChangeConfirmation
 } from '../src/confirmation-actions.mjs';
@@ -15,17 +14,6 @@ test('刪除支出確認會顯示項目名稱與不可復原影響',()=>{
   assert.match(confirmation.description,/無法復原/);
   assert.equal(confirmation.confirmLabel,'刪除支出');
   assert.equal(confirmation.tone,'danger');
-});
-
-test('撤銷轉帳回報會說明重新計算與銀行端不受影響',()=>{
-  const confirmation=settlementVoidConfirmation({from:{displayName:'Andy'},to:{displayName:'小羅'},amountCents:50000});
-  assert.equal(confirmation.title,'撤銷這筆轉帳回報？');
-  assert.match(confirmation.description,/Andy → 小羅/);
-  assert.match(confirmation.description,/NT\$ 500/);
-  assert.match(confirmation.description,/不會取消銀行或支付工具/);
-  assert.equal(confirmation.confirmLabel,'撤銷回報');
-  assert.equal(confirmation.cancelLabel,'保留回報');
-  assert.equal(confirmation.tone,'warning');
 });
 
 test('刪除群組確認會說明支出、分攤與結算都會刪除',()=>{

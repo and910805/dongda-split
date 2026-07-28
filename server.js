@@ -170,14 +170,7 @@ async function migrate(){
       amount_cents BIGINT NOT NULL CHECK (amount_cents>0),
       created_by UUID NOT NULL REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      voided_at TIMESTAMPTZ,
-      voided_by UUID REFERENCES users(id),
-      CHECK (from_user_id<>to_user_id),
-      CONSTRAINT settlement_payments_void_consistency_check CHECK (
-        (voided_at IS NULL AND voided_by IS NULL)
-        OR
-        (voided_at IS NOT NULL AND voided_by IS NOT NULL)
-      )
+      CHECK (from_user_id<>to_user_id)
     );
     CREATE TABLE IF NOT EXISTS settlement_plan_items (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -228,8 +221,6 @@ async function migrate(){
       expires_at TIMESTAMPTZ NOT NULL,
       CHECK (actor_id<>subject_id)
     );
-    ALTER TABLE settlement_payments ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
-    ALTER TABLE settlement_payments ADD COLUMN IF NOT EXISTS voided_by UUID REFERENCES users(id);
     CREATE INDEX IF NOT EXISTS expenses_group_created_idx ON expenses(group_id,created_at DESC);
     CREATE INDEX IF NOT EXISTS expenses_group_created_id_idx ON expenses(group_id,created_at DESC,id DESC);
     CREATE INDEX IF NOT EXISTS settlement_payments_group_created_id_idx ON settlement_payments(group_id,created_at DESC,id DESC);
@@ -329,13 +320,6 @@ async function migrate(){
       END IF;
       IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='settlement_payments_whole_twd_check') THEN
         ALTER TABLE settlement_payments ADD CONSTRAINT settlement_payments_whole_twd_check CHECK (amount_cents%100=0);
-      END IF;
-      IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='settlement_payments_void_consistency_check') THEN
-        ALTER TABLE settlement_payments ADD CONSTRAINT settlement_payments_void_consistency_check CHECK (
-          (voided_at IS NULL AND voided_by IS NULL)
-          OR
-          (voided_at IS NOT NULL AND voided_by IS NOT NULL)
-        );
       END IF;
     END $$;
   `);
@@ -642,7 +626,7 @@ app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{
 
 async function assertMember(groupId,userId){const {rows}=await pool.query('SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2',[groupId,userId]);return Boolean(rows[0])}
 async function canReadGroup(groupId,userId){return await assertMember(groupId,userId)||await isSuperuser(userId)}
-const BALANCE_SQL=`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_virtual AS "isFund",gm.role,(COALESCE(p.paid,0)-COALESCE(o.owed,0)+COALESCE(sout.sent,0)-COALESCE(sin.received,0))::bigint::text AS "balanceCents" FROM group_members gm JOIN users u ON u.id=gm.user_id LEFT JOIN (SELECT ep.user_id,SUM(ep.amount_cents) paid FROM expense_payments ep JOIN expenses e ON e.id=ep.expense_id WHERE e.group_id=$1 GROUP BY ep.user_id)p ON p.user_id=u.id LEFT JOIN (SELECT es.user_id,SUM(es.amount_cents) owed FROM expense_shares es JOIN expenses e ON e.id=es.expense_id WHERE e.group_id=$1 GROUP BY es.user_id)o ON o.user_id=u.id LEFT JOIN (SELECT from_user_id,SUM(amount_cents) sent FROM settlement_payments WHERE group_id=$1 AND voided_at IS NULL GROUP BY from_user_id)sout ON sout.from_user_id=u.id LEFT JOIN (SELECT to_user_id,SUM(amount_cents) received FROM settlement_payments WHERE group_id=$1 AND voided_at IS NULL GROUP BY to_user_id)sin ON sin.to_user_id=u.id WHERE gm.group_id=$1 ORDER BY gm.joined_at`;
+const BALANCE_SQL=`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_virtual AS "isFund",gm.role,(COALESCE(p.paid,0)-COALESCE(o.owed,0)+COALESCE(sout.sent,0)-COALESCE(sin.received,0))::bigint::text AS "balanceCents" FROM group_members gm JOIN users u ON u.id=gm.user_id LEFT JOIN (SELECT ep.user_id,SUM(ep.amount_cents) paid FROM expense_payments ep JOIN expenses e ON e.id=ep.expense_id WHERE e.group_id=$1 GROUP BY ep.user_id)p ON p.user_id=u.id LEFT JOIN (SELECT es.user_id,SUM(es.amount_cents) owed FROM expense_shares es JOIN expenses e ON e.id=es.expense_id WHERE e.group_id=$1 GROUP BY es.user_id)o ON o.user_id=u.id LEFT JOIN (SELECT from_user_id,SUM(amount_cents) sent FROM settlement_payments WHERE group_id=$1 GROUP BY from_user_id)sout ON sout.from_user_id=u.id LEFT JOIN (SELECT to_user_id,SUM(amount_cents) received FROM settlement_payments WHERE group_id=$1 GROUP BY to_user_id)sin ON sin.to_user_id=u.id WHERE gm.group_id=$1 ORDER BY gm.joined_at`;
 const SETTLEMENT_PLAN_SQL=`SELECT item.id,item.amount_cents::bigint::text AS "amountCents",item.sort_order AS "sortOrder",
   JSONB_BUILD_OBJECT('id',fu.id,'displayName',fu.display_name,'pictureUrl',fu.picture_url,'isFund',fu.is_virtual) AS "from",
   JSONB_BUILD_OBJECT('id',tu.id,'displayName',tu.display_name,'pictureUrl',tu.picture_url,'isFund',tu.is_virtual) AS "to"
@@ -656,18 +640,6 @@ async function invalidateSettlementPlan(client,groupId){
   await client.query('UPDATE groups SET settlement_plan_ready=false WHERE id=$1',[groupId]);
   await client.query('DELETE FROM bank_account_access_grants WHERE group_id=$1',[groupId]);
 }
-async function isExpenseSettlementLocked(client,groupId,expenseId){
-  const {rows:[result]}=await client.query(`SELECT EXISTS(
-    SELECT 1
-    FROM settlement_payments sp
-    JOIN expenses e ON e.id=$2 AND e.group_id=$1
-    WHERE sp.group_id=$1
-      AND sp.voided_at IS NULL
-      AND sp.created_at>=e.created_at
-  ) AS locked`,[groupId,expenseId]);
-  return Boolean(result?.locked);
-}
-
 async function ensureSettlementPlan(client,groupId){
   const {rows:[group]}=await client.query('SELECT id,name,owner_id,settlement_plan_ready AS "settlementPlanReady" FROM groups WHERE id=$1 FOR UPDATE',[groupId]);
   if(!group||group.settlementPlanReady)return group||null;
@@ -708,24 +680,12 @@ async function pruneInactiveBankAccessGrants(client,groupId){
 app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
   if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
   if(!await ensureSettlementPlanForGroup(req.params.id))return res.status(404).json({error:'找不到群組'});
-  const elevated=await isSuperuser(req.userId);
   const [groupResult,membersResult,expensesResult,balancesResult,settlementHistoryResult,bankAccessResult,settlementPlanResult]=await Promise.all([
     pool.query('SELECT id,name,description,currency,invite_token AS "inviteToken",owner_id AS "ownerId" FROM groups WHERE id=$1',[req.params.id]),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_virtual AS "isFund",gm.role FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id]),
-    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.split_mode AS "splitMode",e.split_meta AS "splitMeta",e.expense_date AS "expenseDate",e.created_at AS "createdAt",e.created_by AS "createdBy",EXISTS(SELECT 1 FROM settlement_payments sp WHERE sp.group_id=e.group_id AND sp.voided_at IS NULL AND sp.created_at>=e.created_at) AS "isLocked",STRING_AGG(DISTINCT pu.display_name,'、') AS "payerName",COUNT(DISTINCT es.user_id)::int AS "shareCount",COUNT(DISTINCT ep.user_id)::int AS "payerCount",JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',ep.user_id,'amountCents',ep.amount_cents)) AS payments,JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',es.user_id,'amountCents',es.amount_cents)) FILTER (WHERE es.user_id IS NOT NULL) AS shares FROM expenses e JOIN expense_payments ep ON ep.expense_id=e.id JOIN users pu ON pu.id=ep.user_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id ORDER BY e.created_at DESC,e.id DESC`,[req.params.id]),
+    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.split_mode AS "splitMode",e.split_meta AS "splitMeta",e.expense_date AS "expenseDate",e.created_at AS "createdAt",e.created_by AS "createdBy",STRING_AGG(DISTINCT pu.display_name,'、') AS "payerName",COUNT(DISTINCT es.user_id)::int AS "shareCount",COUNT(DISTINCT ep.user_id)::int AS "payerCount",JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',ep.user_id,'amountCents',ep.amount_cents)) AS payments,JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',es.user_id,'amountCents',es.amount_cents)) FILTER (WHERE es.user_id IS NOT NULL) AS shares FROM expenses e JOIN expense_payments ep ON ep.expense_id=e.id JOIN users pu ON pu.id=ep.user_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id ORDER BY e.created_at DESC,e.id DESC`,[req.params.id]),
     pool.query(BALANCE_SQL,[req.params.id]),
-    pool.query(`SELECT sp.id,sp.amount_cents::bigint::text AS "amountCents",sp.created_at AS "createdAt",sp.voided_at AS "voidedAt",
-      JSONB_BUILD_OBJECT('id',fu.id,'displayName',fu.display_name,'pictureUrl',fu.picture_url,'isFund',fu.is_virtual) AS "from",
-      JSONB_BUILD_OBJECT('id',tu.id,'displayName',tu.display_name,'pictureUrl',tu.picture_url,'isFund',tu.is_virtual) AS "to",
-      JSONB_BUILD_OBJECT('id',cu.id,'displayName',cu.display_name) AS "confirmedBy",
-      CASE WHEN vu.id IS NULL THEN NULL ELSE JSONB_BUILD_OBJECT('id',vu.id,'displayName',vu.display_name) END AS "voidedBy"
-      FROM settlement_payments sp
-      JOIN users fu ON fu.id=sp.from_user_id
-      JOIN users tu ON tu.id=sp.to_user_id
-      JOIN users cu ON cu.id=sp.created_by
-      LEFT JOIN users vu ON vu.id=sp.voided_by
-      WHERE sp.group_id=$1
-      ORDER BY sp.created_at DESC,sp.id DESC`,[req.params.id]),
+    pool.query(`SELECT sp.id,sp.amount_cents::bigint::text AS "amountCents",sp.created_at AS "createdAt",JSONB_BUILD_OBJECT('id',fu.id,'displayName',fu.display_name,'pictureUrl',fu.picture_url,'isFund',fu.is_virtual) AS "from",JSONB_BUILD_OBJECT('id',tu.id,'displayName',tu.display_name,'pictureUrl',tu.picture_url,'isFund',tu.is_virtual) AS "to",JSONB_BUILD_OBJECT('id',cu.id,'displayName',cu.display_name) AS "confirmedBy" FROM settlement_payments sp JOIN users fu ON fu.id=sp.from_user_id JOIN users tu ON tu.id=sp.to_user_id JOIN users cu ON cu.id=sp.created_by WHERE sp.group_id=$1 ORDER BY sp.created_at DESC,sp.id DESC`,[req.params.id]),
     pool.query(`SELECT access.from_user_id AS "fromUserId",access.to_user_id AS "toUserId"
       FROM bank_account_access_grants access
       JOIN user_bank_accounts account ON account.user_id=access.to_user_id AND account.share_version=access.bank_account_version
@@ -741,19 +701,7 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
     if(!canView&&!canShare)return settlement;
     return{...settlement,bankAccountAccess:{shared:activeBankAccess.has(`${settlement.from.id}:${settlement.to.id}`),canView,canShare}};
   });
-  const settlementHistory=settlementHistoryResult.rows.map(x=>({
-    ...x,
-    reportedBy:x.confirmedBy,
-    reportStatus:x.voidedAt?'voided':'reported',
-    verificationStatus:'unverified',
-    amountCents:Number(x.amountCents),
-    canVoid:!x.voidedAt&&(
-      String(x.confirmedBy.id)===String(req.userId)
-      ||String(x.from.id)===String(req.userId)
-      ||String(groupResult.rows[0].ownerId)===String(req.userId)
-      ||elevated
-    )
-  }));
+  const settlementHistory=settlementHistoryResult.rows.map(x=>({...x,reportedBy:x.confirmedBy,reportStatus:'reported',verificationStatus:'unverified',amountCents:Number(x.amountCents)}));
   res.json({...groupResult.rows[0],members:membersResult.rows,expenses:expensesResult.rows.map(x=>({...x,amountCents:Number(x.amountCents),payments:(x.payments||[]).map(p=>({...p,amountCents:Number(p.amountCents)})),shares:(x.shares||[]).map(s=>({...s,amountCents:Number(s.amountCents)}))})),balances,settlements,settlementHistory});
 }));
 app.delete('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
@@ -847,9 +795,7 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
   try{
     await client.query('BEGIN');
     await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    const {rows:[lockedExpense]}=await client.query('SELECT id FROM expenses WHERE id=$1 AND group_id=$2 FOR UPDATE',[req.params.expenseId,req.params.id]);
-    if(!lockedExpense){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆支出'})}
-    if(await isExpenseSettlementLocked(client,req.params.id,req.params.expenseId)){await client.query('ROLLBACK');return res.status(409).json({code:'EXPENSE_SETTLEMENT_LOCKED',error:'這筆支出已有轉帳回報，不能改寫帳務歷史；請新增一筆調整或退款。只有回報本身錯誤時，才到還款紀錄撤銷回報'})}
+    await client.query('SELECT id FROM expenses WHERE id=$1 FOR UPDATE',[req.params.expenseId]);
     await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,split_mode=$5,split_meta=$6::jsonb WHERE id=$7`,[title,amountCents,payments[0].userId,category,mode,JSON.stringify(splitMeta),req.params.expenseId]);
     await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);
     await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);
@@ -887,9 +833,6 @@ app.delete('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(re
   try{
     await client.query('BEGIN');
     await client.query('SELECT id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    const {rows:[lockedExpense]}=await client.query('SELECT id FROM expenses WHERE id=$1 AND group_id=$2 FOR UPDATE',[req.params.expenseId,req.params.id]);
-    if(!lockedExpense){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆支出'})}
-    if(await isExpenseSettlementLocked(client,req.params.id,req.params.expenseId)){await client.query('ROLLBACK');return res.status(409).json({code:'EXPENSE_SETTLEMENT_LOCKED',error:'這筆支出已有轉帳回報，不能刪除帳務歷史；請新增一筆調整或退款。只有回報本身錯誤時，才到還款紀錄撤銷回報'})}
     await client.query('DELETE FROM expenses WHERE id=$1',[req.params.expenseId]);
     await writeAudit(client,req,{
       action:'delete_expense',
@@ -969,47 +912,6 @@ app.get('/api/groups/:id/settlements/:toUserId/bank-account',requireUser,asyncRo
     [req.params.id,actionableFromIds,recipient.id,accountRow.shareVersion]);
   if(!grant)return res.status(403).json({error:'收款人尚未提供轉帳資訊'});
   res.json({recipient,amountCents,bankAccount:bankAccountCipher.decrypt(recipient.id,accountRow)});
-}));
-app.patch('/api/groups/:id/settlements/:settlementId/void',requireUser,asyncRoute(async(req,res)=>{
-  if(!UUID_PATTERN.test(req.params.id)||!UUID_PATTERN.test(req.params.settlementId))return res.status(400).json({error:'轉帳回報格式不正確'});
-  const elevated=await isSuperuser(req.userId);
-  if(!elevated&&!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
-  const client=await pool.connect();
-  try{
-    await client.query('BEGIN');
-    const {rows:[group]}=await client.query('SELECT id,name,owner_id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
-    const {rows:[settlement]}=await client.query(`SELECT sp.id,sp.amount_cents::bigint::text AS "amountCents",sp.created_by AS "createdBy",
-      sp.from_user_id AS "fromUserId",sp.voided_at AS "voidedAt",
-      fu.display_name AS "fromName",tu.display_name AS "toName"
-      FROM settlement_payments sp
-      JOIN users fu ON fu.id=sp.from_user_id
-      JOIN users tu ON tu.id=sp.to_user_id
-      WHERE sp.id=$1 AND sp.group_id=$2
-      FOR UPDATE OF sp`,[req.params.settlementId,req.params.id]);
-    if(!settlement){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆轉帳回報'})}
-    if(settlement.voidedAt){await client.query('ROLLBACK');return res.status(409).json({error:'這筆轉帳回報已撤銷，請重新整理帳本'})}
-    const canVoid=elevated||String(group.owner_id)===String(req.userId)||String(settlement.createdBy)===String(req.userId)||String(settlement.fromUserId)===String(req.userId);
-    if(!canVoid){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人、原回報人、群組建立者或管理者能撤銷回報'})}
-    const {rows:[voided]}=await client.query(`UPDATE settlement_payments
-      SET voided_at=now(),voided_by=$1
-      WHERE id=$2 RETURNING voided_at AS "voidedAt"`,[req.userId,settlement.id]);
-    await writeAudit(client,req,{
-      action:'void_settlement',
-      targetType:'settlement',
-      targetId:settlement.id,
-      metadata:{
-        groupId:group.id,
-        groupName:group.name,
-        itemType:'轉帳',
-        itemName:`${settlement.fromName} → ${settlement.toName}`,
-        amountCents:Number(settlement.amountCents)
-      }
-    });
-    await invalidateSettlementPlan(client,group.id);
-    await client.query('COMMIT');
-    res.json({ok:true,reportStatus:'voided',voidedAt:voided.voidedAt});
-  }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
 }));
 app.post('/api/groups/:id/settlements',requireUser,asyncRoute(async(req,res)=>{
   if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
