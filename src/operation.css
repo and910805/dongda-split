@@ -2187,6 +2187,70 @@
   font-size: 16px;
 }
 
+.currency-rate-choice {
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid var(--operation-border);
+  border-radius: 10px;
+  background: #fafcfb;
+}
+
+.currency-rate-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border-radius: 9px;
+  background: #eaf2ed;
+}
+
+.currency-rate-tabs button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--operation-muted);
+  background: transparent;
+  font-weight: 800;
+}
+
+.currency-rate-tabs button[aria-pressed="true"] {
+  color: var(--operation-green-dark);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(24, 81, 57, .08);
+}
+
+.currency-rate-choice > label {
+  display: grid;
+  gap: 7px;
+  color: var(--operation-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.currency-rate-choice > label > span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+}
+
+.currency-rate-choice input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 11px;
+  border: 1px solid var(--operation-border-strong);
+  border-radius: 9px;
+  text-align: right;
+}
+
+.currency-rate-choice input[aria-invalid="true"] {
+  border-color: #c84d43;
+}
+
+.currency-rate-choice b {
+  min-width: 42px;
+}
+
 .currency-rate-warning,
 .currency-permanent-warning {
   padding: 12px 14px;

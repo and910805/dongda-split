@@ -24,6 +24,7 @@ import {
   exchangeRateInternals
 } from './exchange-rates.mjs';
 import {buildCurrencyConversionPlan} from './group-currency-conversion.mjs';
+import {convertExpenseInputToLedger,normalizeExpenseRate} from './expense-currency.mjs';
 // bank-account.mjs is required at runtime and must be copied into the production image.
 import {createBankAccountCipher,normalizeBankAccount} from './bank-account.mjs';
 import {normalizeSimulatedAccountInput} from './account-simulation.mjs';
@@ -180,6 +181,52 @@ function hasExpectedCurrencyMismatch(body,currentCurrency){
   const expected=String(body?.currency??'TWD').trim().toUpperCase();
   return expected!==String(currentCurrency||'TWD').toUpperCase();
 }
+async function resolveExpenseLedgerInput(body,group,allowed,userId){
+  const sourceCurrency=String(body?.expenseCurrency||group.currency||'TWD').trim().toUpperCase();
+  if(!isSupportedCurrency(sourceCurrency))throw new Error('不支援這個支出幣別');
+  const sourceInput=resolveExpenseInput(body,sourceCurrency,allowed);
+  if(sourceCurrency===group.currency){
+    return convertExpenseInputToLedger({
+      input:sourceInput,
+      sourceCurrency,
+      targetCurrency:group.currency,
+      rate:'1'
+    });
+  }
+
+  const rateMode=body?.exchangeRateMode==='manual'?'manual':'quoted';
+  let rate,rateDate=null,rateSource='member';
+  if(rateMode==='manual'){
+    rate=normalizeExpenseRate(body?.exchangeRate);
+  }else{
+    const quote=unsign(body?.exchangeRateToken);
+    if(!quote||quote.kind!=='expense-exchange-rate'
+      ||String(quote.actorId)!==String(userId)
+      ||String(quote.groupId)!==String(group.id)
+      ||quote.sourceCurrency!==sourceCurrency
+      ||quote.targetCurrency!==group.currency){
+      const error=new Error('匯率預覽已過期，請重新取得匯率');
+      error.code='EXPENSE_RATE_EXPIRED';
+      throw error;
+    }
+    rate={
+      rate:quote.rate,
+      ratioNumerator:quote.ratioNumerator,
+      ratioDenominator:quote.ratioDenominator
+    };
+    rateDate=quote.rateDate;
+    rateSource=quote.source||'exchange-api';
+  }
+  return convertExpenseInputToLedger({
+    input:sourceInput,
+    sourceCurrency,
+    targetCurrency:group.currency,
+    rate,
+    rateDate,
+    rateSource,
+    rateMode
+  });
+}
 async function writeAudit(client,req,{action,targetType,targetId,metadata={}}){
   const simulation=req.simulationSession;
   const actorId=simulation?.actorId||req.userId;
@@ -247,6 +294,7 @@ async function migrate(){
       category TEXT NOT NULL DEFAULT '其他',
       split_mode TEXT NOT NULL DEFAULT 'equal',
       split_meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+      currency_meta JSONB NOT NULL DEFAULT '{}'::jsonb,
       expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -475,6 +523,7 @@ async function migrate(){
       WHERE COALESCE(ended_at,expires_at)<now()-INTERVAL '90 days';
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_mode TEXT NOT NULL DEFAULT 'equal';
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_meta JSONB NOT NULL DEFAULT '{}'::jsonb;
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS currency_meta JSONB NOT NULL DEFAULT '{}'::jsonb;
     DO $$ BEGIN
       IF NOT EXISTS(
         SELECT 1 FROM pg_constraint
@@ -538,6 +587,38 @@ async function migrate(){
       END IF;
     END
     $legacy_twd_share_migration$;
+    UPDATE expenses expense
+      SET currency_meta=JSONB_BUILD_OBJECT(
+        'inputCurrency',ledger.currency,
+        'inputAmountCents',expense.amount_cents,
+        'inputPayments',COALESCE((
+          SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+            'userId',payment.user_id,
+            'amountCents',payment.amount_cents
+          ) ORDER BY payment.user_id)
+          FROM expense_payments payment
+          WHERE payment.expense_id=expense.id
+        ),'[]'::jsonb),
+        'inputShares',COALESCE((
+          SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+            'userId',share.user_id,
+            'amountCents',share.amount_cents
+          ) ORDER BY share.user_id)
+          FROM expense_shares share
+          WHERE share.expense_id=expense.id
+        ),'[]'::jsonb),
+        'inputSplitMeta',expense.split_meta,
+        'ledgerCurrency',ledger.currency,
+        'rate','1',
+        'ratioNumerator','1',
+        'ratioDenominator','1',
+        'rateDate',NULL,
+        'rateSource','legacy',
+        'rateMode','identity'
+      )
+      FROM groups ledger
+      WHERE expense.group_id=ledger.id
+        AND (expense.currency_meta='{}'::jsonb OR NOT (expense.currency_meta ? 'inputCurrency'));
     DO $$ BEGIN
       ALTER TABLE expenses DROP CONSTRAINT IF EXISTS expenses_whole_twd_check;
       ALTER TABLE expense_payments DROP CONSTRAINT IF EXISTS expense_payments_whole_twd_check;
@@ -596,6 +677,65 @@ app.get('/api/currencies',asyncRoute(async(_req,res)=>{
       return{code:currency.code,name:currency.name,symbol:currency.symbol,decimals:currency.decimals,step:currency.step};
     }),
     exchangeRates
+  });
+}));
+app.post('/api/groups/:id/expense-rate',requireUser,asyncRoute(async(req,res)=>{
+  if(!UUID_PATTERN.test(req.params.id))return res.status(400).json({error:'群組資料格式不正確'});
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  const sourceCurrency=String(req.body?.sourceCurrency||'').trim().toUpperCase();
+  if(!isSupportedCurrency(sourceCurrency))return res.status(400).json({error:'不支援這個支出幣別'});
+  const {rows:[group]}=await pool.query('SELECT id,currency FROM groups WHERE id=$1',[req.params.id]);
+  if(!group)return res.status(404).json({error:'找不到群組'});
+  if(sourceCurrency===group.currency){
+    return res.json({
+      sourceCurrency,
+      targetCurrency:group.currency,
+      rate:'1',
+      ratioNumerator:'1',
+      ratioDenominator:'1',
+      rateDate:null,
+      source:'identity',
+      exchangeRateToken:null,
+      expiresAt:null
+    });
+  }
+  let quote;
+  try{
+    quote=await exchangeRateService.getConversionQuote({
+      sourceCurrency,
+      targetCurrency:group.currency
+    });
+  }catch(error){
+    if(error instanceof ExchangeRateUnavailableError||error.code==='EXCHANGE_RATE_UNAVAILABLE'){
+      return res.status(503).json({code:'EXCHANGE_RATE_UNAVAILABLE',error:error.message});
+    }
+    throw error;
+  }
+  if(quote.health?.blocked){
+    return res.status(503).json({
+      code:'EXCHANGE_RATE_STALE',
+      error:quote.health.warning||'匯率資料過期，請改用自訂匯率',
+      exchangeRateHealth:quote.health
+    });
+  }
+  const expiresAt=Date.now()+10*60*1000;
+  const exchangeRateToken=sign({
+    kind:'expense-exchange-rate',
+    actorId:req.userId,
+    groupId:group.id,
+    sourceCurrency,
+    targetCurrency:group.currency,
+    rate:quote.rate,
+    ratioNumerator:quote.ratioNumerator,
+    ratioDenominator:quote.ratioDenominator,
+    rateDate:quote.rateDate,
+    source:quote.source,
+    exp:expiresAt
+  });
+  res.json({
+    ...quote,
+    exchangeRateToken,
+    expiresAt:new Date(expiresAt).toISOString()
   });
 }));
 app.get('/api/auth/line',(req,res)=>{
@@ -1030,6 +1170,7 @@ const currencyPreviewResponse=(plan,quote,previewToken,expiresAt)=>({
   rateDate:quote.rateDate,
   source:quote.source,
   sourceUrl:quote.sourceUrl,
+  rateMode:quote.rateMode||'quoted',
   targetDecimals:plan.targetDecimals,
   counts:plan.counts,
   roundingDeltaCents:plan.roundingDeltaCents,
@@ -1061,7 +1202,7 @@ app.get('/api/groups/:id',requireUser,asyncRoute(async(req,res)=>{
       owner_id AS "ownerId",ledger_version::bigint::text AS "ledgerVersion"
       FROM groups WHERE id=$1`,[req.params.id]),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_virtual AS "isFund",gm.role FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id]),
-    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.split_mode AS "splitMode",e.split_meta AS "splitMeta",e.expense_date AS "expenseDate",e.created_at AS "createdAt",e.created_by AS "createdBy",EXISTS(SELECT 1 FROM settlement_payments sp WHERE sp.group_id=e.group_id AND sp.voided_at IS NULL AND sp.created_at>=e.created_at) AS "isLocked",STRING_AGG(DISTINCT pu.display_name,'、') AS "payerName",COUNT(DISTINCT es.user_id)::int AS "shareCount",COUNT(DISTINCT ep.user_id)::int AS "payerCount",JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',ep.user_id,'amountCents',ep.amount_cents)) AS payments,JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',es.user_id,'amountCents',es.amount_cents)) FILTER (WHERE es.user_id IS NOT NULL) AS shares FROM expenses e JOIN expense_payments ep ON ep.expense_id=e.id JOIN users pu ON pu.id=ep.user_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id ORDER BY e.created_at DESC,e.id DESC`,[req.params.id]),
+    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.split_mode AS "splitMode",e.split_meta AS "splitMeta",e.currency_meta AS "currencyMeta",e.expense_date AS "expenseDate",e.created_at AS "createdAt",e.created_by AS "createdBy",EXISTS(SELECT 1 FROM settlement_payments sp WHERE sp.group_id=e.group_id AND sp.voided_at IS NULL AND sp.created_at>=e.created_at) AS "isLocked",STRING_AGG(DISTINCT pu.display_name,'、') AS "payerName",COUNT(DISTINCT es.user_id)::int AS "shareCount",COUNT(DISTINCT ep.user_id)::int AS "payerCount",JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',ep.user_id,'amountCents',ep.amount_cents)) AS payments,JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',es.user_id,'amountCents',es.amount_cents)) FILTER (WHERE es.user_id IS NOT NULL) AS shares FROM expenses e JOIN expense_payments ep ON ep.expense_id=e.id JOIN users pu ON pu.id=ep.user_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id ORDER BY e.created_at DESC,e.id DESC`,[req.params.id]),
     pool.query(BALANCE_SQL,[req.params.id]),
     pool.query(`SELECT sp.id,sp.amount_cents::bigint::text AS "amountCents",
       sp.reported_currency AS "reportedCurrency",sp.reported_amount_cents::bigint::text AS "reportedAmountCents",
@@ -1116,37 +1257,57 @@ app.post('/api/groups/:id/currency/preview',requireUser,asyncRoute(async(req,res
   try{
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
     const {rows:[group]}=await client.query(`SELECT id,name,owner_id,currency,
-      ledger_version::bigint::text AS "ledgerVersion" FROM groups WHERE id=$1`,[req.params.id]);
+      ledger_version::bigint::text AS "ledgerVersion",
+      EXISTS(SELECT 1 FROM group_members WHERE group_id=groups.id AND user_id=$2) AS "isMember"
+      FROM groups WHERE id=$1`,[req.params.id,req.userId]);
     if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
-    if(String(group.owner_id)!==String(req.userId)&&!actor?.isSuperuser){
+    if(!group.isMember&&!actor?.isSuperuser){
       await client.query('ROLLBACK');
-      return res.status(403).json({error:'只有群組建立者或管理者能變更帳本幣別'});
+      return res.status(403).json({error:'只有群組成員或管理者能變更帳本幣別'});
     }
     if(group.currency===targetCurrency){
       await client.query('ROLLBACK');
       return res.status(400).json({error:`這個群組目前已使用 ${targetCurrency}`});
     }
+    const rateMode=req.body?.exchangeRateMode==='manual'?'manual':'quoted';
     let quote;
-    try{quote=await exchangeRateService.getConversionQuote({
-      sourceCurrency:group.currency,
-      targetCurrency,
-      queryable:client
-    })}
-    catch(error){
-      await client.query('ROLLBACK');
-      if(error instanceof ExchangeRateUnavailableError||error.code==='EXCHANGE_RATE_UNAVAILABLE'){
-        return res.status(503).json({code:'EXCHANGE_RATE_UNAVAILABLE',error:error.message});
+    if(rateMode==='manual'){
+      let manualRate;
+      try{manualRate=normalizeExpenseRate(req.body?.exchangeRate)}
+      catch(error){await client.query('ROLLBACK');return res.status(400).json({error:`自訂匯率：${error.message}`})}
+      quote={
+        sourceCurrency:group.currency,
+        targetCurrency,
+        ...manualRate,
+        rateDate:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),
+        source:'member',
+        sourceUrl:null,
+        rateMode:'manual',
+        health:{status:'manual',available:true,stale:false,blocked:false,warning:null}
+      };
+    }else{
+      try{quote=await exchangeRateService.getConversionQuote({
+        sourceCurrency:group.currency,
+        targetCurrency,
+        queryable:client
+      })}
+      catch(error){
+        await client.query('ROLLBACK');
+        if(error instanceof ExchangeRateUnavailableError||error.code==='EXCHANGE_RATE_UNAVAILABLE'){
+          return res.status(503).json({code:'EXCHANGE_RATE_UNAVAILABLE',error:error.message});
+        }
+        throw error;
       }
-      throw error;
-    }
-    if(quote.health?.blocked){
-      await client.query('ROLLBACK');
-      return res.status(503).json({
-        code:'EXCHANGE_RATE_STALE',
-        error:quote.health.warning||'匯率資料過期，暫時無法切換幣別',
-        exchangeRateHealth:quote.health
-      });
+      quote={...quote,rateMode:'quoted'};
+      if(quote.health?.blocked){
+        await client.query('ROLLBACK');
+        return res.status(503).json({
+          code:'EXCHANGE_RATE_STALE',
+          error:quote.health.warning||'匯率資料過期，暫時無法切換幣別',
+          exchangeRateHealth:quote.health
+        });
+      }
     }
     const ledger=await loadCurrencyLedger(client,group.id);
     const plan=buildCurrencyConversionPlan({
@@ -1178,6 +1339,7 @@ app.post('/api/groups/:id/currency/preview',requireUser,asyncRoute(async(req,res
       rateDate:quote.rateDate,
       source:quote.source,
       sourceUrl:quote.sourceUrl,
+      rateMode:quote.rateMode,
       ledgerVersion:String(group.ledgerVersion),
       exp:expiresAt
     });
@@ -1209,7 +1371,9 @@ app.patch('/api/groups/:id/currency',requireUser,asyncRoute(async(req,res)=>{
       return res.status(409).json({code:'CURRENCY_PREVIEW_EXPIRED',error:'換算預覽已過期，請重新預覽最新匯率'});
     }
     const {rows:[group]}=await client.query(`SELECT id,name,owner_id,currency,
-      ledger_version::bigint::text AS "ledgerVersion" FROM groups WHERE id=$1 FOR UPDATE`,[req.params.id]);
+      ledger_version::bigint::text AS "ledgerVersion",
+      EXISTS(SELECT 1 FROM group_members WHERE group_id=groups.id AND user_id=$2) AS "isMember"
+      FROM groups WHERE id=$1 FOR UPDATE`,[req.params.id,req.userId]);
     if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
     const appliedAfterLock=await findAppliedCurrencyConversion(client,group.id,preview.previewId);
     if(appliedAfterLock){
@@ -1217,37 +1381,39 @@ app.patch('/api/groups/:id/currency',requireUser,asyncRoute(async(req,res)=>{
       return res.json(appliedCurrencyConversionResponse(appliedAfterLock));
     }
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
-    if(String(group.owner_id)!==String(req.userId)&&!actor?.isSuperuser){
+    if(!group.isMember&&!actor?.isSuperuser){
       await client.query('ROLLBACK');
-      return res.status(403).json({error:'只有群組建立者或管理者能變更帳本幣別'});
+      return res.status(403).json({error:'只有群組成員或管理者能變更帳本幣別'});
     }
     if(group.currency!==preview.fromCurrency||String(group.ledgerVersion)!==String(preview.ledgerVersion)){
       await client.query('ROLLBACK');
       return res.status(409).json({code:'CURRENCY_LEDGER_CHANGED',error:'預覽後帳本已有異動，請重新預覽再確認'});
     }
-    await client.query('SELECT pg_advisory_xact_lock($1)',[exchangeRateInternals.EXCHANGE_RATE_LOCK_KEY]);
-    let latestQuote;
-    try{latestQuote=await exchangeRateService.getConversionQuote({
-      sourceCurrency:preview.fromCurrency,
-      targetCurrency:preview.toCurrency,
-      queryable:client
-    })}
-    catch(error){
-      await client.query('ROLLBACK');
-      if(error instanceof ExchangeRateUnavailableError||error.code==='EXCHANGE_RATE_UNAVAILABLE'){
-        return res.status(503).json({code:'EXCHANGE_RATE_UNAVAILABLE',error:error.message});
+    if(preview.rateMode!=='manual'){
+      await client.query('SELECT pg_advisory_xact_lock($1)',[exchangeRateInternals.EXCHANGE_RATE_LOCK_KEY]);
+      let latestQuote;
+      try{latestQuote=await exchangeRateService.getConversionQuote({
+        sourceCurrency:preview.fromCurrency,
+        targetCurrency:preview.toCurrency,
+        queryable:client
+      })}
+      catch(error){
+        await client.query('ROLLBACK');
+        if(error instanceof ExchangeRateUnavailableError||error.code==='EXCHANGE_RATE_UNAVAILABLE'){
+          return res.status(503).json({code:'EXCHANGE_RATE_UNAVAILABLE',error:error.message});
+        }
+        throw error;
       }
-      throw error;
-    }
-    if(latestQuote.health?.blocked){
-      await client.query('ROLLBACK');
-      return res.status(503).json({code:'EXCHANGE_RATE_STALE',error:latestQuote.health.warning||'匯率資料過期，暫時無法切換幣別'});
-    }
-    if(String(latestQuote.rateDate)!==String(preview.rateDate)
-      ||String(latestQuote.ratioNumerator)!==String(preview.ratioNumerator)
-      ||String(latestQuote.ratioDenominator)!==String(preview.ratioDenominator)){
-      await client.query('ROLLBACK');
-      return res.status(409).json({code:'CURRENCY_RATE_CHANGED',error:'匯率資料已更新，請重新預覽後再確認'});
+      if(latestQuote.health?.blocked){
+        await client.query('ROLLBACK');
+        return res.status(503).json({code:'EXCHANGE_RATE_STALE',error:latestQuote.health.warning||'匯率資料過期，暫時無法切換幣別'});
+      }
+      if(String(latestQuote.rateDate)!==String(preview.rateDate)
+        ||String(latestQuote.ratioNumerator)!==String(preview.ratioNumerator)
+        ||String(latestQuote.ratioDenominator)!==String(preview.ratioDenominator)){
+        await client.query('ROLLBACK');
+        return res.status(409).json({code:'CURRENCY_RATE_CHANGED',error:'匯率資料已更新，請重新預覽後再確認'});
+      }
     }
     const ledger=await loadCurrencyLedger(client,group.id);
     const plan=buildCurrencyConversionPlan({
@@ -1336,6 +1502,7 @@ app.patch('/api/groups/:id/currency',requireUser,asyncRoute(async(req,res)=>{
         rate:preview.rate,
         rateDate:preview.rateDate,
         source:preview.source,
+        rateMode:preview.rateMode||'quoted',
         sourceUrl:preview.sourceUrl,
         counts:plan.counts,
         roundingDeltaCents:plan.roundingDeltaCents,
@@ -1352,6 +1519,7 @@ app.patch('/api/groups/:id/currency',requireUser,asyncRoute(async(req,res)=>{
       rate:preview.rate,
       rateDate:preview.rateDate,
       source:preview.source,
+      rateMode:preview.rateMode||'quoted',
       roundingDeltaCents:plan.roundingDeltaCents
     });
   }catch(error){
@@ -1400,17 +1568,32 @@ app.post('/api/groups/:id/expenses',requireUser,asyncRoute(async(req,res)=>{
     if(!memberRows.some(row=>row.isCurrentUser)){await client.query('ROLLBACK');return res.status(403).json({error:'你不是這個群組的成員'})}
     const allowed=new Set(memberRows.filter(row=>!row.is_virtual).map(row=>row.id));
     let input;
-    try{input=resolveExpenseInput(req.body,group.currency,allowed)}
-    catch(error){await client.query('ROLLBACK');return res.status(400).json({error:error.message})}
-    const {title,amountCents,payments,shares,mode,splitMeta,category}=input;
-    const {rows:[expense]}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING id`,[req.params.id,title,amountCents,payments[0].userId,req.userId,category,mode,JSON.stringify(splitMeta)]);
+    try{input=await resolveExpenseLedgerInput(req.body,group,allowed,req.userId)}
+    catch(error){await client.query('ROLLBACK');return res.status(error.code==='EXPENSE_RATE_EXPIRED'?409:400).json({code:error.code,error:error.message,blockedIssues:error.issues})}
+    const {title,amountCents,payments,shares,mode,splitMeta,category,currencyMeta}=input;
+    const {rows:[expense]}=await client.query(`INSERT INTO expenses(
+      group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta,currency_meta
+    ) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb) RETURNING id`,
+    [req.params.id,title,amountCents,payments[0].userId,req.userId,category,mode,JSON.stringify(splitMeta),JSON.stringify(currencyMeta)]);
     for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,payment.userId,payment.paymentCents]);
     for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,share.userId,share.shareCents]);
     await writeAudit(client,req,{
       action:'create_expense',
       targetType:'expense',
       targetId:expense.id,
-      metadata:{groupId:group.id,groupName:group.name,itemType:'支出',itemName:title,amountCents,category,currency:group.currency}
+      metadata:{
+        groupId:group.id,
+        groupName:group.name,
+        itemType:'支出',
+        itemName:title,
+        amountCents,
+        category,
+        currency:group.currency,
+        inputCurrency:currencyMeta.inputCurrency,
+        inputAmountCents:currencyMeta.inputAmountCents,
+        exchangeRate:currencyMeta.rate,
+        exchangeRateMode:currencyMeta.rateMode
+      }
     });
     await invalidateSettlementPlan(client,req.params.id);
     await client.query('COMMIT');
@@ -1429,7 +1612,7 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
       await client.query('ROLLBACK');
       return res.status(409).json({code:'GROUP_CURRENCY_CHANGED',error:'帳本幣別已變更，請重新整理後再送出'});
     }
-    const {rows:[existing]}=await client.query(`SELECT id,created_by,title,amount_cents,category,split_mode
+    const {rows:[existing]}=await client.query(`SELECT id,created_by,title,amount_cents,category,split_mode,currency_meta
       FROM expenses WHERE id=$1 AND group_id=$2 FOR UPDATE`,[req.params.expenseId,req.params.id]);
     if(!existing){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆支出'})}
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
@@ -1439,9 +1622,9 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
       FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1`,[req.params.id]);
     const allowed=new Set(memberRows.filter(row=>!row.is_virtual).map(row=>row.id));
     let input;
-    try{input=resolveExpenseInput(req.body,group.currency,allowed)}
-    catch(error){await client.query('ROLLBACK');return res.status(400).json({error:error.message})}
-    const {title,amountCents,payments,shares,mode,splitMeta,category}=input;
+    try{input=await resolveExpenseLedgerInput(req.body,group,allowed,req.userId)}
+    catch(error){await client.query('ROLLBACK');return res.status(error.code==='EXPENSE_RATE_EXPIRED'?409:400).json({code:error.code,error:error.message,blockedIssues:error.issues})}
+    const {title,amountCents,payments,shares,mode,splitMeta,category,currencyMeta}=input;
     const changedFields=[
       existing.title!==title&&'名稱',
       Number(existing.amount_cents)!==amountCents&&'金額',
@@ -1449,7 +1632,9 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
       existing.split_mode!==mode&&'分攤方式',
       '付款與分攤'
     ].filter(Boolean);
-    await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,split_mode=$5,split_meta=$6::jsonb WHERE id=$7`,[title,amountCents,payments[0].userId,category,mode,JSON.stringify(splitMeta),req.params.expenseId]);
+    await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,
+      split_mode=$5,split_meta=$6::jsonb,currency_meta=$7::jsonb WHERE id=$8`,
+    [title,amountCents,payments[0].userId,category,mode,JSON.stringify(splitMeta),JSON.stringify(currencyMeta),req.params.expenseId]);
     await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);
     await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);
     for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);
@@ -1468,6 +1653,10 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,asyncRoute(async(req
         previousItemName:existing.title,
         previousAmountCents:Number(existing.amount_cents),
         currency:group.currency,
+        inputCurrency:currencyMeta.inputCurrency,
+        inputAmountCents:currencyMeta.inputAmountCents,
+        exchangeRate:currencyMeta.rate,
+        exchangeRateMode:currencyMeta.rateMode,
         changedFields
       }
     });

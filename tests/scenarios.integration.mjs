@@ -159,29 +159,26 @@ try{
     method:'PATCH',
     body:{}
   });
-  await expectStatus(403,request(`/api/groups/${conversionGroup.id}/currency/preview`,{
+  const {data:twdPreview}=await request(`/api/groups/${conversionGroup.id}/currency/preview`,{
     cookie:actors[1].cookie,
     method:'POST',
-    body:{targetCurrency:'JPY'}
-  }));
-  const {data:twdPreview}=await request(`/api/groups/${conversionGroup.id}/currency/preview`,{
-    cookie:owner.cookie,
-    method:'POST',
-    body:{targetCurrency:'JPY'}
+    body:{targetCurrency:'JPY',exchangeRateMode:'manual',exchangeRate:'5'}
   });
   assert.equal(twdPreview.fromCurrency,'TWD');
   assert.equal(twdPreview.toCurrency,'JPY');
+  assert.equal(twdPreview.rate,'5');
+  assert.equal(twdPreview.rateMode,'manual');
   assert.equal(twdPreview.targetDecimals,0);
   assert.equal(twdPreview.counts.settlements,2);
   const {data:twdToJpy}=await request(`/api/groups/${conversionGroup.id}/currency`,{
-    cookie:owner.cookie,
+    cookie:actors[1].cookie,
     method:'PATCH',
     body:{previewToken:twdPreview.previewToken}
   });
   assert.equal(twdToJpy.currency,'JPY');
   assert.equal(twdToJpy.alreadyApplied,false);
   const {data:twdToJpyRetry}=await request(`/api/groups/${conversionGroup.id}/currency`,{
-    cookie:owner.cookie,
+    cookie:actors[1].cookie,
     method:'PATCH',
     body:{previewToken:twdPreview.previewToken}
   });
@@ -225,6 +222,25 @@ try{
   assert.ok(convertedLedger.settlementHistory.every(item=>item.reportedCurrency==='TWD'));
   assert.ok(convertedLedger.settlementHistory.some(item=>item.reportStatus==='voided'));
   assert.ok(convertedLedger.settlementHistory.some(item=>item.reportStatus==='reported'));
+  await post(actors[1].cookie,`/api/groups/${conversionGroup.id}/expenses`,{
+    title:'日圓交通票',
+    currency:'USD',
+    expenseCurrency:'JPY',
+    exchangeRateMode:'manual',
+    exchangeRate:'0.006',
+    amount:'1000',
+    payerId:actors[1].user.id,
+    participantIds:[actors[1].user.id],
+    splitMode:'equal'
+  });
+  const {data:ledgerWithForeignExpense}=await request(`/api/groups/${conversionGroup.id}`,{cookie:actors[1].cookie});
+  const foreignExpense=ledgerWithForeignExpense.expenses.find(item=>item.title==='日圓交通票');
+  assert.equal(foreignExpense.amountCents,600);
+  assert.equal(foreignExpense.currencyMeta.inputCurrency,'JPY');
+  assert.equal(foreignExpense.currencyMeta.inputAmountCents,1000_00);
+  assert.equal(foreignExpense.currencyMeta.rateMode,'manual');
+  assert.equal(foreignExpense.payments.reduce((sum,item)=>sum+item.amountCents,0),foreignExpense.amountCents);
+  assert.equal(foreignExpense.shares.reduce((sum,item)=>sum+item.amountCents,0),foreignExpense.amountCents);
   const {rows:[snapshotAudit]}=await pool.query(`SELECT item.metadata
     FROM group_currency_conversion_items item
     JOIN group_currency_conversions conversion ON conversion.id=item.conversion_id

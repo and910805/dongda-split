@@ -1448,6 +1448,87 @@
   font-weight: 800;
 }
 
+.expense-exchange-rate {
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  margin-top: 14px;
+  border: 1px solid #cfe3d5;
+  border-radius: 16px;
+  background: #f5faf6;
+}
+
+.expense-rate-heading,
+.expense-rate-heading > span,
+.expense-converted-preview {
+  display: grid;
+  gap: 3px;
+}
+
+.expense-rate-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.expense-rate-heading small,
+.expense-converted-preview small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.expense-rate-heading button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #bcd9c5;
+  border-radius: 10px;
+  color: var(--green-dark);
+  background: #fff;
+  font-weight: 750;
+}
+
+.expense-exchange-rate > label {
+  display: grid;
+  grid-template-columns: auto minmax(100px, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  color: var(--text);
+}
+
+.expense-exchange-rate > label input {
+  min-width: 0;
+  text-align: right;
+}
+
+.expense-exchange-rate > p {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  margin: 0;
+  color: #9a5b14;
+  font-size: 11px;
+}
+
+.expense-exchange-rate > p svg {
+  width: 15px;
+  flex: 0 0 15px;
+}
+
+.expense-converted-preview {
+  padding-top: 11px;
+  border-top: 1px solid #dcebe0;
+}
+
+.expense-converted-preview strong {
+  color: var(--green-dark);
+  font-size: 18px;
+}
+
+.record-original-currency {
+  color: #87671e !important;
+  font-weight: 750;
+}
+
 .mini-toggle {
   grid-template-columns: 1fr 1fr;
   margin-top: 14px;
@@ -2076,6 +2157,14 @@
 
   .expense-kind-row {
     gap: 10px;
+  }
+
+  .expense-rate-heading {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .expense-rate-heading button {
+    justify-self: start;
   }
 }
 

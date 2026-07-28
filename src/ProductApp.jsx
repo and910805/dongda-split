@@ -141,7 +141,7 @@ export default function ProductApp({Home}){
     </section>
     {group&&!adminViewing&&<button className="mobile-expense-fab" onClick={openNewExpense} aria-label="新增支出"><Plus/><span>新增</span></button>}
     {notice&&<button type="button" className="toast" onClick={()=>setNotice('')} aria-live="polite" aria-label={`${notice}，點擊關閉`}><Check/>{notice}</button>}
-    {showCreate&&<CreateGroup currencies={currencyData.currencies} close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} expense={editingExpense} currentUserId={me.id} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>} {showProfile&&<ProfileModal me={me} close={()=>setShowProfile(false)} saved={bankAccount=>{setMe(current=>({...current,bankAccount}));setShowProfile(false);setNotice(bankAccount.configured?'已更新常用收款帳戶':'已移除常用收款帳戶')}}/>} {transferReport&&<TransferNoticeModal report={transferReport} close={closeTransferReport}/>}
+    {showCreate&&<CreateGroup currencies={currencyData.currencies} close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} currencies={currencyData.currencies} expense={editingExpense} currentUserId={me.id} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>} {showProfile&&<ProfileModal me={me} close={()=>setShowProfile(false)} saved={bankAccount=>{setMe(current=>({...current,bankAccount}));setShowProfile(false);setNotice(bankAccount.configured?'已更新常用收款帳戶':'已移除常用收款帳戶')}}/>} {transferReport&&<TransferNoticeModal report={transferReport} close={closeTransferReport}/>}
   </div>
 }
 
@@ -347,12 +347,12 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
     {actionError&&<div className="inline-alert" role="alert"><AlertCircle/><span>{actionError}</span><button onClick={()=>setActionError('')} aria-label="關閉錯誤訊息"><X/></button></div>}
     <section className="group-hero" aria-labelledby="group-title">
       <div className="group-overview-side">
-        {(group.ownerId===me.id||adminViewing)&&<details className="group-admin-menu" open={groupAdminOpen}><summary aria-expanded={groupAdminOpen} onClick={event=>{event.preventDefault();setGroupAdminOpen(open=>!open)}}>群組管理</summary><div>
+        <details className="group-admin-menu" open={groupAdminOpen}><summary aria-expanded={groupAdminOpen} onClick={event=>{event.preventDefault();setGroupAdminOpen(open=>!open)}}>群組設定</summary><div>
           <div className="group-admin-current"><span>帳本幣別</span><b>{currencyInfo.code} · {currencyInfo.name}</b></div>
           <button type="button" className="group-currency-action" onClick={()=>{setGroupAdminOpen(false);setShowCurrencyChange(true)}}>變更幣別</button>
-          <p>{adminViewing?'你正以管理者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p>
-          <button className="danger-action" disabled={deletingGroup} onClick={requestDeleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除群組'}</button>
-        </div></details>}
+          <p>所有群組成員都可以調整帳本幣別；換算前會先顯示匯率與尾差。</p>
+          {(group.ownerId===me.id||adminViewing)&&<><p>{adminViewing?'你正以管理者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p><button className="danger-action" disabled={deletingGroup} onClick={requestDeleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除群組'}</button></>}
+        </div></details>
       </div>
       <div className="group-overview-copy">
         <div className="group-title-row"><h1 id="group-title">{group.name}</h1><span className="currency-badge">{currencyCode}</span></div>
@@ -406,12 +406,12 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
             <div className="mobile-expense-sort" role="group" aria-label="最近支出排序"><ExpenseSortButton field="date" sort={expenseSort} onSort={changeExpenseSort}/><ExpenseSortButton field="participantAmount" sort={expenseSort} onSort={changeExpenseSort}/><ExpenseSortButton field="amount" sort={expenseSort} onSort={changeExpenseSort}/></div>
             <div className="expense-record-table" role="table" aria-labelledby="expense-title">
               <div role="rowgroup"><div className="record-table-head" role="row"><span className="record-sort-cell" role="columnheader" aria-sort={expenseSort.key==='date'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="date" sort={expenseSort} onSort={changeExpenseSort}/></span><span role="columnheader">項目</span><span role="columnheader">支付者</span><span className="record-sort-cell numeric" role="columnheader" aria-sort={expenseSort.key==='participantAmount'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="participantAmount" sort={expenseSort} onSort={changeExpenseSort}/></span><span className="record-sort-cell numeric" role="columnheader" aria-sort={expenseSort.key==='amount'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="amount" sort={expenseSort} onSort={changeExpenseSort} className="amount-sort"/><small className="record-currency" aria-hidden="true">{currencyCode}</small></span><span className="record-category-heading" role="columnheader">分類</span><span role="columnheader">狀態</span><span role="columnheader">操作</span></div></div>
-              <div className="record-list" role="rowgroup">{pagedExpenses.map(e=>{const participantShare=(e.shares||[]).find(share=>String(share.userId)===String(expenseParticipantId));return <article key={e.id} role="row">
+              <div className="record-list" role="rowgroup">{pagedExpenses.map(e=>{const participantShare=(e.shares||[]).find(share=>String(share.userId)===String(expenseParticipantId)),inputCurrency=e.currencyMeta?.inputCurrency||currencyCode,inputAmountCents=Number(e.currencyMeta?.inputAmountCents??e.amountCents),showOriginal=inputCurrency!==currencyCode;return <article key={e.id} role="row">
                 <time className="record-date" dateTime={e.createdAt} role="cell">{new Date(e.createdAt).toLocaleDateString('zh-TW')}</time>
                 <div className="record-name" role="cell"><div><b title={e.title}>{e.title}</b><small className="record-meta"><ExpenseShareAvatars expense={e} members={group.members} onOpen={setSelectedExpenseShares}/><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
                 <span className="record-payer" role="cell">{e.payerName}</span>
                 <div className={`record-share-amount ${participantShare?'':'is-empty'}`} role="cell"><small>{expenseParticipantLabel}</small><b>{participantShare?groupMoney(participantShare.amountCents):'未參與'}</b></div>
-                <div className="record-price" role="cell"><b className={e.amountCents<0?'positive':''}>{groupMoney(e.amountCents)}</b><small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${groupMoney(Math.round(e.amountCents/e.shareCount/currencyInfo.quantum)*currencyInfo.quantum)}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
+                <div className="record-price" role="cell"><b className={e.amountCents<0?'positive':''}>{groupMoney(e.amountCents)}</b>{showOriginal&&<small className="record-original-currency">原幣 {money(inputAmountCents,inputCurrency)}</small>}<small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${groupMoney(Math.round(e.amountCents/e.shareCount/currencyInfo.quantum)*currencyInfo.quantum)}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
                 <span className="record-category" role="cell">{e.amountCents<0?'退款':e.category||'其他'}</span>
                 <span className={`record-status ${e.isLocked?'is-locked':''}`} role="cell">{e.isLocked?<ShieldCheck/>:<Check/>}{e.isLocked?'已結算':'已記錄'}</span>
                 <div className="expense-row-actions" role="cell">{(e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)&&(e.isLocked?<button type="button" className="expense-locked" onClick={openRepaymentHistory} aria-label={`查看與「${e.title}」相關時段的還款紀錄`}><History/><span>查看還款</span></button>:<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>requestRemoveExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>)}</div>
@@ -457,14 +457,16 @@ function CurrencyConversionModal({group,currencies,close,done}){
  const options=Array.isArray(currencies?.currencies)?currencies.currencies:Array.isArray(currencies)?currencies:DEFAULT_CURRENCIES;
  const currentCode=group.currency||'TWD',available=options.filter(item=>item.code!==currentCode);
  const [targetCurrency,setTargetCurrency]=useState(available[0]?.code||''),[preview,setPreview]=useState(null),[agreed,setAgreed]=useState(false),[loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(''),[blockedIssues,setBlockedIssues]=useState([]);
+ const [exchangeRateMode,setExchangeRateMode]=useState('quoted'),[manualRate,setManualRate]=useState('');
  const current=getCurrency(currentCode),target=getCurrency(preview?.toCurrency||targetCurrency||currentCode);
+ const manualRateValid=exchangeRateMode!=='manual'||(/^(\d+)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(manualRate.trim())&&Number(manualRate)>0);
  const rateHealth=preview?.exchangeRateHealth||currencies?.exchangeRates;
  const requestPreview=async event=>{
   event?.preventDefault();
-  if(!targetCurrency||targetCurrency===currentCode||loading)return;
+  if(!targetCurrency||targetCurrency===currentCode||loading||!manualRateValid)return;
   setLoading(true);setError('');setBlockedIssues([]);setAgreed(false);
   try{
-   const result=await api(`/api/groups/${group.id}/currency/preview`,{method:'POST',body:JSON.stringify({targetCurrency})});
+   const result=await api(`/api/groups/${group.id}/currency/preview`,{method:'POST',body:JSON.stringify({targetCurrency,exchangeRateMode,exchangeRate:exchangeRateMode==='manual'?manualRate.trim():undefined})});
    setPreview(result);
   }catch(previewError){
    setPreview(null);
@@ -509,16 +511,20 @@ function CurrencyConversionModal({group,currencies,close,done}){
      </select>
      <small className="field-help">換算前會先顯示匯率、影響筆數與預估尾差，不會立即修改帳本</small>
     </label>
+    <div className="currency-rate-choice">
+     <div className="currency-rate-tabs" role="group" aria-label="群組換算匯率來源"><button type="button" aria-pressed={exchangeRateMode==='quoted'} onClick={()=>{setExchangeRateMode('quoted');setError('')}}>系統匯率</button><button type="button" aria-pressed={exchangeRateMode==='manual'} onClick={()=>{setExchangeRateMode('manual');setError('')}}>自訂匯率</button></div>
+     {exchangeRateMode==='manual'&&<label>1 {currentCode} = <span><input type="number" min="0.000000001" step="any" inputMode="decimal" value={manualRate} onChange={event=>setManualRate(event.target.value)} aria-invalid={!manualRateValid}/><b>{targetCurrency}</b></span><small className="field-help">所有既有帳務都會固定使用這個匯率，請先確認方向與數值</small></label>}
+    </div>
     {rateWarning&&<p className="currency-rate-warning" role="status">{rateWarning}</p>}
     {blockedIssues.length>0&&<ul className="currency-blocked-list" role="alert">{blockedIssues.map((issue,index)=><li key={`${issue?.code||'issue'}-${index}`}>{issue?.message||String(issue)}</li>)}</ul>}
     {error&&<p className="form-error" role="alert"><AlertCircle/>{error}</p>}
-    <div className="form-actions"><button type="button" className="secondary-button" onClick={close} disabled={loading}>取消</button><button type="submit" className="primary" disabled={loading||!targetCurrency}>{loading?<LoaderCircle/>:null}{loading?'正在計算…':'取得換算預覽'}</button></div>
+    <div className="form-actions"><button type="button" className="secondary-button" onClick={close} disabled={loading}>取消</button><button type="submit" className="primary" disabled={loading||!targetCurrency||!manualRateValid}>{loading?<LoaderCircle/>:null}{loading?'正在計算…':'取得換算預覽'}</button></div>
    </form>:<div className="currency-preview">
     <div className="currency-preview-route" aria-label={`從 ${currentCode} 換算為 ${target.code}`}><div><small>目前</small><strong>{currentCode}</strong><span>{current.name}</span></div><ArrowRight aria-hidden="true"/><div><small>換算後</small><strong>{target.code}</strong><span>{target.name}</span></div></div>
     <dl className="currency-preview-facts">
      <div><dt>採用匯率</dt><dd>1 {preview.fromCurrency} = {formatRate(preview.rate)} {preview.toCurrency}</dd></div>
      <div><dt>匯率日期</dt><dd>{formatDate(preview.rateDate)}</dd></div>
-     <div><dt>資料來源</dt><dd>{preview.sourceUrl?<a href={preview.sourceUrl} target="_blank" rel="noreferrer">{preview.source||'Exchange API'}</a>:preview.source||'Exchange API'}</dd></div>
+     <div><dt>資料來源</dt><dd>{preview.rateMode==='manual'?'成員自訂':preview.sourceUrl?<a href={preview.sourceUrl} target="_blank" rel="noreferrer">{preview.source||'Exchange API'}</a>:preview.source||'Exchange API'}</dd></div>
      <div><dt>金額精度</dt><dd>{target.code} 保留小數點後 {preview.targetDecimals??target.decimals} 位</dd></div>
     </dl>
     <div className="currency-preview-counts" aria-label="換算資料筆數">
