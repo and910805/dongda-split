@@ -5,7 +5,7 @@
     "dev:server": "node --watch server.js",
     "build": "vite build",
     "test": "node --test tests/*.test.mjs",
-    "test:integration": "node tests/scenarios.integration.mjs",
+    "test:integration": "node tests/scenarios.integration.mjs && node --test tests/api-boundaries.integration.mjs",
     "superuser": "node scripts/superuser.mjs",
     "start": "node server.js",
     "preview": "vite preview"
