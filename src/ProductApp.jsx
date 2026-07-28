@@ -5,7 +5,7 @@ import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
 import {ConfirmModal} from './ConfirmModal.jsx';
-import {bankAccountRemovalConfirmation,expenseDeletionConfirmation,groupDeletionConfirmation} from './confirmation-actions.mjs';
+import {bankAccountRemovalConfirmation,expenseDeletionConfirmation,groupDeletionConfirmation,settlementVoidConfirmation} from './confirmation-actions.mjs';
 import {DEFAULT_EXPENSE_SORT,filterExpenses,nextExpenseSort,sortExpenses} from './expense-sort.mjs';
 import {acquireModalEnvironment} from './modal-environment.mjs';
 import {buildSettlementNotice,settlementLineShareUrl} from './settlement-notice.mjs';
@@ -222,7 +222,10 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
   const total=group.expenses.reduce((sum,e)=>sum+e.amountCents,0);
   const mine=group.balances.find(x=>x.id===me.id)?.balanceCents||0;
   const memberCount=group.members.filter(x=>!x.isFund).length;
-  const latestActivity=[...group.expenses,...(group.settlementHistory||[])].map(item=>new Date(item.createdAt).getTime()).filter(Number.isFinite).sort((a,b)=>b-a)[0];
+  const latestActivity=[
+    ...group.expenses.map(item=>item.createdAt),
+    ...(group.settlementHistory||[]).flatMap(item=>[item.createdAt,item.voidedAt])
+  ].map(value=>new Date(value).getTime()).filter(Number.isFinite).sort((a,b)=>b-a)[0];
   const lastUpdated=latestActivity?new Intl.DateTimeFormat('zh-TW',{dateStyle:'medium',timeStyle:'short'}).format(new Date(latestActivity)):'尚未有紀錄';
   const canPay=settlement=>settlement.from.id===me.id;
   const canManageFundPayment=settlement=>settlement.from.isFund&&group.ownerId===me.id&&settlement.to.id!==me.id;
@@ -349,7 +352,7 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
       {openAdmin&&<button className="shortcut-card mobile-admin-shortcut" onClick={openAdmin}><span className="shortcut-icon" aria-hidden="true"><ShieldCheck/></span><span className="shortcut-label">管理</span></button>}
     </nav>
     <div className="real-stats">
-      <article className="stat-card"><span className="stat-icon"><WalletCards/></span><div><small>我的餘額</small><h3 className={mine>=0?'positive':'negative'}>{mine>=0?'應收 ':'應付 '}{money(Math.abs(mine))}</h3><p>{mine===0?'目前沒有待結算款項':mine>0?'其他成員需要付給你':'你需要付給其他成員'}</p></div></article>
+      <article className="stat-card"><span className="stat-icon"><WalletCards/></span><div><small>我的目前淨額</small><h3 className={mine>=0?'positive':'negative'}>{mine>=0?'應收 ':'應付 '}{money(Math.abs(mine))}</h3><p>{mine===0?'支出與還款目前已互相抵銷':'已計入全部支出與還款紀錄'}</p></div></article>
       <article className="stat-card"><span className="stat-icon"><ReceiptText/></span><div><small>群組總支出</small><h3>{money(total)}</h3><p>共 {group.expenses.length} 筆共同花費</p></div></article>
       <article className="stat-card settlement-stat"><span className="stat-icon"><Check/></span><div><small>待處理轉帳</small><h3>{group.settlements.length} 筆</h3><p>已自動簡化轉帳路徑</p></div></article>
     </div>
@@ -384,8 +387,8 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
                 <div className={`record-share-amount ${participantShare?'':'is-empty'}`} role="cell"><small>{expenseParticipantLabel}</small><b>{participantShare?money(participantShare.amountCents):'未參與'}</b></div>
                 <div className="record-price" role="cell"><b className={e.amountCents<0?'positive':''}>{money(e.amountCents)}</b><small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${money(Math.round(e.amountCents/e.shareCount))}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
                 <span className="record-category" role="cell">{e.amountCents<0?'退款':e.category||'其他'}</span>
-                <span className="record-status" role="cell"><Check/>已記錄</span>
-                <div className="expense-row-actions" role="cell">{(e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)&&<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>requestRemoveExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>}</div>
+                <span className={`record-status ${e.isLocked?'is-locked':''}`} role="cell">{e.isLocked?<ShieldCheck/>:<Check/>}{e.isLocked?'已結算':'已記錄'}</span>
+                <div className="expense-row-actions" role="cell">{(e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)&&(e.isLocked?<button type="button" className="expense-locked" onClick={()=>focusActivityTab('repayments')} aria-label={`查看還款紀錄；支出項目 ${e.title}`}><History/><span>查看還款</span></button>:<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>requestRemoveExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>)}</div>
               </article>})}</div>
             </div>
             <RecordPagination page={currentExpensePage} totalItems={visibleExpenses.length} pageSize={TABLE_PAGE_SIZE} onPageChange={setExpensePage} label="最近支出"/>
@@ -395,7 +398,7 @@ function GroupDashboard({group,me,addExpense,editExpense,invite,removeGroup,refr
         <SettlementHistory group={group} refresh={refresh} refreshing={refreshing} hidden={activityTab!=='repayments'} id={`activity-panel-repayments-${group.id}`} labelledBy={`activity-tab-repayments-${group.id}`}/>
       </div>
       <aside className="settlements" aria-labelledby="settlement-title">
-        <div className="settlement-heading"><div><span className="section-kicker">待辦事項</span><h2 id="settlement-title" tabIndex={-1}>結算</h2><p>簡化後轉帳，共 {group.settlements.length} 筆</p></div><button className="settlement-help-button" onClick={()=>setShowSettlementHelp(true)} aria-label="了解結算演算法"><CircleHelp/></button></div>
+        <div className="settlement-heading"><div><span className="section-kicker">待辦事項</span><h2 id="settlement-title" tabIndex={-1}>結算</h2><p>依支出與還款後的群組淨額計算，共 {group.settlements.length} 筆</p></div><button className="settlement-help-button" onClick={()=>setShowSettlementHelp(true)} aria-label="了解結算演算法"><CircleHelp/></button></div>
         {!group.settlements.length?<div className="all-clear"><Check/><b>目前都結清了</b><p>新增支出後，旅帳會在這裡整理最少轉帳路徑</p></div>:<>
           <div className="settlement-list">{pagedSettlements.map(s=>{
             const actionable=canConfirm(s),fundPayment=canManageFundPayment(s),bankAccess=s.bankAccountAccess||{},canShareBank=Boolean(bankAccess.canShare&&String(s.to.id)===String(me.id));
@@ -514,19 +517,53 @@ function TransferNoticeModal({report,close}){
  </Modal>;
 }
 function SettlementHistory({group,refresh,refreshing=false,hidden=false,id,labelledBy}){
- const rows=group.settlementHistory||[];
- const [page,setPage]=useState(1),pageCount=Math.max(1,Math.ceil(rows.length/TABLE_PAGE_SIZE)),currentPage=Math.min(page,pageCount);
+ const sourceRows=group.settlementHistory||[];
+ const [localVoids,setLocalVoids]=useState({});
+ const rows=sourceRows.map(item=>localVoids[item.id]?{...item,...localVoids[item.id],canVoid:false}:item);
+ const activeCount=rows.filter(item=>item.reportStatus!=='voided'&&!item.voidedAt).length,voidedCount=rows.length-activeCount;
+ const [page,setPage]=useState(1),[pendingVoid,setPendingVoid]=useState(null),[voiding,setVoiding]=useState(''),[voidError,setVoidError]=useState(''),[historyError,setHistoryError]=useState(''),[statusMessage,setStatusMessage]=useState('');
+ const pageCount=Math.max(1,Math.ceil(rows.length/TABLE_PAGE_SIZE)),currentPage=Math.min(page,pageCount);
  const pagedRows=rows.slice((currentPage-1)*TABLE_PAGE_SIZE,currentPage*TABLE_PAGE_SIZE);
  useEffect(()=>setPage(value=>Math.min(value,pageCount)),[pageCount]);
  const formatTime=value=>new Intl.DateTimeFormat('zh-TW',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value));
- return <section className="repayment-panel" id={id} role="tabpanel" aria-labelledby={labelledBy} tabIndex={0} hidden={hidden}>
-  <div className="section-head"><div><h2 id="repayment-title">還款紀錄</h2><p>付款人回報的轉帳紀錄，共 {rows.length} 筆</p></div><button type="button" className="history-refresh" disabled={refreshing} onClick={()=>refresh().catch(()=>{})} aria-label={refreshing?'正在重新整理還款紀錄':'重新整理還款紀錄'}>{refreshing?<LoaderCircle/>:<RefreshCcw/>}</button></div>
-  {!rows.length?<div className="repayment-empty"><History/><span>還沒有轉帳回報紀錄</span></div>:<>
-   <div className="repayment-table-head" aria-hidden="true"><span>日期</span><span>付款人</span><span>收款人</span><span>金額 (TWD)</span><span>備註</span><span>狀態</span></div>
-   <div className="repayment-log">{pagedRows.map(item=>{const reportedBy=item.reportedBy||item.confirmedBy;return <article key={item.id}><time dateTime={item.createdAt}>{formatTime(item.createdAt)}</time><span>{item.from.displayName}</span><span>{item.to.displayName}</span><strong>{money(item.amountCents)}</strong><small>由 {reportedBy.displayName} 回報</small><span className="record-status"><Check/>已回報</span></article>})}</div>
-   <RecordPagination page={currentPage} totalItems={rows.length} pageSize={TABLE_PAGE_SIZE} onPageChange={setPage} label="還款紀錄"/>
-  </>}
- </section>
+ const requestVoid=item=>{setStatusMessage('');setHistoryError('');setVoidError('');setPendingVoid(item)};
+ const refreshHistory=async()=>{setHistoryError('');try{await refresh()}catch(error){setHistoryError(error.message||'暫時無法重新整理還款紀錄，請稍後再試')}};
+ const closeVoid=()=>{if(voiding)return;setVoidError('');setPendingVoid(null)};
+ const confirmVoid=async()=>{
+  if(!pendingVoid||voiding)return;
+  const item=pendingVoid;
+  setVoiding(item.id);
+  setVoidError('');
+  try{
+   const result=await api(`/api/groups/${group.id}/settlements/${item.id}/void`,{method:'PATCH'});
+   setLocalVoids(current=>({...current,[item.id]:{reportStatus:'voided',voidedAt:result.voidedAt||new Date().toISOString(),voidedBy:{displayName:'你'}}}));
+   setPendingVoid(null);
+   setStatusMessage(`已撤銷 ${item.from.displayName} 轉給 ${item.to.displayName} 的 ${money(item.amountCents)} 回報，群組淨額已重新計算`);
+   try{await refresh()}catch{setStatusMessage('回報已撤銷，但帳本暫時無法重新整理，請按右上角重新整理')}
+   requestAnimationFrame(()=>document.getElementById('repayment-title')?.focus());
+  }catch(error){setVoidError(error.message)}finally{setVoiding('')}
+ };
+ const confirmation=pendingVoid?settlementVoidConfirmation(pendingVoid):null;
+ return <>
+  <section className="repayment-panel" id={id} role="tabpanel" aria-labelledby={labelledBy} tabIndex={0} hidden={hidden}>
+   <div className="section-head"><div><h2 id="repayment-title" tabIndex={-1}>還款紀錄</h2><p>有效 {activeCount} 筆{voidedCount?` · 已撤銷 ${voidedCount} 筆`:''}</p></div><button type="button" className="history-refresh" disabled={refreshing||Boolean(voiding)} onClick={refreshHistory} aria-label={refreshing?'正在重新整理還款紀錄':'重新整理還款紀錄'}>{refreshing?<LoaderCircle/>:<RefreshCcw/>}</button></div>
+   {statusMessage&&<p className="repayment-feedback" role="status" aria-live="polite"><Check/>{statusMessage}</p>}
+   {historyError&&<p className="repayment-feedback is-error" role="alert"><AlertCircle/>{historyError}</p>}
+   {!rows.length?<div className="repayment-empty"><History/><span>還沒有轉帳回報紀錄</span></div>:<>
+    <div className="repayment-table-head" aria-hidden="true"><span>日期</span><span>付款人</span><span>收款人</span><span>金額 (TWD)</span><span>回報資訊</span><span>狀態與操作</span></div>
+    <div className="repayment-log">{pagedRows.map(item=>{const reportedBy=item.reportedBy||item.confirmedBy,isVoided=item.reportStatus==='voided'||Boolean(item.voidedAt),voidedBy=item.voidedBy?.displayName||'管理者';return <article className={isVoided?'is-voided':''} key={item.id}>
+     <time dateTime={item.createdAt}>{formatTime(item.createdAt)}</time>
+     <span className="repayment-payer"><span className="repayment-payer-desktop">{item.from.displayName}</span><span className="repayment-mobile-route">{item.from.displayName}<ArrowRight/>{item.to.displayName}</span></span>
+     <span className="repayment-receiver">{item.to.displayName}</span>
+     <strong>{money(item.amountCents)}</strong>
+     <small>{isVoided?`由 ${voidedBy} 撤銷 · 原由 ${reportedBy.displayName} 回報`:`由 ${reportedBy.displayName} 回報`}</small>
+     <div className="repayment-status-actions"><span className={`record-status ${isVoided?'is-voided':''}`}>{isVoided?<History/>:<Check/>}{isVoided?'已撤銷':'已回報'}</span>{item.canVoid&&<button type="button" className="repayment-void-button" disabled={Boolean(voiding)} onClick={()=>requestVoid(item)} aria-label={`撤銷 ${item.from.displayName} 轉給 ${item.to.displayName} ${money(item.amountCents)} 的回報`}>{voiding===item.id?<LoaderCircle/>:<RefreshCcw/>}<span>{voiding===item.id?'處理中…':'撤銷回報'}</span></button>}</div>
+    </article>})}</div>
+    <RecordPagination page={currentPage} totalItems={rows.length} pageSize={TABLE_PAGE_SIZE} onPageChange={setPage} label="還款紀錄"/>
+   </>}
+  </section>
+  {confirmation&&<ConfirmModal {...confirmation} busy={voiding===pendingVoid.id} error={voidError} onCancel={closeVoid} onConfirm={confirmVoid}/>}
+ </>;
 }
 function BalanceChart({group,close}){
  const rows=[...group.balances].sort((a,b)=>a.balanceCents-b.balanceCents);
