@@ -367,6 +367,17 @@
   gap: 10px;
 }
 
+.product-header-language button,
+.profile-language-switcher button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.profile-language-switcher {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .header-user-avatar {
   display: inline-flex;
   padding: 2px;
@@ -2572,6 +2583,10 @@
     content: "收款：";
   }
 
+  [data-language="en"] .repayment-log article > .repayment-receiver::before {
+    content: "Recipient: ";
+  }
+
   .repayment-log article > strong {
     grid-area: amount;
     justify-self: end;
@@ -3261,6 +3276,14 @@
 
   .repayment-receiver::before {
     content: "收款：";
+  }
+
+  [data-language="en"] .repayment-payer::before {
+    content: "Payer: ";
+  }
+
+  [data-language="en"] .repayment-receiver::before {
+    content: "Recipient: ";
   }
 
   .repayment-log article > strong {
@@ -4469,6 +4492,10 @@
 }
 
 @media (max-width: 900px) {
+  .product-header-language {
+    display: none;
+  }
+
   .profile-heading {
     padding-right: 44px;
   }
