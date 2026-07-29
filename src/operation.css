@@ -1909,12 +1909,13 @@
 
 .repayment-panel {
   grid-column: 1;
+  container: repayment-panel / inline-size;
 }
 
 .repayment-table-head,
 .repayment-log article {
   display: grid;
-  grid-template-columns: 132px minmax(84px,1fr) minmax(84px,1fr) 120px minmax(140px,1.2fr) minmax(168px,auto);
+  grid-template-columns: 126px minmax(64px,.75fr) minmax(64px,.75fr) 108px minmax(112px,1fr) 160px;
   gap: 10px;
   align-items: center;
 }
@@ -1926,6 +1927,11 @@
   background: #fafcfb;
   font-size: 10px;
   font-weight: 700;
+}
+
+.repayment-table-head > span:last-child {
+  padding-right: 2px;
+  text-align: right;
 }
 
 .repayment-log {
@@ -2001,10 +2007,13 @@
 
 .repayment-status-actions {
   display: flex;
+  width: 100%;
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  justify-self: end;
+  gap: 4px;
+  padding-right: 2px;
 }
 
 .repayment-status-actions .record-status {
@@ -2018,33 +2027,29 @@
 
 .repayment-void-button {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 36px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 11px;
-  border: 1px solid #e2cbc8;
-  border-radius: 9px;
+  gap: 5px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
   color: #8f413a;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(80,37,32,.035);
+  background: transparent;
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1;
   white-space: nowrap;
-  transition: border-color .16s ease, color .16s ease, background-color .16s ease, box-shadow .16s ease;
+  transition: color .16s ease, background-color .16s ease;
 }
 
 .repayment-void-button:hover:not(:disabled) {
-  border-color: #c87870;
   color: #7e302a;
-  background: #fff4f2;
-  box-shadow: 0 2px 5px rgba(105,45,38,.07);
+  background: #fff2f0;
 }
 
 .repayment-void-button:active:not(:disabled) {
-  background: #fce7e4;
-  box-shadow: none;
+  background: #fbe4e1;
 }
 
 .repayment-void-button:focus-visible {
@@ -2058,9 +2063,9 @@
 }
 
 .repayment-void-button svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 15px;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
 }
 
 .repayment-void-button span {
@@ -2589,13 +2594,58 @@
   }
 }
 
+@container repayment-panel (max-width: 730px) {
+  .repayment-table-head {
+    display: none;
+  }
+
+  .repayment-log article {
+    grid-template-columns: 110px minmax(0,1fr) 108px 160px;
+    grid-template-areas:
+      "date payer amount actions"
+      "meta receiver amount actions";
+    gap: 5px 12px;
+  }
+
+  .repayment-log article > time {
+    grid-area: date;
+  }
+
+  .repayment-log article > .repayment-payer {
+    grid-area: payer;
+    color: var(--operation-text);
+    font-weight: 750;
+  }
+
+  .repayment-log article > .repayment-receiver {
+    grid-area: receiver;
+  }
+
+  .repayment-log article > .repayment-receiver::before {
+    content: "收款：";
+  }
+
+  .repayment-log article > strong {
+    grid-area: amount;
+    justify-self: end;
+  }
+
+  .repayment-log article > .repayment-meta {
+    grid-area: meta;
+  }
+
+  .repayment-log article > .repayment-status-actions {
+    grid-area: actions;
+  }
+}
+
 @media (min-width: 901px) and (max-width: 1180px) {
   .repayment-table-head {
     display: none;
   }
 
   .repayment-log article {
-    grid-template-columns: 110px minmax(0,1fr) 120px minmax(168px,auto);
+    grid-template-columns: 110px minmax(0,1fr) 108px 160px;
     grid-template-areas:
       "date payer amount actions"
       "meta receiver amount actions";
