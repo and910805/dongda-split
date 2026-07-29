@@ -841,12 +841,7 @@ app.post('/api/groups/:id/expense-rate',requireUser,asyncRoute(async(req,res)=>{
   });
 }));
 app.get('/api/auth/line',(req,res)=>{
-  if(!process.env.LINE_CHANNEL_ID||!process.env.LINE_CHANNEL_SECRET){
-    const message=String(req.query.lang||'').toLowerCase().startsWith('en')
-      ?'LINE Login is not configured'
-      :'LINE Login 尚未設定';
-    return res.status(503).send(message);
-  }
+  if(!process.env.LINE_CHANNEL_ID||!process.env.LINE_CHANNEL_SECRET)return res.status(503).send('LINE Login 尚未設定');
   const state=crypto.randomBytes(24).toString('base64url');
   const nonce=crypto.randomBytes(24).toString('base64url');
   const returnTo=safeReturnTo(req.query.returnTo);

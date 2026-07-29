@@ -9,7 +9,6 @@ import {
   convertAmountCentsDetailed,
   decimalToFraction,
   formatCurrencyAmount,
-  getCurrencyName,
   isValidAmountCents,
   parseCurrencyAmount,
 } from '../currency.mjs';
@@ -23,12 +22,6 @@ test('集中註冊六種支援幣別與精度', () => {
   assert.equal(CURRENCY_REGISTRY.USD.quantum, 1);
   assert.equal(CURRENCY_REGISTRY.CNY.decimals, 2);
   assert.equal(CURRENCY_REGISTRY.THB.symbol, '฿');
-});
-
-test('幣別名稱可依繁中與英文顯示', () => {
-  assert.equal(getCurrencyName('TWD', 'zh-TW'), '新台幣');
-  assert.equal(getCurrencyName('TWD', 'en'), 'New Taiwan Dollar');
-  assert.equal(getCurrencyName('JPY', 'en-US'), 'Japanese Yen');
 });
 
 test('安全解析整數與兩位小數幣別', () => {

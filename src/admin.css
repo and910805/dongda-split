@@ -145,7 +145,7 @@
 }
 
 .admin-side nav button,
-.admin-side-footer > button {
+.admin-side-footer button {
   display: flex;
   min-height: 44px;
   align-items: center;
@@ -167,7 +167,7 @@
 }
 
 .admin-side nav svg,
-.admin-side-footer > button svg {
+.admin-side-footer svg {
   width: 17px;
   height: 17px;
 }
@@ -180,19 +180,8 @@
   border-top: 1px solid var(--admin-line);
 }
 
-.admin-side-footer > button:last-child {
+.admin-side-footer button:last-child {
   color: #9c4942;
-}
-
-.admin-side-language {
-  width: 100%;
-  margin-bottom: 6px;
-}
-
-.admin-side-language button {
-  min-width: 0;
-  min-height: 40px;
-  flex: 1;
 }
 
 .admin-workspace {
@@ -624,17 +613,6 @@
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.admin-header-language {
-  display: none;
-  min-width: 0 !important;
-  flex: none !important;
-}
-
-.admin-header-language button {
-  min-width: 44px;
-  min-height: 44px;
 }
 
 .admin-group-currency {
@@ -1333,10 +1311,6 @@
     margin-left: 0;
   }
 
-  .admin-header-language {
-    display: inline-flex;
-  }
-
   .admin-simulator-body {
     grid-template-columns: 1fr;
   }
@@ -1396,21 +1370,6 @@
     font-size: 16px;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .admin-header-language {
-    color: #fff;
-    border-color: rgba(255,255,255,.45);
-    background: rgba(255,255,255,.1);
-  }
-
-  .admin-header-language button:hover {
-    background: rgba(255,255,255,.14);
-  }
-
-  .admin-header-language button.active {
-    color: var(--admin-green-dark);
-    background: #fff;
   }
 
   .admin-refresh {
@@ -1704,12 +1663,9 @@
     padding: 0 10px;
   }
 
-  .admin-tabs button > span {
-    font-size: 11px;
-  }
-
   .admin-tabs svg {
-    display: none;
+    width: 16px;
+    height: 16px;
   }
 
   .admin-stats article > span {

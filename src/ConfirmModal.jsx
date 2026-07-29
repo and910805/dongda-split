@@ -2,20 +2,18 @@ import React,{useEffect,useId,useRef} from 'react';
 import {createPortal} from 'react-dom';
 import {AlertCircle,Check,LoaderCircle,ShieldCheck,Trash2,X} from './ui-icons.jsx';
 import {acquireModalEnvironment} from './modal-environment.mjs';
-import {useI18n} from './i18n.jsx';
 
 export function ConfirmModal({
   title,
   description,
-  confirmLabel,
-  cancelLabel,
+  confirmLabel='確認',
+  cancelLabel='取消',
   tone='danger',
   busy=false,
   error='',
   onCancel,
   onConfirm
 }){
-  const {t,translateApiError}=useI18n();
   const titleId=useId(),descriptionId=useId(),errorId=useId();
   const overlayRef=useRef(null),dialogRef=useRef(null),cancelRef=useRef(null);
   const cancelHandlerRef=useRef(onCancel),busyRef=useRef(busy),returnFocusRef=useRef(document.activeElement);
@@ -67,21 +65,21 @@ export function ConfirmModal({
         aria-describedby={describedBy}
         aria-busy={busy||undefined}
       >
-        <button type="button" className="modal-x" onClick={onCancel} disabled={busy} aria-label={t('confirm.close')}><X/></button>
+        <button type="button" className="modal-x" onClick={onCancel} disabled={busy} aria-label="關閉確認視窗"><X/></button>
         <div className="confirm-modal-heading">
           <span className="confirm-modal-icon" aria-hidden="true"><ActionIcon/></span>
           <div>
-            <span className="eyebrow">{t(tone==='danger'?'confirm.dangerEyebrow':'confirm.permissionEyebrow')}</span>
+            <span className="eyebrow">{tone==='danger'?'危險操作':'權限確認'}</span>
             <h2 id={titleId}>{title}</h2>
           </div>
         </div>
         <p className="confirm-modal-copy" id={descriptionId}>{description}</p>
-        {error&&<p className="form-error confirm-modal-error" id={errorId} role="alert"><AlertCircle/>{translateApiError(error)}</p>}
+        {error&&<p className="form-error confirm-modal-error" id={errorId} role="alert"><AlertCircle/>{error}</p>}
         <div className="confirm-modal-actions">
-          <button ref={cancelRef} type="button" className="secondary-button" onClick={onCancel} disabled={busy}>{cancelLabel||t('common.cancel')}</button>
+          <button ref={cancelRef} type="button" className="secondary-button" onClick={onCancel} disabled={busy}>{cancelLabel}</button>
           <button type="button" className={tone==='danger'?'confirm-modal-danger':'primary'} onClick={onConfirm} disabled={busy}>
             {busy?<LoaderCircle/>:tone==='danger'?<Trash2/>:<Check/>}
-            {busy?t('common.processing'):confirmLabel||t('common.confirm')}
+            {busy?'處理中…':confirmLabel}
           </button>
         </div>
       </div>

@@ -1,12 +1,12 @@
 const INTERNAL_SCALE = 100;
 
 const definitions = [
-  { code: 'TWD', name: '新台幣', englishName: 'New Taiwan Dollar', symbol: 'NT$', decimals: 0, step: '1', quantum: 100 },
-  { code: 'JPY', name: '日圓', englishName: 'Japanese Yen', symbol: '¥', decimals: 0, step: '1', quantum: 100 },
-  { code: 'KRW', name: '韓元', englishName: 'South Korean Won', symbol: '₩', decimals: 0, step: '1', quantum: 100 },
-  { code: 'USD', name: '美元', englishName: 'US Dollar', symbol: 'US$', decimals: 2, step: '0.01', quantum: 1 },
-  { code: 'CNY', name: '人民幣', englishName: 'Chinese Yuan', symbol: 'CN¥', decimals: 2, step: '0.01', quantum: 1 },
-  { code: 'THB', name: '泰銖', englishName: 'Thai Baht', symbol: '฿', decimals: 2, step: '0.01', quantum: 1 },
+  { code: 'TWD', name: '新台幣', symbol: 'NT$', decimals: 0, step: '1', quantum: 100 },
+  { code: 'JPY', name: '日圓', symbol: '¥', decimals: 0, step: '1', quantum: 100 },
+  { code: 'KRW', name: '韓元', symbol: '₩', decimals: 0, step: '1', quantum: 100 },
+  { code: 'USD', name: '美元', symbol: 'US$', decimals: 2, step: '0.01', quantum: 1 },
+  { code: 'CNY', name: '人民幣', symbol: 'CN¥', decimals: 2, step: '0.01', quantum: 1 },
+  { code: 'THB', name: '泰銖', symbol: '฿', decimals: 2, step: '0.01', quantum: 1 },
 ];
 
 export const CURRENCY_REGISTRY = Object.freeze(Object.fromEntries(
@@ -29,13 +29,6 @@ export function getCurrency(currency = 'TWD') {
   const definition = CURRENCY_REGISTRY[code];
   if (!definition) throw new RangeError(`不支援的幣別：${code || '(空白)'}`);
   return definition;
-}
-
-export function getCurrencyName(currency = 'TWD', language = 'zh-TW') {
-  const definition = getCurrency(currency);
-  return String(language || '').toLowerCase().startsWith('en')
-    ? definition.englishName
-    : definition.name;
 }
 
 export function getCurrencyQuantum(currency = 'TWD') {

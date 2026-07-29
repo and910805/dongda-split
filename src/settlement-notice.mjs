@@ -1,27 +1,23 @@
 import {formatCurrencyAmount,isSupportedCurrency} from '../currency.mjs';
 
 const safeText=value=>String(value||'').replace(/\s+/g,' ').trim();
-const isEnglish=options=>String(options?.language||'').toLowerCase().startsWith('en');
 
-export function formatSettlementReportTime(value,options={}){
+export function formatSettlementReportTime(value){
   const date=value instanceof Date?value:new Date(value);
-  const english=isEnglish(options);
-  if(Number.isNaN(date.getTime()))return english?'Time not recorded':'時間未記錄';
-  const parts=new Intl.DateTimeFormat(english?'en-US':'zh-TW',{
+  if(Number.isNaN(date.getTime()))return '時間未記錄';
+  const parts=new Intl.DateTimeFormat('zh-TW',{
     year:'numeric',
-    month:english?'short':'2-digit',
+    month:'2-digit',
     day:'2-digit',
     hour:'2-digit',
     minute:'2-digit',
     hourCycle:'h23'
   }).formatToParts(date);
   const part=type=>parts.find(item=>item.type===type)?.value||'';
-  return english
-    ?`${part('month')} ${part('day')}, ${part('year')} ${part('hour')}:${part('minute')}`
-    :`${part('year')}/${part('month')}/${part('day')} ${part('hour')}:${part('minute')}`;
+  return `${part('year')}/${part('month')}/${part('day')} ${part('hour')}:${part('minute')}`;
 }
 
-export function formatSettlementReportAmount(amountCents,currency='TWD',_options={}){
+export function formatSettlementReportAmount(amountCents,currency='TWD'){
   const numeric=Number(amountCents);
   const currencyCode=isSupportedCurrency(currency)?String(currency).toUpperCase():'TWD';
   const safeCents=Number.isSafeInteger(numeric)&&numeric>0?numeric:0;
@@ -29,37 +25,26 @@ export function formatSettlementReportAmount(amountCents,currency='TWD',_options
   catch{return formatCurrencyAmount(0,currencyCode)}
 }
 
-export function buildSettlementNotice(report,options={}){
-  const english=isEnglish(options);
-  const groupName=safeText(report?.groupName)||(english?'Unnamed trip':'未命名旅程');
-  const payerName=safeText(report?.from?.displayName)||(english?'Payer':'付款人');
-  const recipientName=safeText(report?.to?.displayName)||(english?'Recipient':'收款人');
+export function buildSettlementNotice(report){
+  const groupName=safeText(report?.groupName)||'未命名旅程';
+  const payerName=safeText(report?.from?.displayName)||'付款人';
+  const recipientName=safeText(report?.to?.displayName)||'收款人';
   const reporterName=safeText(report?.reportedBy?.displayName)||payerName;
   const currency=isSupportedCurrency(report?.currency)?String(report.currency).toUpperCase():'TWD';
-  const amountLabel=formatSettlementReportAmount(report?.amountCents,currency,options);
+  const amountLabel=formatSettlementReportAmount(report?.amountCents,currency);
   const reportedCurrency=isSupportedCurrency(report?.reportedCurrency)?String(report.reportedCurrency).toUpperCase():currency;
   const reportedAmountCents=Number(report?.reportedAmountCents??report?.amountCents);
   const originalAmountLabel=reportedCurrency!==currency||reportedAmountCents!==Number(report?.amountCents)
-    ?formatSettlementReportAmount(reportedAmountCents,reportedCurrency,options)
+    ?formatSettlementReportAmount(reportedAmountCents,reportedCurrency)
     :'';
-  const timeLabel=formatSettlementReportTime(report?.reportedAt,options);
-  const reporterLine=reporterName===payerName?'':english?`\nReported by: ${reporterName}`:`\n回報人：${reporterName}`;
-  const originalAmountLine=originalAmountLabel?english?`\nOriginal reported amount: ${originalAmountLabel}`:`\n原回報金額：${originalAmountLabel}`:'';
+  const timeLabel=formatSettlementReportTime(report?.reportedAt);
+  const reporterLine=reporterName===payerName?'':`\n回報人：${reporterName}`;
+  const originalAmountLine=originalAmountLabel?`\n原回報金額：${originalAmountLabel}`:'';
 
   return {
     amountLabel,
     timeLabel,
-    text:english?`【TripTab | Transfer record】
-${reporterName} marked this payment as “Transferred”
-
-Trip: ${groupName}
-Payer: ${payerName}
-Recipient: ${recipientName}
-Transfer amount: ${amountLabel}${originalAmountLine}
-Recorded at: ${timeLabel}${reporterLine}
-
-Please ask ${recipientName} to check the receiving account
-TripTab records member-reported status only. Check the bank record for the actual deposit status`:`【旅帳 TripTab｜轉帳紀錄】
+    text:`【旅帳 TripTab｜轉帳紀錄】
 ${reporterName} 已將這筆款項標記為「已轉帳」
 
 旅程：${groupName}
@@ -73,6 +58,6 @@ ${reporterName} 已將這筆款項標記為「已轉帳」
   };
 }
 
-export function settlementLineShareUrl(report,options={}){
-  return `https://line.me/R/share?text=${encodeURIComponent(buildSettlementNotice(report,options).text)}`;
+export function settlementLineShareUrl(report){
+  return `https://line.me/R/share?text=${encodeURIComponent(buildSettlementNotice(report).text)}`;
 }

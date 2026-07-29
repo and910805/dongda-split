@@ -8,7 +8,6 @@ import './operation.css';
 import './admin.css';
 import ProductApp from './ProductApp.jsx';
 import {BrandLogo as Brand} from './BrandLogo.jsx';
-import {LanguageProvider,LanguageSwitcher,useI18n} from './i18n.jsx';
 
 const people=[{name:'小羅',img:'/xiaoluo-avatar.png',color:'#1f9d69'},{name:'安安',initial:'安',color:'#ef8b5a'},{name:'阿哲',initial:'哲',color:'#6c72d9'}];
 const seed=[
@@ -59,32 +58,15 @@ function HeroWaves(){return <div className="hero-waves" aria-hidden="true"><svg 
   <path className="hero-wave hero-wave-front" d="M-180 132C126 48 417 39 721 116C995 186 1284 182 1576 108C1804 51 1986 53 2180 101V220H-180Z"/>
   <path className="hero-wave-edge" d="M-180 128C126 44 417 35 721 112C995 182 1284 178 1576 104C1804 47 1986 49 2180 97"/>
  </svg></div>}
-function Home({enter}){
- const {language,t}=useI18n();
- const [heroReady,setHeroReady]=useState(false);
- useEffect(()=>{let active=true;Promise.all([waitForImage(heroBackground),waitForImage(heroAirplane)]).then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>active&&setHeroReady(true))));return()=>{active=false}},[]);
- useEffect(()=>{document.title=t('landing.documentTitle')},[language,t]);
- const workflowSteps=[1,2,3,4].map(index=>({
-  id:String(index).padStart(2,'0'),
-  title:t(`landing.workflow.step${index}.title`),
-  body:t(`landing.workflow.step${index}.body`),
-  meta:t(`landing.workflow.step${index}.meta`),
- }));
- return <div className="site">
-  <nav aria-label={t('landing.nav.aria')}>
-    <Brand/>
-    <div className="navlinks"><a href="#features">{t('landing.nav.features')}</a><a href="#how">{t('landing.nav.how')}</a><a href="#cases">{t('landing.nav.cases')}</a><a href="#faq">{t('landing.nav.faq')}</a></div>
-    <LanguageSwitcher className="site-language-switcher"/>
-    <button className="ghost" onClick={enter}>{t('landing.nav.login')}</button>
-    <button className="primary small" onClick={enter} aria-label={t('landing.nav.start')}><span className="nav-primary-label">{t('landing.nav.start')}</span><ArrowRight size={17}/></button>
-  </nav>
+function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(()=>{let active=true;Promise.all([waitForImage(heroBackground),waitForImage(heroAirplane)]).then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>active&&setHeroReady(true))));return()=>{active=false}},[]);return <div className="site">
+  <nav><Brand/><div className="navlinks"><a href="#features">主打功能</a><a href="#how">使用方式</a><a href="#cases">適用情境</a><a href="#faq">常見問題</a></div><button className="ghost" onClick={enter}>LINE 登入</button><button className="primary small" onClick={enter}>開始分帳 <ArrowRight size={17}/></button></nav>
   <main>
     <section className={`hero ${heroReady?'hero-ready':'hero-loading'}`}>
       <div className="hero-stage">
-      <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> {t('landing.hero.eyebrow')}</span><h1>{t('landing.hero.title1')}<br/><em>{t('landing.hero.title2')}</em></h1><p>{t('landing.hero.description1')}<br/>{t('landing.hero.description2')}</p><div className="hero-actions"><button className="primary" onClick={enter}>{t('landing.hero.cta')} <ArrowRight size={18}/></button><span><Check size={17}/> {t('landing.hero.helper')}</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>{t('landing.hero.socialHeadline')}<br/><small>{t('landing.hero.socialDetail')}</small></b></div></div>
-      <div className="hero-visual" role="img" aria-label={t('landing.preview.aria')}>
+      <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>已有 2,840+ 位旅伴使用旅帳<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
+      <div className="hero-visual" role="img" aria-label="旅帳 TripTab 的日本行程 iPhone 分帳畫面預覽">
         <HeroAirplane/>
-        <div className="ticket"><span>TOKYO · FUJI</span><b>{t('landing.preview.tripName')}</b><small>{t('landing.preview.travelers')}</small><i aria-hidden="true"></i></div>
+        <div className="ticket"><span>TOKYO · FUJI</span><b>東京富士五日遊</b><small>3 位旅伴 · JPY</small><i aria-hidden="true"></i></div>
         <div className="phone">
           <span className="phone-side phone-silent" aria-hidden="true"></span>
           <span className="phone-side phone-volume-up" aria-hidden="true"></span>
@@ -99,46 +81,46 @@ function Home({enter}){
             </div>
             <div className="phone-content">
               <div className="phone-head"><Brand/><Avatar p={people[0]} size={34}/></div>
-              <p className="muted">{t('landing.preview.summary')}</p>
-              <h2>{t('landing.preview.receivable')} <strong>¥ 12,600 {t('landing.preview.currency')}</strong></h2>
-              <div className="mini-card"><span className="mini-type food" aria-hidden="true">{t('landing.preview.food')}</span><div><b>{t('landing.preview.item1')}</b><small>{t('landing.preview.payer1')}</small></div><strong>¥ 8,400</strong></div>
-              <div className="mini-card"><span className="mini-type stay" aria-hidden="true">{t('landing.preview.stay')}</span><div><b>{t('landing.preview.item2')}</b><small>{t('landing.preview.payer2')}</small></div><strong>¥ 62,000</strong></div>
-              <div className="mini-card"><span className="mini-type ride" aria-hidden="true">{t('landing.preview.ride')}</span><div><b>{t('landing.preview.item3')}</b><small>{t('landing.preview.payer3')}</small></div><strong>¥ 36,000</strong></div>
-              <div className="phone-add" aria-hidden="true"><Plus/> {t('landing.preview.addExpense')}</div>
+              <p className="muted">東京五日行程結算</p>
+              <h2>你應收 <strong>¥ 12,600(日幣)</strong></h2>
+              <div className="mini-card"><span className="mini-type food" aria-hidden="true">食</span><div><b>築地市場早餐</b><small>安安先付</small></div><strong>¥ 8,400</strong></div>
+              <div className="mini-card"><span className="mini-type stay" aria-hidden="true">住</span><div><b>新宿飯店住宿</b><small>阿哲先付</small></div><strong>¥ 62,000</strong></div>
+              <div className="mini-card"><span className="mini-type ride" aria-hidden="true">行</span><div><b>富士山一日遊</b><small>你先付</small></div><strong>¥ 36,000</strong></div>
+              <div className="phone-add" aria-hidden="true"><Plus/> 新增共同支出</div>
             </div>
             <span className="home-indicator" aria-hidden="true"></span>
           </div>
         </div>
-        <div className="float-note"><CircleDollarSign/><div><small>{t('landing.preview.simplified')}</small><b>{t('landing.preview.transferCount')}</b></div></div>
+        <div className="float-note"><CircleDollarSign/><div><small>已自動簡化轉帳</small><b>只需要轉帳 2 次</b></div></div>
       </div>
       </div>
       <HeroWaves/>
       <HeroBirds/>
       <HeroFoliage/>
     </section>
-    <section className="proof" aria-label={t('landing.proof.aria')}><span>{t('landing.proof.item1')}</span><span>{t('landing.proof.item2')}</span><span>{t('landing.proof.item3')}</span><span>{t('landing.proof.item4')}</span></section>
+    <section className="proof" aria-label="旅帳產品特點"><span>不用再開計算機</span><span>不用催朋友匯款</span><span>不用下載 App</span><span>多幣別也能分</span></section>
 
     <section id="features" className="section product-story">
       <header className="section-intro">
-        <span className="section-kicker">01 / {t('landing.features.kicker')}</span>
-        <h2>{t('landing.features.title1')}<br/>{t('landing.features.title2')}</h2>
-        <p>{t('landing.features.description')}</p>
+        <span className="section-kicker">01 / 核心功能</span>
+        <h2>每一筆支出<br/>都能說得清楚</h2>
+        <p>旅帳把記帳、分攤與結算放在同一個地方，旅途中只管記，回程前就能結清</p>
       </header>
       <div className="product-story-body">
-        <aside className="ledger-snapshot" aria-label={t('landing.ledger.aria')}>
-          <div className="ledger-head"><div><small>TRIP LEDGER</small><h3>{t('landing.ledger.tripName')}</h3></div><span>{t('landing.ledger.travelers')}</span></div>
-          <div className="ledger-total"><span>{t('landing.ledger.total')}</span><strong>NT$ 7,280</strong></div>
+        <aside className="ledger-snapshot" aria-label="台東三日小旅行帳目範例">
+          <div className="ledger-head"><div><small>TRIP LEDGER</small><h3>台東三日小旅行</h3></div><span>3 位旅伴</span></div>
+          <div className="ledger-total"><span>目前共同支出</span><strong>NT$ 7,280</strong></div>
           <div className="ledger-rows">
-            <div><span><b>{t('landing.ledger.item1')}</b><small>{t('landing.ledger.item1Meta')}</small></span><strong>NT$ 1,280</strong></div>
-            <div><span><b>{t('landing.ledger.item2')}</b><small>{t('landing.ledger.item2Meta')}</small></span><strong>NT$ 3,600</strong></div>
-            <div><span><b>{t('landing.ledger.item3')}</b><small>{t('landing.ledger.item3Meta')}</small></span><strong>NT$ 2,400</strong></div>
+            <div><span><b>東大門夜市</b><small>萬安先付 · 餐飲</small></span><strong>NT$ 1,280</strong></div>
+            <div><span><b>海邊民宿</b><small>哲宇先付 · 住宿</small></span><strong>NT$ 3,600</strong></div>
+            <div><span><b>租車費用</b><small>你先付 · 交通</small></span><strong>NT$ 2,400</strong></div>
           </div>
-          <div className="ledger-settlement"><span>{t('landing.ledger.settlement')}</span><strong>{t('landing.ledger.receivable')} NT$ 1,260</strong></div>
+          <div className="ledger-settlement"><span>你的結算</span><strong>應收 NT$ 1,260</strong></div>
         </aside>
         <div className="feature-list">
-          <article><div className="feature-title"><span>01</span><ReceiptText aria-hidden="true"/></div><h3>{t('landing.features.item1Title')}</h3><p>{t('landing.features.item1Body')}</p><small>{t('landing.features.item1Meta')}</small></article>
-          <article><div className="feature-title"><span>02</span><WalletCards aria-hidden="true"/></div><h3>{t('landing.features.item2Title')}</h3><p>{t('landing.features.item2Body')}</p><small>{t('landing.features.item2Meta')}</small></article>
-          <article><div className="feature-title"><span>03</span><BarChart3 aria-hidden="true"/></div><h3>{t('landing.features.item3Title')}</h3><p>{t('landing.features.item3Body')}</p><small>{t('landing.features.item3Meta')}</small></article>
+          <article><div className="feature-title"><span>01</span><ReceiptText aria-hidden="true"/></div><h3>記帳不打斷旅程</h3><p>輸入金額、付款人與分攤方式，一筆共同支出就完成</p><small>平均分攤 · 自訂金額 · 依份數分攤</small></article>
+          <article><div className="feature-title"><span>02</span><WalletCards aria-hidden="true"/></div><h3>每個人的餘額持續更新</h3><p>誰先付、誰該付與誰該收都留在同一份帳目，不用再回頭翻群組訊息</p><small>所有旅伴看到相同明細</small></article>
+          <article><div className="feature-title"><span>03</span><BarChart3 aria-hidden="true"/></div><h3>結算只留下必要轉帳</h3><p>旅帳依照每個人的收付結果自動整理，減少來回轉帳與人工計算</p><small>範例旅程只需轉帳 2 次</small></article>
         </div>
       </div>
     </section>
@@ -146,48 +128,53 @@ function Home({enter}){
     <section id="how" className="workflow-section">
       <div className="workflow-inner">
         <header className="section-intro inverse">
-          <span className="section-kicker">02 / {t('landing.workflow.kicker')}</span>
-          <h2>{t('landing.workflow.title1')}<br/>{t('landing.workflow.title2')}</h2>
+          <span className="section-kicker">02 / 使用方式</span>
+          <h2>一條連結<br/>開始共同記帳</h2>
         </header>
         <ol className="workflow-list">
-          {workflowSteps.map(step=><li key={step.id}><span>{step.id}</span><div><h3>{step.title}</h3><p>{step.body}</p></div><small>{step.meta}</small></li>)}
+          {[
+            ['01','使用 LINE 登入','確認身分後建立旅程','約 30 秒'],
+            ['02','分享給旅伴','傳送邀請連結，開啟後即可加入','免下載'],
+            ['03','邊花邊記','每個人都能新增支出與查看明細','即時同步'],
+            ['04','查看結算','自動整理每個人的應收應付','簡化轉帳'],
+          ].map(step=><li key={step[0]}><span>{step[0]}</span><div><h3>{step[1]}</h3><p>{step[2]}</p></div><small>{step[3]}</small></li>)}
         </ol>
       </div>
     </section>
 
     <section id="cases" className="section situations">
       <header className="section-intro horizontal">
-        <div><span className="section-kicker">03 / {t('landing.cases.kicker')}</span><h2>{t('landing.cases.title1')}<br/>{t('landing.cases.title2')}</h2></div>
-        <p>{t('landing.cases.description')}</p>
+        <div><span className="section-kicker">03 / 適用情境</span><h2>不只旅行<br/>共同支出都適用</h2></div>
+        <p>同一套清楚的記錄方式，從三人小旅行到多人活動都能使用</p>
       </header>
       <div className="situation-list">
-        <article><span className="situation-index">01</span><h3>{t('landing.cases.item1Title')}</h3><p>{t('landing.cases.item1Meta')}</p><strong>{t('landing.cases.item1Body')}</strong></article>
-        <article><span className="situation-index">02</span><h3>{t('landing.cases.item2Title')}</h3><p>{t('landing.cases.item2Meta')}</p><strong>{t('landing.cases.item2Body')}</strong></article>
-        <article><span className="situation-index">03</span><h3>{t('landing.cases.item3Title')}</h3><p>{t('landing.cases.item3Meta')}</p><strong>{t('landing.cases.item3Body')}</strong></article>
+        <article><span className="situation-index">01</span><h3>朋友旅行</h3><p>住宿 · 交通 · 餐費</p><strong>旅程結束不用再翻聊天紀錄</strong></article>
+        <article><span className="situation-index">02</span><h3>家庭與聚會</h3><p>採買 · 訂金 · 共同費用</p><strong>每個人都看得到完整明細</strong></article>
+        <article><span className="situation-index">03</span><h3>社團與活動</h3><p>多位付款人 · 不同分攤方式</p><strong>人再多也能清楚結算</strong></article>
       </div>
     </section>
 
     <section id="faq" className="section faq faq-editorial">
       <header className="section-intro">
-        <span className="section-kicker">04 / {t('landing.faq.kicker')}</span>
-        <h2>{t('landing.faq.title1')}<br/>{t('landing.faq.title2')}</h2>
-        <p>{t('landing.faq.description')}</p>
+        <span className="section-kicker">04 / 常見問題</span>
+        <h2>開始前<br/>先把問題說清楚</h2>
+        <p>如果還有其他問題，可以先建立測試旅程，所有功能都能直接體驗</p>
       </header>
       <div className="faq-list">
-        <details><summary>{t('landing.faq.item1Question')}</summary><p>{t('landing.faq.item1Answer')}</p></details>
-        <details><summary>{t('landing.faq.item2Question')}</summary><p>{t('landing.faq.item2Answer')}</p></details>
-        <details><summary>{t('landing.faq.item3Question')}</summary><p>{t('landing.faq.item3Answer')}</p></details>
-        <details><summary>{t('landing.faq.item4Question')}</summary><p>{t('landing.faq.item4Answer')}</p></details>
-        <details><summary>{t('landing.faq.item5Question')}</summary><p>{t('landing.faq.item5Answer')}</p></details>
+        <details><summary>需要下載 App 嗎？</summary><p>不用，開啟邀請連結即可加入旅程，手機與電腦都能使用</p></details>
+        <details><summary>為什麼需要使用 LINE 登入？</summary><p>旅帳使用 LINE 的基本個人資料確認旅伴身分，讓邀請與每筆支出能對應到正確成員；不會讀取聊天內容，也不需要加入官方帳號</p></details>
+        <details><summary>每一筆支出都只能平均分嗎？</summary><p>不是，可以平均分攤，也能依實際情況自訂每個人的金額或份數</p></details>
+        <details><summary>旅帳會自動計算誰該付誰嗎？</summary><p>會，旅帳會依每個人的支出與分攤結果計算餘額，並簡化需要轉帳的次數</p></details>
+        <details><summary>建立旅程需要信用卡嗎？</summary><p>不需要信用卡，建立旅程後就能直接邀請旅伴開始記帳</p></details>
       </div>
     </section>
 
     <section className="closing-cta">
-      <div><span className="section-kicker">{t('landing.closing.kicker')}</span><h2>{t('landing.closing.title1')}<br/>{t('landing.closing.title2')}</h2></div>
-      <div className="closing-actions"><button className="primary" onClick={enter}>{t('landing.hero.cta')} <ArrowRight/></button><span>{t('landing.hero.helper')}</span></div>
+      <div><span className="section-kicker">準備出發</span><h2>回憶留在旅程<br/>帳目交給旅帳</h2></div>
+      <div className="closing-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight/></button><span>使用 LINE 快速登入 · 免下載 App</span></div>
     </section>
   </main>
-  <footer><Brand light/><p>{t('landing.footer.tagline')}</p><div className="footer-links"><a href="#features">{t('landing.footer.features')}</a><a href="#how">{t('landing.nav.how')}</a><a href="#faq">{t('landing.nav.faq')}</a></div><span>{t('landing.footer.copyright')}</span></footer>
+  <footer><Brand light/><p>一起出發，清楚結算</p><div className="footer-links"><a href="#features">功能</a><a href="#how">使用方式</a><a href="#faq">常見問題</a></div><span>© 2026 旅帳 TripTab</span></footer>
   </div>}
 
 function App(){const [inside,setInside]=useState(false),[records,setRecords]=useState(seed),[modal,setModal]=useState(false),[title,setTitle]=useState(''),[amount,setAmount]=useState(''),[payer,setPayer]=useState('小羅'); const total=records.reduce((s,r)=>s+r.amount,0); const mine=useMemo(()=>records.reduce((s,r)=>s+(r.payer==='小羅'?r.amount:0),0)-total/3,[records,total]);
@@ -200,4 +187,4 @@ function App(){const [inside,setInside]=useState(false),[records,setRecords]=use
  <section className="activity"><div className="section-head"><div><h2>最近支出</h2><p>台東三日小旅行的共同花費</p></div><button className="primary" onClick={()=>setModal(true)}><Plus/> 新增支出</button></div><div className="filters"><button className="active">全部</button><button>餐飲</button><button>住宿</button><button>交通</button></div><div className="record-list">{records.map(r=><article key={r.id}><span className="record-icon">{r.cat==='餐飲'?'🍜':r.cat==='住宿'?'🏠':r.cat==='交通'?'🚗':'🧾'}</span><div className="record-name"><b>{r.title}</b><small>{r.date} · {r.payer} 先付</small></div><div className="member-dots">{people.map((p,i)=><Avatar p={p} key={i} size={26}/>)}</div><div className="record-price"><b>NT$ {r.amount.toLocaleString()}</b><small>每人 NT$ {Math.round(r.amount/r.members).toLocaleString()}</small></div><button className="more">•••</button></article>)}</div></section></main></div>
  {modal&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setModal(false)}><form className="modal" onSubmit={add}><div className="modal-head"><div><span className="eyebrow">新增共同花費</span><h2>這次是誰先付？</h2></div><button type="button" className="round" onClick={()=>setModal(false)}><X/></button></div><label>項目名稱<input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：東大門夜市晚餐"/></label><label>金額<div className="money"><span>NT$</span><input type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0"/></div></label><label>付款人<select value={payer} onChange={e=>setPayer(e.target.value)}>{people.map(p=><option key={p.name}>{p.name}</option>)}</select></label><div className="split-info"><Users/> 將由 3 位旅伴平均分攤</div><button className="primary wide">儲存支出 <ArrowRight/></button></form></div>}
  </div>}
-createRoot(document.getElementById('root')).render(<LanguageProvider><ProductApp Home={Home}/></LanguageProvider>);
+createRoot(document.getElementById('root')).render(<ProductApp Home={Home}/>);

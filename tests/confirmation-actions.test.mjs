@@ -59,44 +59,6 @@ test('移除管理權限使用危險操作並保留一般分帳資料',()=>{
   assert.match(confirmation.description,/一般分帳資料不受影響/);
 });
 
-test('英文確認文案翻譯系統文字但保留使用者輸入名稱',()=>{
-  const expense=expenseDeletionConfirmation('築地早餐',{language:'en'});
-  assert.equal(expense.title,'Delete “築地早餐”?');
-  assert.equal(expense.confirmLabel,'Delete expense');
-  assert.match(expense.description,/cannot be undone/i);
-
-  const group=groupDeletionConfirmation('日本五日遊',{language:'en-US'});
-  assert.equal(group.title,'Delete group “日本五日遊”?');
-  assert.match(group.description,/expenses, splits, and settlement records/i);
-
-  const settlement=settlementVoidConfirmation({
-    from:{displayName:'小明'},
-    to:{displayName:'小美'}
-  },{language:'en'});
-  assert.equal(settlement.title,'Void the transfer report for “小明 → 小美”?');
-  assert.match(settlement.description,/will not cancel any transfer/i);
-});
-
-test('英文帳戶移除與管理者權限確認維持既有狀態欄位',()=>{
-  const account=bankAccountRemovalConfirmation({language:'en'});
-  assert.equal(account.confirmLabel,'Remove account');
-  assert.equal(account.tone,'danger');
-
-  const grant=roleChangeConfirmation({displayName:'Andy',isSuperuser:false},{language:'en'});
-  assert.equal(grant.title,'Make “Andy” an administrator?');
-  assert.equal(grant.confirmLabel,'Grant administrator access');
-  assert.equal(grant.nextValue,true);
-  assert.equal(grant.tone,'primary');
-  assert.equal(grant.action,'granted administrator access');
-
-  const revoke=roleChangeConfirmation({displayName:'Andy',isSuperuser:true},{language:'en'});
-  assert.equal(revoke.title,'Remove administrator access from “Andy”?');
-  assert.equal(revoke.confirmLabel,'Remove administrator access');
-  assert.equal(revoke.nextValue,false);
-  assert.equal(revoke.tone,'danger');
-  assert.equal(revoke.action,'removed administrator access');
-});
-
 test('產品與管理者介面不再使用瀏覽器原生 confirm',async()=>{
   const sources=await Promise.all([
     readFile(new URL('../src/ProductApp.jsx',import.meta.url),'utf8'),
