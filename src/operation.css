@@ -2899,7 +2899,7 @@
   .group-hero {
     height: auto;
     min-height: 0;
-    padding: 16px;
+    padding: 14px;
   }
 
   .group-hero .group-title-row h1 {
@@ -2908,8 +2908,8 @@
   }
 
   .group-hero > .group-overview-side {
-    top: 16px;
-    right: 16px;
+    top: 14px;
+    right: 14px;
     width: auto;
     min-width: 0;
   }
@@ -2953,27 +2953,50 @@
   }
 
   .group-meta {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 5px;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 5px 12px;
   }
 
   .group-meta span {
     padding: 0;
     border: 0;
+    font-size: 10px;
   }
 
   .group-meta .member-count-meta {
     display: none;
   }
 
+  .group-meta svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .group-member-wall {
+    grid-template-columns: auto minmax(0,1fr);
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
   .group-member-wall-head {
-    justify-content: space-between;
+    display: grid;
+    flex: 0 0 auto;
+    gap: 1px;
+  }
+
+  .group-member-avatars {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    overflow: hidden;
   }
 
   .mobile-shortcuts {
     display: grid;
-    grid-template-columns: repeat(4,minmax(0,1fr)) !important;
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
     gap: 8px;
     padding: 0;
     margin: 10px 0 14px;
@@ -2983,23 +3006,23 @@
   }
 
   .mobile-shortcuts.has-admin {
-    grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
   }
 
   .mobile-shortcuts button {
     display: flex;
     min-width: 0;
-    min-height: 78px;
+    min-height: 58px;
     align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 7px;
-    padding: 8px 4px;
+    justify-content: flex-start;
+    flex-direction: row;
+    gap: 9px;
+    padding: 8px 12px;
     border: 1px solid var(--operation-border);
-    border-radius: 14px;
+    border-radius: 12px;
     color: var(--operation-text);
     background: #fff;
-    box-shadow: 0 3px 12px rgba(19,75,56,.05);
+    box-shadow: 0 2px 8px rgba(19,75,56,.045);
     font-size: 11px;
     font-weight: 750;
     touch-action: manipulation;
@@ -3036,11 +3059,11 @@
 
   .mobile-shortcuts .shortcut-icon {
     display: grid;
-    width: 40px;
-    height: 40px;
-    flex: 0 0 40px;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
     place-items: center;
-    border-radius: 12px;
+    border-radius: 10px;
     color: var(--operation-green);
     background: var(--operation-green-soft);
   }
@@ -3058,6 +3081,7 @@
     overflow: hidden;
     max-width: 100%;
     color: inherit;
+    text-align: left;
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -3085,22 +3109,57 @@
   }
 
   .real-stats {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin: 0 0 10px;
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    gap: 0;
+    margin: 10px 0 0;
+    overflow: hidden;
+    border: 1px solid var(--operation-border);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(19,75,56,.04);
   }
 
   .real-stats .stat-card {
-    min-height: 88px;
-    padding: 12px;
+    min-height: 94px;
+    align-items: flex-start;
+    padding: 14px 10px 12px;
+    border: 0;
+    border-left: 1px solid var(--operation-border);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .real-stats .stat-card:first-child {
+    border-left: 0;
   }
 
   .real-stats .settlement-stat {
-    grid-column: 1 / -1;
+    grid-column: auto;
+  }
+
+  .real-stats small {
+    display: block;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .real-stats h3 {
-    font-size: 15px;
+    overflow: hidden;
+    margin: 6px 0 5px;
+    font-size: clamp(13px,4vw,17px);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .real-stats p {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 9px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .section-head,
@@ -3612,11 +3671,7 @@
   }
 
   .real-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .real-stats .settlement-stat {
-    grid-column: auto;
+    grid-template-columns: repeat(3,minmax(0,1fr));
   }
 }
 

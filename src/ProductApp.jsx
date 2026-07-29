@@ -376,17 +376,15 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
         </div>
       </div>
     </section>
-    <nav className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} aria-label="群組快捷功能">
-      <button className="shortcut-card shortcut-expenses" onClick={openMobileExpenses}><span className="shortcut-icon" aria-hidden="true"><ReceiptText/></span><span className="shortcut-label">支出</span></button>
-      <button className="shortcut-card shortcut-balances" onClick={()=>setShowBalances(true)}><span className="shortcut-icon" aria-hidden="true"><WalletCards/></span><span className="shortcut-label">結餘</span></button>
-      <button className="shortcut-card shortcut-settlements" onClick={openMobileSettlements}><span className="shortcut-icon" aria-hidden="true"><Check/></span><span className="shortcut-label">結算</span></button>
-      <button className="shortcut-card shortcut-invite" onClick={invite} disabled={adminViewing}><span className="shortcut-icon" aria-hidden="true"><Users/></span><span className="shortcut-label">邀請</span></button>
-      {openAdmin&&<button className="shortcut-card mobile-admin-shortcut" onClick={openAdmin}><span className="shortcut-icon" aria-hidden="true"><ShieldCheck/></span><span className="shortcut-label">管理</span></button>}
-    </nav>
-    <div className="real-stats">
+    <section className="real-stats" aria-label="群組摘要">
       <article className="stat-card"><div><small>我的餘額</small><h3 className={mine>=0?'positive':'negative'}>{mine>=0?'應收 ':'應付 '}{groupMoney(Math.abs(mine))}</h3><p>{mine===0?'目前沒有待結算款項':mine>0?'其他成員需要付給你':'你需要付給其他成員'}</p></div></article>
       <article className="stat-card"><div><small>群組總支出</small><h3>{groupMoney(total)}</h3><p>共 {group.expenses.length} 筆共同花費</p></div></article>
       <article className="stat-card settlement-stat"><div><small>待處理轉帳</small><h3>{group.settlements.length} 筆</h3><p>已自動簡化轉帳路徑</p></div></article>
+    </section>
+    <div className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} role="group" aria-label="群組快捷操作">
+      <button className="shortcut-card shortcut-balances" onClick={()=>setShowBalances(true)}><span className="shortcut-icon" aria-hidden="true"><WalletCards/></span><span className="shortcut-label">查看結餘</span></button>
+      <button className="shortcut-card shortcut-invite" onClick={invite} disabled={adminViewing}><span className="shortcut-icon" aria-hidden="true"><Users/></span><span className="shortcut-label">邀請成員</span></button>
+      {openAdmin&&<button className="shortcut-card mobile-admin-shortcut" onClick={openAdmin}><span className="shortcut-icon" aria-hidden="true"><ShieldCheck/></span><span className="shortcut-label">管理中心</span></button>}
     </div>
     <div className="real-grid">
       <div className="activity-column">
