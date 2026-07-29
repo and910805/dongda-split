@@ -1,6 +1,6 @@
 import React,{useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Home,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Search,ShieldCheck,Trash2,UserRound,Users,WalletCards,X} from './ui-icons.jsx';
+import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,BarChart3,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Home,Info,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Search,Settings2,ShieldCheck,Trash2,UserRound,Users,WalletCards,X} from './ui-icons.jsx';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
@@ -351,40 +351,59 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
   return <main className={`real-dashboard ${refreshing?'is-refreshing':''}`} aria-busy={refreshing}>
     {refreshing&&<div className="workspace-progress" role="status"><span></span><span className="sr-only">正在更新群組資料</span></div>}
     {actionError&&<div className="inline-alert" role="alert"><AlertCircle/><span>{actionError}</span><button onClick={()=>setActionError('')} aria-label="關閉錯誤訊息"><X/></button></div>}
-    <section className="group-hero" id={`group-overview-${group.id}`} aria-labelledby="group-title">
-      <div className="group-overview-side">
-        <details className="group-admin-menu" open={groupAdminOpen}><summary aria-expanded={groupAdminOpen} onClick={event=>{event.preventDefault();setGroupAdminOpen(open=>!open)}}>群組設定</summary><div>
-          <div className="group-admin-current"><span>帳本幣別</span><b>{currencyInfo.code} · {currencyInfo.name}</b></div>
-          <button type="button" className="group-currency-action" onClick={()=>{setGroupAdminOpen(false);setShowCurrencyChange(true)}}>變更幣別</button>
-          <p>所有群組成員都可以調整帳本幣別；換算前會先顯示匯率與尾差。</p>
-          {(group.ownerId===me.id||adminViewing)&&<><p>{adminViewing?'你正以管理者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p><button className="danger-action" disabled={deletingGroup} onClick={requestDeleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除群組'}</button></>}
-        </div></details>
-      </div>
-      <div className="group-overview-copy">
-        <div className="group-title-row"><h1 id="group-title">{group.name}</h1><span className="currency-badge">{currencyCode}</span></div>
-        <p>{group.description||'一起記下每筆共同花費，最後輕鬆結清'}</p>
-        <div className="group-meta">
-          <span className="member-count-meta"><Users/>{memberCount} 位成員</span>
-          <span><CircleHelp/>{currencyCode} {currencyInfo.name}</span>
-          <span><History/>上次更新：{lastUpdated}</span>
+    <div className="mobile-overview-pair">
+      <article className={`mobile-balance-overview ${mine<0?'is-payable':mine>0?'is-receivable':'is-settled'}`} aria-label="我的餘額摘要">
+        <span>{mine<0?'你需要付款':mine>0?'你可以收款':'目前已結清'}<Info aria-hidden="true"/></span>
+        <strong>{groupMoney(Math.abs(mine))}</strong>
+        <button type="button" onClick={()=>setShowBalances(true)}>查看我的餘額<ChevronRight/></button>
+        <span className="mobile-balance-wallet" aria-hidden="true"><i></i></span>
+      </article>
+      <section className="group-hero" id={`group-overview-${group.id}`} aria-labelledby="group-title">
+        <div className="group-overview-side">
+          <details className="group-admin-menu" open={groupAdminOpen}><summary aria-expanded={groupAdminOpen} onClick={event=>{event.preventDefault();setGroupAdminOpen(open=>!open)}}><Settings2 aria-hidden="true"/>群組設定</summary><div>
+            <div className="group-admin-current"><span>帳本幣別</span><b>{currencyInfo.code} · {currencyInfo.name}</b></div>
+            <button type="button" className="group-currency-action" onClick={()=>{setGroupAdminOpen(false);setShowCurrencyChange(true)}}>變更幣別</button>
+            <p>所有群組成員都可以調整帳本幣別；換算前會先顯示匯率與尾差。</p>
+            {(group.ownerId===me.id||adminViewing)&&<><p>{adminViewing?'你正以管理者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p><button className="danger-action" disabled={deletingGroup} onClick={requestDeleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除群組'}</button></>}
+          </div></details>
         </div>
-        <div className="group-member-wall" aria-label={`同行成員，共 ${memberCount} 位`}>
-          <div className="group-member-wall-head"><span>同行成員</span><strong>{memberCount} 位</strong></div>
-          <ul className="group-member-avatars">
-            {expenseMembers.map(member=><li key={member.id}><button type="button" className="group-member-avatar" onClick={()=>setSelectedMemberId(String(member.id))} aria-label={`查看 ${member.displayName||'成員'} 的個人資訊`} aria-haspopup="dialog" title={`查看 ${member.displayName||'成員'} 的個人資訊`}><Person person={member} size={32}/></button></li>)}
-          </ul>
+        <div className="group-overview-copy">
+          <div className="group-title-row"><h1 id="group-title">{group.name}</h1><span className="currency-badge">{currencyCode}</span></div>
+          <p>{group.description||'一起記下每筆共同花費，最後輕鬆結清'}</p>
+          <div className="group-meta">
+            <span className="member-count-meta"><Users/>{memberCount} 位成員</span>
+            <span><CircleHelp/>{currencyCode} {currencyInfo.name}</span>
+            <span><History/>上次更新：{lastUpdated}</span>
+          </div>
+          <div className="group-member-wall" aria-label={`同行成員，共 ${memberCount} 位`}>
+            <div className="group-member-wall-head"><span>同行成員</span><strong>{memberCount} 位</strong></div>
+            <ul className="group-member-avatars">
+              {expenseMembers.map(member=><li key={member.id}><button type="button" className="group-member-avatar" onClick={()=>setSelectedMemberId(String(member.id))} aria-label={`查看 ${member.displayName||'成員'} 的個人資訊`} aria-haspopup="dialog" title={`查看 ${member.displayName||'成員'} 的個人資訊`}><Person person={member} size={32}/></button></li>)}
+            </ul>
+          </div>
+          <div className="mobile-group-details">
+            <span className="mobile-group-member-count"><Users/>{memberCount} 位成員</span>
+            <ul className="mobile-group-avatars" aria-label={`同行成員，共 ${memberCount} 位`}>
+              {expenseMembers.map(member=><li key={member.id}><button type="button" onClick={()=>setSelectedMemberId(String(member.id))} aria-label={`查看 ${member.displayName||'成員'} 的個人資訊`} aria-haspopup="dialog" title={`查看 ${member.displayName||'成員'} 的個人資訊`}><Person person={member} size={30}/></button></li>)}
+            </ul>
+            <span className="mobile-group-updated"><History/>上次更新：{lastUpdated}</span>
+          </div>
         </div>
+      </section>
+    </div>
+    <div className="mobile-summary-cluster">
+      <section className={`real-stats ${openAdmin?'has-admin':''}`} aria-label="群組摘要">
+        <article className="stat-card balance-stat"><div><small>我的餘額</small><h3 className={mine>=0?'positive':'negative'}><span className="balance-direction">{mine>=0?'應收':'應付'}</span><span className="balance-value">{groupMoney(Math.abs(mine))}</span></h3><p>{mine===0?'目前沒有待結算款項':mine>0?'其他成員需要付給你':'你需要付給其他成員'}</p></div></article>
+        <article className="stat-card"><span className="mobile-stat-icon is-total" aria-hidden="true"><BarChart3/></span><div><small>群組總支出</small><h3>{groupMoney(total)}</h3><p>共 {group.expenses.length} 筆共同花費</p></div></article>
+        <article className="stat-card settlement-stat"><span className="mobile-stat-icon is-pending" aria-hidden="true"><WalletCards/></span><div><small>待處理轉帳</small><h3>{group.settlements.length} 筆</h3><p>已自動簡化轉帳路徑</p></div></article>
+        <article className="stat-card mobile-summary-stat"><span className="mobile-stat-icon is-members" aria-hidden="true"><Users/></span><div><small>同行成員</small><h3>{memberCount} 位</h3><p>一起記帳更輕鬆</p></div></article>
+        {openAdmin&&<button type="button" className="stat-card mobile-summary-stat mobile-admin-stat" onClick={openAdmin}><span className="mobile-stat-icon is-admin" aria-hidden="true"><ShieldCheck/></span><span><small>管理中心</small><strong>查看結餘與設定</strong></span></button>}
+      </section>
+      <div className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} role="group" aria-label="群組快捷操作">
+        <button className="shortcut-card shortcut-balances" onClick={()=>setShowBalances(true)}><span className="shortcut-icon" aria-hidden="true"><WalletCards/></span><span className="shortcut-label">查看結餘</span></button>
+        <button className="shortcut-card shortcut-invite" onClick={invite} disabled={adminViewing}><span className="shortcut-icon" aria-hidden="true"><Users/></span><span className="shortcut-label">邀請成員</span></button>
+        {openAdmin&&<button className="shortcut-card mobile-admin-shortcut" onClick={openAdmin}><span className="shortcut-icon" aria-hidden="true"><ShieldCheck/></span><span className="shortcut-label">管理中心</span></button>}
       </div>
-    </section>
-    <section className="real-stats" aria-label="群組摘要">
-      <article className="stat-card"><div><small>我的餘額</small><h3 className={mine>=0?'positive':'negative'}>{mine>=0?'應收 ':'應付 '}{groupMoney(Math.abs(mine))}</h3><p>{mine===0?'目前沒有待結算款項':mine>0?'其他成員需要付給你':'你需要付給其他成員'}</p></div></article>
-      <article className="stat-card"><div><small>群組總支出</small><h3>{groupMoney(total)}</h3><p>共 {group.expenses.length} 筆共同花費</p></div></article>
-      <article className="stat-card settlement-stat"><div><small>待處理轉帳</small><h3>{group.settlements.length} 筆</h3><p>已自動簡化轉帳路徑</p></div></article>
-    </section>
-    <div className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} role="group" aria-label="群組快捷操作">
-      <button className="shortcut-card shortcut-balances" onClick={()=>setShowBalances(true)}><span className="shortcut-icon" aria-hidden="true"><WalletCards/></span><span className="shortcut-label">查看結餘</span></button>
-      <button className="shortcut-card shortcut-invite" onClick={invite} disabled={adminViewing}><span className="shortcut-icon" aria-hidden="true"><Users/></span><span className="shortcut-label">邀請成員</span></button>
-      {openAdmin&&<button className="shortcut-card mobile-admin-shortcut" onClick={openAdmin}><span className="shortcut-icon" aria-hidden="true"><ShieldCheck/></span><span className="shortcut-label">管理中心</span></button>}
     </div>
     <div className="real-grid">
       <div className="activity-column">
@@ -399,7 +418,7 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
               <label className="expense-search" htmlFor={`expense-search-${group.id}`}>
                 <Search aria-hidden="true"/>
                 <span className="sr-only">搜尋最近支出</span>
-                <input id={`expense-search-${group.id}`} type="search" value={expenseQuery} onChange={event=>{setExpenseQuery(event.target.value);setExpensePage(1)}} placeholder="搜尋項目、付款人或分類" autoComplete="off"/>
+                <input id={`expense-search-${group.id}`} type="search" value={expenseQuery} onChange={event=>{setExpenseQuery(event.target.value);setExpensePage(1)}} placeholder="搜尋項目" autoComplete="off"/>
               </label>
               <label className="expense-member-filter" title={selectedExpenseMember?.displayName||'全部成員'}><span className="expense-member-filter-avatar" aria-hidden="true">{selectedExpenseMember?<Person person={selectedExpenseMember} size={26}/>:<Users/>}</span><span className="expense-member-filter-copy" aria-hidden="true"><small>支出成員</small><b>{selectedExpenseMember?.displayName||'全部成員'}</b></span><ChevronDown aria-hidden="true"/><select id={`expense-member-filter-${group.id}`} value={expenseMemberId} onChange={event=>{setExpenseMemberId(event.target.value);setExpensePage(1)}} aria-label="依成員篩選最近支出"><option value="all">全部成員</option>{expenseMembers.map(member=><option key={member.id} value={member.id}>{member.displayName}</option>)}</select></label>
               <output className={`count-badge expense-count ${expenseFiltersActive?'is-filtered':''}`} htmlFor={`expense-search-${group.id} expense-member-filter-${group.id}`} aria-live="polite" aria-atomic="true"><strong>{visibleExpenses.length}</strong><span>{expenseFiltersActive?`／${group.expenses.length} 筆`:'筆支出'}</span></output>
