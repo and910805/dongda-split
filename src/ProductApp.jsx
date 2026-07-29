@@ -682,7 +682,7 @@ function SettlementHistory({group,refresh,refreshing=false,hidden=false,id,label
      <span className="repayment-receiver">{item.to.displayName}</span>
      <strong className="repayment-amount"><span>{money(item.amountCents,group.currency)}</span>{showOriginal&&<small>原回報 {money(reportedAmountCents,reportedCurrency)}</small>}</strong>
      <small className="repayment-meta">{isVoided?`由 ${voidedBy} 撤銷 · 原由 ${reportedBy.displayName} 回報`:`由 ${reportedBy.displayName} 回報`}</small>
-     <div className="repayment-status-actions"><span className={`record-status ${isVoided?'is-voided':''}`}>{isVoided?<History/>:<Check/>}{isVoided?'已撤銷':'已回報'}</span>{item.canVoid&&<button type="button" className="repayment-void-button" disabled={Boolean(voiding)} onClick={()=>requestVoid(item)} aria-label={`撤銷 ${item.from.displayName} 轉給 ${item.to.displayName} ${money(item.amountCents,group.currency)} 的回報`}>{voiding===item.id?<LoaderCircle/>:<RefreshCcw/>}<span>{voiding===item.id?'處理中…':'撤銷回報'}</span></button>}</div>
+     <div className="repayment-status-actions"><span className={`record-status ${isVoided?'is-voided':''}`}>{isVoided?<History/>:<Check/>}{isVoided?'已撤銷':'已回報'}</span>{item.canVoid&&<button type="button" className="repayment-void-button" disabled={Boolean(voiding)} onClick={()=>requestVoid(item)} aria-label={`撤銷 ${item.from.displayName} 轉給 ${item.to.displayName} ${money(item.amountCents,group.currency)} 的回報`}>{voiding===item.id?<LoaderCircle/>:<X/>}<span>{voiding===item.id?'處理中…':'撤銷回報'}</span></button>}</div>
     </article>})}</div>
     <RecordPagination page={currentPage} totalItems={rows.length} pageSize={TABLE_PAGE_SIZE} onPageChange={setPage} label="還款紀錄"/>
    </>}

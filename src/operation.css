@@ -1434,13 +1434,45 @@
 .expense-row-actions .expense-locked {
   display: inline-flex;
   width: auto;
-  min-width: 96px;
+  min-width: 88px;
   height: 40px;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 0 10px;
+  padding: 0 11px;
+  border-color: #cbded4;
+  border-radius: 9px;
+  color: var(--operation-green-dark);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(24,47,39,.04);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
   white-space: nowrap;
+  transition: border-color .16s ease, color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+.expense-row-actions .expense-locked:hover {
+  border-color: #9fc9b3;
+  color: var(--operation-green-dark);
+  background: var(--operation-green-soft);
+  box-shadow: 0 2px 5px rgba(24,47,39,.08);
+}
+
+.expense-row-actions .expense-locked:active {
+  background: #dcefe5;
+  box-shadow: none;
+}
+
+.expense-row-actions .expense-locked:focus-visible {
+  outline: 3px solid rgba(6,122,77,.24);
+  outline-offset: 2px;
+}
+
+.expense-row-actions .expense-locked svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
 }
 
 .empty-list {
@@ -1986,23 +2018,38 @@
 
 .repayment-void-button {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 40px;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 0 10px;
-  border: 1px solid #dfb9b4;
-  border-radius: 8px;
-  color: #963c34;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid #e2cbc8;
+  border-radius: 9px;
+  color: #8f413a;
   background: #fff;
-  font-size: 10px;
-  font-weight: 800;
+  box-shadow: 0 1px 2px rgba(80,37,32,.035);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
   white-space: nowrap;
+  transition: border-color .16s ease, color .16s ease, background-color .16s ease, box-shadow .16s ease;
 }
 
 .repayment-void-button:hover:not(:disabled) {
   border-color: #c87870;
+  color: #7e302a;
   background: #fff4f2;
+  box-shadow: 0 2px 5px rgba(105,45,38,.07);
+}
+
+.repayment-void-button:active:not(:disabled) {
+  background: #fce7e4;
+  box-shadow: none;
+}
+
+.repayment-void-button:focus-visible {
+  outline: 3px solid rgba(150,60,52,.22);
+  outline-offset: 2px;
 }
 
 .repayment-void-button:disabled {
@@ -2011,8 +2058,9 @@
 }
 
 .repayment-void-button svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
 }
 
 .repayment-void-button span {
@@ -3223,6 +3271,13 @@
     width: auto;
     min-width: 96px;
     height: 44px;
+    font-size: 12px;
+  }
+
+  .repayment-void-button {
+    min-height: 44px;
+    padding-inline: 12px;
+    font-size: 12px;
   }
 
   .repayment-log article {
