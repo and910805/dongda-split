@@ -1,6 +1,6 @@
 import React,{useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Search,ShieldCheck,Trash2,Users,WalletCards,X} from './ui-icons.jsx';
+import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Home,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Search,ShieldCheck,Trash2,UserRound,Users,WalletCards,X} from './ui-icons.jsx';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
@@ -139,7 +139,6 @@ export default function ProductApp({Home}){
       </header>
       {!groups.length?<EmptyGroups create={()=>setShowCreate(true)}/>:groupError&&!group?<WorkspaceError message={groupError} retry={refreshGroup}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} group={group} me={me} currencies={currencyData} addExpense={adminViewing?null:openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} currencyChanged={async result=>{await Promise.all([refreshGroups(),refreshGroup()]);setNotice(result.alreadyApplied?'這次幣別換算先前已完成':`帳本已換算為 ${result.currency}`)}} refreshing={groupLoading} openAdmin={me.isSuperuser?()=>setAdminMode(true):null} openProfile={()=>setShowProfile(true)} onTransferReported={setTransferReport} adminViewing={adminViewing}/>}
     </section>
-    {group&&!adminViewing&&<button className="mobile-expense-fab" onClick={openNewExpense} aria-label="新增支出"><Plus/><span>新增</span></button>}
     {notice&&<button type="button" className="toast" onClick={()=>setNotice('')} aria-live="polite" aria-label={`${notice}，點擊關閉`}><Check/>{notice}</button>}
     {showCreate&&<CreateGroup currencies={currencyData.currencies} close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} currencies={currencyData.currencies} expense={editingExpense} currentUserId={me.id} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>} {showProfile&&<ProfileModal me={me} close={()=>setShowProfile(false)} saved={bankAccount=>{setMe(current=>({...current,bankAccount}));setShowProfile(false);setNotice(bankAccount.configured?'已更新常用收款帳戶':'已移除常用收款帳戶')}}/>} {transferReport&&<TransferNoticeModal report={transferReport} close={closeTransferReport}/>}
   </div>
@@ -207,6 +206,7 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
   const [showCurrencyChange,setShowCurrencyChange]=useState(false),[groupAdminOpen,setGroupAdminOpen]=useState(false);
   const [pendingAction,setPendingAction]=useState(null),[confirmationError,setConfirmationError]=useState('');
   const [activityTab,setActivityTab]=useState('expenses'),[expensePage,setExpensePage]=useState(1),[settlementPage,setSettlementPage]=useState(1),[expenseSort,setExpenseSort]=useState(DEFAULT_EXPENSE_SORT),[expenseQuery,setExpenseQuery]=useState('');
+  const [mobileNavActive,setMobileNavActive]=useState('overview');
   const expenseMembers=useMemo(()=>group.members.filter(member=>!member.isFund),[group.members]);
   const selectedMember=expenseMembers.find(member=>String(member.id)===selectedMemberId);
   const [expenseMemberId,setExpenseMemberId]=useState(()=>expenseMembers.some(member=>String(member.id)===String(me.id))?String(me.id):'all');
@@ -342,12 +342,16 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
       :null;
   const confirmationBusy=pendingAction?.type==='expense'?deleting===pendingAction.expense.id:deletingGroup;
   const focusActivityTab=nextTab=>{setActivityTab(nextTab);requestAnimationFrame(()=>document.getElementById(`activity-tab-${nextTab}-${group.id}`)?.focus())};
-  const openRepaymentHistory=()=>{setActivityTab('repayments');requestAnimationFrame(()=>{const panel=document.getElementById(`activity-panel-repayments-${group.id}`),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;panel?.scrollIntoView({behavior:reducedMotion?'auto':'smooth',block:'start'});document.getElementById('repayment-title')?.focus()})};
+  const scrollToMobileSection=(selector,nextActive)=>{setMobileNavActive(nextActive);requestAnimationFrame(()=>{const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;document.querySelector(selector)?.scrollIntoView({behavior:reducedMotion?'auto':'smooth',block:'start'})})};
+  const openMobileOverview=()=>scrollToMobileSection(`#group-overview-${group.id}`,'overview');
+  const openMobileExpenses=()=>{setActivityTab('expenses');scrollToMobileSection(`#activity-panel-expenses-${group.id}`,'expenses')};
+  const openMobileSettlements=()=>scrollToMobileSection(`#group-settlements-${group.id}`,'settlements');
+  const openRepaymentHistory=()=>{setActivityTab('repayments');setMobileNavActive('expenses');requestAnimationFrame(()=>{const panel=document.getElementById(`activity-panel-repayments-${group.id}`),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;panel?.scrollIntoView({behavior:reducedMotion?'auto':'smooth',block:'start'});document.getElementById('repayment-title')?.focus()})};
   const handleActivityTabKeyDown=event=>{let nextTab;if(event.key==='ArrowLeft'||event.key==='Home')nextTab='expenses';if(event.key==='ArrowRight'||event.key==='End')nextTab='repayments';if(!nextTab)return;event.preventDefault();focusActivityTab(nextTab)};
   return <main className={`real-dashboard ${refreshing?'is-refreshing':''}`} aria-busy={refreshing}>
     {refreshing&&<div className="workspace-progress" role="status"><span></span><span className="sr-only">正在更新群組資料</span></div>}
     {actionError&&<div className="inline-alert" role="alert"><AlertCircle/><span>{actionError}</span><button onClick={()=>setActionError('')} aria-label="關閉錯誤訊息"><X/></button></div>}
-    <section className="group-hero" aria-labelledby="group-title">
+    <section className="group-hero" id={`group-overview-${group.id}`} aria-labelledby="group-title">
       <div className="group-overview-side">
         <details className="group-admin-menu" open={groupAdminOpen}><summary aria-expanded={groupAdminOpen} onClick={event=>{event.preventDefault();setGroupAdminOpen(open=>!open)}}>群組設定</summary><div>
           <div className="group-admin-current"><span>帳本幣別</span><b>{currencyInfo.code} · {currencyInfo.name}</b></div>
@@ -373,9 +377,9 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
       </div>
     </section>
     <nav className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} aria-label="群組快捷功能">
-      <button className="shortcut-card shortcut-expenses" onClick={()=>{setActivityTab('expenses');requestAnimationFrame(()=>document.querySelector('.activity-column')?.scrollIntoView({behavior:'smooth'}))}}><span className="shortcut-icon" aria-hidden="true"><ReceiptText/></span><span className="shortcut-label">支出</span></button>
+      <button className="shortcut-card shortcut-expenses" onClick={openMobileExpenses}><span className="shortcut-icon" aria-hidden="true"><ReceiptText/></span><span className="shortcut-label">支出</span></button>
       <button className="shortcut-card shortcut-balances" onClick={()=>setShowBalances(true)}><span className="shortcut-icon" aria-hidden="true"><WalletCards/></span><span className="shortcut-label">結餘</span></button>
-      <button className="shortcut-card shortcut-settlements" onClick={()=>document.querySelector('.settlements')?.scrollIntoView({behavior:'smooth'})}><span className="shortcut-icon" aria-hidden="true"><Check/></span><span className="shortcut-label">結算</span></button>
+      <button className="shortcut-card shortcut-settlements" onClick={openMobileSettlements}><span className="shortcut-icon" aria-hidden="true"><Check/></span><span className="shortcut-label">結算</span></button>
       <button className="shortcut-card shortcut-invite" onClick={invite} disabled={adminViewing}><span className="shortcut-icon" aria-hidden="true"><Users/></span><span className="shortcut-label">邀請</span></button>
       {openAdmin&&<button className="shortcut-card mobile-admin-shortcut" onClick={openAdmin}><span className="shortcut-icon" aria-hidden="true"><ShieldCheck/></span><span className="shortcut-label">管理</span></button>}
     </nav>
@@ -387,8 +391,8 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
     <div className="real-grid">
       <div className="activity-column">
         <nav className="activity-tabs" role="tablist" aria-label="帳目紀錄">
-          <button id={`activity-tab-expenses-${group.id}`} type="button" role="tab" aria-selected={activityTab==='expenses'} aria-controls={`activity-panel-expenses-${group.id}`} tabIndex={activityTab==='expenses'?0:-1} className={activityTab==='expenses'?'active':''} onClick={()=>setActivityTab('expenses')} onKeyDown={handleActivityTabKeyDown}><ReceiptText/><span>最近支出</span><b>{group.expenses.length}</b></button>
-          <button id={`activity-tab-repayments-${group.id}`} type="button" role="tab" aria-selected={activityTab==='repayments'} aria-controls={`activity-panel-repayments-${group.id}`} tabIndex={activityTab==='repayments'?0:-1} className={activityTab==='repayments'?'active':''} onClick={()=>setActivityTab('repayments')} onKeyDown={handleActivityTabKeyDown}><History/><span>還款紀錄</span><b>{(group.settlementHistory||[]).length}</b></button>
+          <button id={`activity-tab-expenses-${group.id}`} type="button" role="tab" aria-selected={activityTab==='expenses'} aria-controls={`activity-panel-expenses-${group.id}`} tabIndex={activityTab==='expenses'?0:-1} className={activityTab==='expenses'?'active':''} onClick={()=>{setActivityTab('expenses');setMobileNavActive('expenses')}} onKeyDown={handleActivityTabKeyDown}><ReceiptText/><span>最近支出</span><b>{group.expenses.length}</b></button>
+          <button id={`activity-tab-repayments-${group.id}`} type="button" role="tab" aria-selected={activityTab==='repayments'} aria-controls={`activity-panel-repayments-${group.id}`} tabIndex={activityTab==='repayments'?0:-1} className={activityTab==='repayments'?'active':''} onClick={()=>{setActivityTab('repayments');setMobileNavActive('expenses')}} onKeyDown={handleActivityTabKeyDown}><History/><span>還款紀錄</span><b>{(group.settlementHistory||[]).length}</b></button>
         </nav>
         <section className="expense-panel" id={`activity-panel-expenses-${group.id}`} role="tabpanel" aria-labelledby={`activity-tab-expenses-${group.id}`} tabIndex={0} hidden={activityTab!=='expenses'}>
           <div className="section-head">
@@ -425,7 +429,7 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
         </section>
         <SettlementHistory group={group} refresh={refresh} refreshing={refreshing} hidden={activityTab!=='repayments'} id={`activity-panel-repayments-${group.id}`} labelledBy={`activity-tab-repayments-${group.id}`}/>
       </div>
-      <aside className="settlements" aria-labelledby="settlement-title">
+      <aside className="settlements" id={`group-settlements-${group.id}`} aria-labelledby="settlement-title">
         <div className="settlement-heading"><div><span className="section-kicker">待辦事項</span><h2 id="settlement-title" tabIndex={-1}>結算</h2><p>依支出與有效還款計算，共 {group.settlements.length} 筆</p></div><button className="settlement-help-button" onClick={()=>setShowSettlementHelp(true)} aria-label="了解結算演算法"><CircleHelp/></button></div>
         {activeRepayments.length>0&&<button type="button" className="settlement-repayment-note" onClick={openRepaymentHistory}><span>結餘已計入 {activeRepayments.length} 筆有效還款（共 {groupMoney(activeRepaymentTotal)}）</span><b>查看紀錄</b></button>}
         {!group.settlements.length?<div className="all-clear"><Check/><b>目前都結清了</b><p>新增支出後，旅帳會在這裡整理最少轉帳路徑</p></div>:<>
@@ -451,6 +455,13 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
         </>}
       </aside>
     </div>
+    <nav className="mobile-bottom-nav" aria-label="主要導覽">
+      <button type="button" aria-current={mobileNavActive==='overview'?'page':undefined} onClick={openMobileOverview}><Home/><span>總覽</span></button>
+      <button type="button" aria-current={mobileNavActive==='expenses'?'page':undefined} onClick={openMobileExpenses}><ReceiptText/><span>支出</span></button>
+      <button type="button" className="mobile-bottom-add" onClick={addExpense} disabled={!addExpense} aria-label="記一筆支出"><span className="mobile-bottom-add-icon" aria-hidden="true"><Plus/></span><span className="mobile-bottom-add-label">記一筆</span></button>
+      <button type="button" aria-current={mobileNavActive==='settlements'?'page':undefined} onClick={openMobileSettlements}><Check/><span>結算</span></button>
+      <button type="button" onClick={openProfile}><UserRound/><span>我的</span></button>
+    </nav>
     {showCurrencyChange&&<CurrencyConversionModal group={group} currencies={currencies} close={()=>setShowCurrencyChange(false)} done={currencyChanged}/>} {showSettlementHelp&&<SettlementHelp group={group} close={()=>setShowSettlementHelp(false)}/>} {showBalances&&<BalanceChart group={group} close={()=>setShowBalances(false)}/>} {selectedExpenseShares&&<ExpenseSharesModal expense={selectedExpenseShares} members={group.members} currency={currencyCode} close={()=>setSelectedExpenseShares(null)}/>} {selectedMember&&<MemberInfoModal member={selectedMember} group={group} me={me} close={()=>setSelectedMemberId(null)}/>} {pendingSettlement&&<TransferConfirmationModal group={group} settlement={pendingSettlement} reportedBy={me} busy={paying===settlementKey(pendingSettlement)} error={transferError} close={closeTransferReport} confirm={()=>markPaid(pendingSettlement)}/>}
     {confirmation&&<ConfirmModal {...confirmation} busy={confirmationBusy} error={confirmationError} onCancel={closeConfirmation} onConfirm={confirmPendingAction}/>}
   </main>
