@@ -3100,7 +3100,26 @@
   }
 
   .activity-tabs button {
+    display: grid;
     min-height: 44px;
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 10px;
+    padding: 0 12px;
+    font-size: 13px;
+    line-height: 1.35;
+    text-align: left;
+  }
+
+  .activity-tabs button svg {
+    display: none;
+  }
+
+  .activity-tabs button span {
+    justify-self: start;
+  }
+
+  .activity-tabs button b {
+    justify-self: end;
   }
 
   .record-pagination-controls button {
