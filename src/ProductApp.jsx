@@ -1,6 +1,6 @@
 import React,{useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Home,Info,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Search,Settings2,ShieldCheck,Trash2,UserRound,Users,WalletCards,X} from './ui-icons.jsx';
+import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,BarChart3,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Home,Info,Link2,LoaderCircle,LogOut,MessageCircle,Pencil,Plus,ReceiptText,RefreshCcw,Search,Settings2,ShieldCheck,Trash2,UserRound,Users,WalletCards,X} from './ui-icons.jsx';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
@@ -46,20 +46,11 @@ function ExpenseShareAvatars({expense,members,onOpen}){
   if(!rows.length)return <span className="expense-share-empty">沒有{kindLabel}成員</span>;
   const label=`查看「${expense.title}」的${kindLabel}成員，共 ${rows.length} 人`;
   return <button type="button" className="expense-share-trigger" onClick={()=>onOpen(expense)} aria-label={label} aria-haspopup="dialog" title={label}>
-    <span className="compact-avatar-stack expense-share-avatars" aria-hidden="true">
-      {visibleRows.map(row=><span className="compact-avatar-item expense-share-avatar" key={row.userId}><Person person={row.person} size={24}/></span>)}
-      {remaining>0&&<span className="compact-avatar-more expense-share-more">+{remaining}</span>}
+    <span className="expense-share-avatars" aria-hidden="true">
+      {visibleRows.map(row=><span className="expense-share-avatar" key={row.userId}><Person person={row.person} size={24}/></span>)}
+      {remaining>0&&<span className="expense-share-more">+{remaining}</span>}
     </span>
   </button>;
-}
-function ExpensePayerAvatars({expense,members}){
-  const memberById=new Map((members||[]).map(member=>[String(member.id),member]));
-  const payers=(expense?.payments||[]).map(payment=>({id:String(payment.userId),person:memberById.get(String(payment.userId))||{id:payment.userId,displayName:'已離開的成員'}}));
-  const visiblePayers=payers.slice(0,3),remaining=payers.length-visiblePayers.length;
-  return <span className="compact-avatar-stack record-payer-avatars" aria-hidden="true">
-    {visiblePayers.map(payer=><span className="compact-avatar-item" key={payer.id}><Person person={payer.person} size={26}/></span>)}
-    {remaining>0&&<span className="compact-avatar-more">+{remaining}</span>}
-  </span>;
 }
 function RecordPagination({page,totalItems,pageSize,onPageChange,label,compact=false}){
   const totalPages=Math.ceil(totalItems/pageSize);
@@ -247,7 +238,6 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
   const total=group.expenses.reduce((sum,e)=>sum+e.amountCents,0);
   const mine=group.balances.find(x=>x.id===me.id)?.balanceCents||0;
   const memberCount=group.members.filter(x=>!x.isFund).length;
-  const visibleMobileMembers=expenseMembers.slice(0,5),hiddenMobileMemberCount=Math.max(0,expenseMembers.length-visibleMobileMembers.length);
   const settlementHistory=group.settlementHistory||[];
   const activeRepayments=settlementHistory.filter(item=>item.reportStatus!=='voided'&&!item.voidedAt);
   const activeRepaymentTotal=activeRepayments.reduce((sum,item)=>sum+Number(item.amountCents||0),0);
@@ -394,8 +384,7 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
           <div className="mobile-group-details">
             <span className="mobile-group-member-count"><Users/>{memberCount} 位成員</span>
             <ul className="mobile-group-avatars" aria-label={`同行成員，共 ${memberCount} 位`}>
-              {visibleMobileMembers.map(member=><li key={member.id}><button type="button" onClick={()=>setSelectedMemberId(String(member.id))} aria-label={`查看 ${member.displayName||'成員'} 的個人資訊`} aria-haspopup="dialog" title={`查看 ${member.displayName||'成員'} 的個人資訊`}><Person person={member} size={30}/></button></li>)}
-              {hiddenMobileMemberCount>0&&<li className="mobile-group-avatar-more" aria-hidden="true">+{hiddenMobileMemberCount}</li>}
+              {expenseMembers.map(member=><li key={member.id}><button type="button" onClick={()=>setSelectedMemberId(String(member.id))} aria-label={`查看 ${member.displayName||'成員'} 的個人資訊`} aria-haspopup="dialog" title={`查看 ${member.displayName||'成員'} 的個人資訊`}><Person person={member} size={30}/></button></li>)}
             </ul>
             <span className="mobile-group-updated"><History/>上次更新：{lastUpdated}</span>
           </div>
@@ -405,9 +394,9 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
     <div className="mobile-summary-cluster">
       <section className={`real-stats ${openAdmin?'has-admin':''}`} aria-label="群組摘要">
         <article className="stat-card balance-stat"><div><small>我的餘額</small><h3 className={mine>=0?'positive':'negative'}><span className="balance-direction">{mine>=0?'應收':'應付'}</span><span className="balance-value">{groupMoney(Math.abs(mine))}</span></h3><p>{mine===0?'目前沒有待結算款項':mine>0?'其他成員需要付給你':'你需要付給其他成員'}</p></div></article>
-        <article className="stat-card mobile-summary-copy-stat"><div><small>群組總支出</small><h3>{groupMoney(total)}</h3><p>共 {group.expenses.length} 筆共同花費</p></div></article>
-        <article className="stat-card settlement-stat mobile-summary-copy-stat"><div><small>待處理轉帳</small><h3>{group.settlements.length} 筆</h3><p>已自動簡化轉帳路徑</p></div></article>
-        <article className="stat-card mobile-summary-stat mobile-member-stat mobile-summary-copy-stat"><div><small>同行成員</small><h3>{memberCount} 位</h3><p>一起記帳更輕鬆</p></div></article>
+        <article className="stat-card"><span className="mobile-stat-icon is-total" aria-hidden="true"><BarChart3/></span><div><small>群組總支出</small><h3>{groupMoney(total)}</h3><p>共 {group.expenses.length} 筆共同花費</p></div></article>
+        <article className="stat-card settlement-stat"><span className="mobile-stat-icon is-pending" aria-hidden="true"><WalletCards/></span><div><small>待處理轉帳</small><h3>{group.settlements.length} 筆</h3><p>已自動簡化轉帳路徑</p></div></article>
+        <article className="stat-card mobile-summary-stat"><span className="mobile-stat-icon is-members" aria-hidden="true"><Users/></span><div><small>同行成員</small><h3>{memberCount} 位</h3><p>一起記帳更輕鬆</p></div></article>
         {openAdmin&&<button type="button" className="stat-card mobile-summary-stat mobile-admin-stat" onClick={openAdmin}><span className="mobile-stat-icon is-admin" aria-hidden="true"><ShieldCheck/></span><span><small>管理中心</small><strong>查看結餘與設定</strong></span></button>}
       </section>
       <div className={`mobile-shortcuts ${openAdmin?'has-admin':''}`} role="group" aria-label="群組快捷操作">
@@ -435,21 +424,19 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
               <output className={`count-badge expense-count ${expenseFiltersActive?'is-filtered':''}`} htmlFor={`expense-search-${group.id} expense-member-filter-${group.id}`} aria-live="polite" aria-atomic="true"><strong>{visibleExpenses.length}</strong><span>{expenseFiltersActive?`／${group.expenses.length} 筆`:'筆支出'}</span></output>
             </div>
           </div>
-          <div className="mobile-expense-sort" role="group" aria-label="最近支出排序"><ExpenseSortButton field="date" sort={expenseSort} onSort={changeExpenseSort}/><ExpenseSortButton field="participantAmount" sort={expenseSort} onSort={changeExpenseSort}/><ExpenseSortButton field="amount" sort={expenseSort} onSort={changeExpenseSort}/></div>
           {!group.expenses.length?<div className="empty-list"><ReceiptText/><b>還沒有任何支出</b><p>{adminViewing?'此帳本目前不需要管理協助':'從第一筆共同花費開始建立清楚帳目'}</p>{addExpense&&<button className="empty-primary" onClick={addExpense}><Plus/> 新增第一筆支出</button>}</div>:<>
             {!visibleExpenses.length?<div className="empty-list"><ReceiptText/><b>沒有符合的支出</b><p>{expenseSearchActive?`找不到符合「${expenseQuery.trim()}」的支出`:selectedExpenseMember?`${selectedExpenseMember.displayName} 尚未參與任何支出`:'目前沒有符合篩選條件的支出'}</p></div>:<>
+            <div className="mobile-expense-sort" role="group" aria-label="最近支出排序"><ExpenseSortButton field="date" sort={expenseSort} onSort={changeExpenseSort}/><ExpenseSortButton field="participantAmount" sort={expenseSort} onSort={changeExpenseSort}/><ExpenseSortButton field="amount" sort={expenseSort} onSort={changeExpenseSort}/></div>
             <div className="expense-record-table" role="table" aria-labelledby="expense-title">
               <div role="rowgroup"><div className="record-table-head" role="row"><span className="record-sort-cell" role="columnheader" aria-sort={expenseSort.key==='date'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="date" sort={expenseSort} onSort={changeExpenseSort}/></span><span role="columnheader">項目</span><span role="columnheader">支付者</span><span className="record-sort-cell numeric" role="columnheader" aria-sort={expenseSort.key==='participantAmount'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="participantAmount" sort={expenseSort} onSort={changeExpenseSort}/></span><span className="record-sort-cell numeric" role="columnheader" aria-sort={expenseSort.key==='amount'?(expenseSort.direction==='asc'?'ascending':'descending'):'none'}><ExpenseSortButton field="amount" sort={expenseSort} onSort={changeExpenseSort} className="amount-sort"/><small className="record-currency" aria-hidden="true">{currencyCode}</small></span><span className="record-category-heading" role="columnheader">分類</span><span role="columnheader">狀態</span><span role="columnheader">操作</span></div></div>
               <div className="record-list" role="rowgroup">{pagedExpenses.map(e=>{const participantShare=(e.shares||[]).find(share=>String(share.userId)===String(expenseParticipantId)),inputCurrency=e.currencyMeta?.inputCurrency||currencyCode,inputAmountCents=Number(e.currencyMeta?.inputAmountCents??e.amountCents),showOriginal=inputCurrency!==currencyCode;return <article key={e.id} role="row">
                 <time className="record-date" dateTime={e.createdAt} role="cell">{new Date(e.createdAt).toLocaleDateString('zh-TW')}</time>
-                <div className="record-name" role="cell"><div><b title={e.title}>{e.title}</b><small className="record-meta"><ExpenseShareAvatars expense={e} members={group.members} onOpen={setSelectedExpenseShares}/></small></div></div>
-                <div className="record-mobile-payer" role="cell"><ExpensePayerAvatars expense={e} members={group.members}/><span className="record-mobile-payer-copy"><b title={e.payerName}>{e.payerName}</b><small>付款</small></span></div>
+                <div className="record-name" role="cell"><div><b title={e.title}>{e.title}</b><small className="record-meta"><ExpenseShareAvatars expense={e} members={group.members} onOpen={setSelectedExpenseShares}/><span className="record-payer-mobile">{e.payerName} 付款</span></small></div></div>
                 <span className="record-payer" role="cell">{e.payerName}</span>
                 <div className={`record-share-amount ${participantShare?'':'is-empty'}`} role="cell"><small>{expenseParticipantLabel}</small><b>{participantShare?groupMoney(participantShare.amountCents):'未參與'}</b></div>
                 <div className="record-price" role="cell"><b className={e.amountCents<0?'positive':''}>{groupMoney(e.amountCents)}</b>{showOriginal&&<small className="record-original-currency">原幣 {money(inputAmountCents,inputCurrency)}</small>}<small>{e.payerCount>1?`${e.payerCount} 人付款`:e.splitMode==='equal'?`平均 ${groupMoney(Math.round(e.amountCents/e.shareCount/currencyInfo.quantum)*currencyInfo.quantum)}`:{exact:'指定金額',hybrid:'指定＋均分',weights:'比例／份數'}[e.splitMode]||'自訂分攤'}</small></div>
                 <span className="record-category" role="cell">{e.amountCents<0?'退款':e.category||'其他'}</span>
                 <span className={`record-status ${e.isLocked?'is-locked':''}`} role="cell">{e.isLocked?<ShieldCheck/>:<Check/>}{e.isLocked?'已結算':'已記錄'}</span>
-                <div className="record-mobile-meta" role="cell"><ExpenseShareAvatars expense={e} members={group.members} onOpen={setSelectedExpenseShares}/></div>
                 <div className="expense-row-actions" role="cell">{(e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)&&(e.isLocked?<button type="button" className="expense-locked" onClick={openRepaymentHistory} aria-label={`查看與「${e.title}」相關時段的還款紀錄`}><History/><span>查看還款</span></button>:<><button className="expense-edit" title="修改支出" aria-label={`修改 ${e.title}`} onClick={()=>editExpense(e)}><Pencil/></button><button className="expense-delete" title="刪除支出" aria-label={`刪除 ${e.title}`} disabled={deleting===e.id} onClick={()=>requestRemoveExpense(e)}>{deleting===e.id?<LoaderCircle/>:<Trash2/>}</button></>)}</div>
               </article>})}</div>
             </div>
