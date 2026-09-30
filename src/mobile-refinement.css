@@ -1,7 +1,8 @@
 /* 手機帳本以餘額、近期支出與結算為主要閱讀順序 */
 .mobile-ledger-heading,
 .mobile-overview-v2,
-.mobile-expense-detail {
+.mobile-expense-detail,
+.mobile-expense-record {
   display: none;
 }
 
@@ -831,137 +832,239 @@
 
   .real-dashboard .record-list {
     display: grid;
-    gap: 10px;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--operation-border);
+    border-radius: 12px;
+    background: #fff;
   }
 
   .real-dashboard .record-list article {
-    display: grid;
+    display: block;
     height: auto;
     min-height: 0;
-    grid-template-columns: minmax(0,1fr) minmax(100px,.85fr);
-    grid-template-areas: "name share" "date share" "actions actions" "status status";
-    align-items: center;
-    gap: 2px 12px;
-    padding: 12px 14px;
-    border: 1px solid var(--operation-border);
-    border-radius: 14px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
     background: #fff;
     box-shadow: none;
   }
 
-  .real-dashboard .record-list article > .record-name {
-    min-width: 0;
-    padding: 0;
+  .real-dashboard .record-list article + article {
+    border-top: 1px solid #e8ede9;
   }
 
-  .real-dashboard .record-name b {
-    font-size: 15px;
-    line-height: 1.5;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-
-  .real-dashboard .record-name .record-name-desktop {
+  .real-dashboard .record-list article > :not(.mobile-expense-record) {
     display: none;
   }
 
-  .real-dashboard .record-name small {
-    max-width: none;
+  .real-dashboard .record-list .mobile-expense-record {
+    display: flex;
+    min-width: 0;
+    align-items: stretch;
+    padding-left: 12px;
+  }
+
+  .real-dashboard .mobile-expense-record-detail {
+    display: grid;
+    min-width: 0;
+    min-height: 90px;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(0,1fr) minmax(92px,.85fr);
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
     margin: 0;
-    font-size: 12px;
+    border: 0;
+    border-radius: 0;
+    color: var(--operation-text);
+    background: transparent;
+    font-weight: 400;
+    text-align: left;
+  }
+
+  .mobile-expense-record-copy {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .mobile-expense-record-title {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+  }
+
+  .mobile-expense-record-title b {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-expense-record-title .mobile-expense-record-status {
+    padding: 2px 5px;
+    border-radius: 5px;
+    color: #8a641e;
+    background: #fff3d7;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+
+  .mobile-expense-record-meta {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px 6px;
+  }
+
+  .mobile-expense-record-meta .expense-share-avatars {
+    min-height: 24px;
+  }
+
+  .mobile-expense-record-meta .expense-share-avatar .avatar,
+  .mobile-expense-record-meta .expense-share-more {
+    box-shadow: none;
+  }
+
+  .mobile-expense-record-meta time,
+  .mobile-expense-record-payer {
+    color: var(--operation-muted);
+    font-size: 11px;
     line-height: 1.5;
   }
 
-  .real-dashboard .record-list article > .record-share-amount {
+  .mobile-expense-record-meta time {
+    white-space: nowrap;
+  }
+
+  .mobile-expense-record-payer {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-expense-record-amount {
     display: flex;
     min-width: 0;
     align-items: flex-end;
-    flex-direction: column-reverse;
-    gap: 5px;
-    padding: 6px 0;
+    flex-direction: column;
+    gap: 3px;
+    font-variant-numeric: tabular-nums;
     text-align: right;
   }
 
-  .real-dashboard .record-share-amount small {
-    color: var(--operation-muted);
-    font-size: 12px;
-    overflow-wrap: anywhere;
-  }
-
-  .real-dashboard .record-share-amount b {
-    min-width: 0;
+  .mobile-expense-record-amount strong {
     color: var(--operation-green);
-    font-size: 18px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -.025em;
     line-height: 1.35;
-    white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  .real-dashboard .record-list article > .record-price {
-    display: none;
-  }
-
-  .real-dashboard .record-price small {
-    max-width: none;
-    font-size: 12px;
-    white-space: normal;
-  }
-
-  .real-dashboard .record-list article > .record-date {
+  .mobile-expense-record-amount small {
     color: var(--operation-muted);
-    font-size: 12px;
-    line-height: 1.5;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
   }
 
-  .real-dashboard .record-list article > .expense-row-actions {
-    justify-content: flex-end;
-    gap: 2px;
-    padding-top: 4px;
-    margin: 8px -6px -4px 0;
-    border-top: 1px solid #edf1ee;
+  .mobile-expense-record-amount.is-muted strong {
+    color: var(--operation-muted);
   }
 
-  .real-dashboard .record-list article > .expense-row-actions:empty {
-    display: none;
+  .mobile-expense-record-amount .mobile-expense-record-total {
+    margin-top: 2px;
   }
 
-  .real-dashboard .record-list .expense-row-actions .expense-edit,
-  .real-dashboard .record-list .expense-row-actions .expense-delete {
+  .real-dashboard .mobile-expense-record-more {
+    display: grid;
     width: 44px;
-    height: 44px;
-    border-color: transparent;
+    min-height: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    color: var(--operation-muted);
     background: transparent;
   }
 
-  .real-dashboard .record-list .expense-share-trigger {
-    display: none;
+  .mobile-expense-record-more svg {
+    width: 18px;
+    height: 18px;
   }
 
-  .real-dashboard .record-payer-mobile::before {
-    display: none;
+  .real-dashboard .mobile-expense-record-detail:hover,
+  .real-dashboard .mobile-expense-record-more:hover {
+    background: #f4f8f5;
   }
 
-  .real-dashboard .record-list .mobile-expense-detail {
+  .real-dashboard .mobile-expense-record-detail:focus-visible,
+  .real-dashboard .mobile-expense-record-more:focus-visible {
+    outline: 3px solid #85b79d;
+    outline-offset: -3px;
+  }
+
+  .mobile-expense-actions-content h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-expense-action-list {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid #e2e8e4;
+    border-radius: 12px;
+  }
+
+  .mobile-expense-action-list button {
     display: flex;
     width: 100%;
-    min-height: 44px;
+    min-height: 48px;
     align-items: center;
-    justify-content: flex-start;
-    gap: 4px;
-    padding: 4px 0;
+    gap: 12px;
+    padding: 12px 14px;
     border: 0;
-    color: var(--operation-text);
-    background: transparent;
-    font-size: 15px;
-    font-weight: 650;
+    border-radius: 0;
+    color: #182923;
+    background: #fff;
+    font-size: 14px;
     text-align: left;
-    line-height: 1.5;
-    overflow-wrap: anywhere;
   }
 
-  .mobile-expense-detail svg {
-    width: 15px;
-    height: 15px;
+  .mobile-expense-action-list button + button {
+    border-top: 1px solid #e2e8e4;
+  }
+
+  .mobile-expense-action-list button:hover {
+    background: #f4f8f5;
+  }
+
+  .mobile-expense-action-list button:focus-visible {
+    outline: 3px solid #85b79d;
+    outline-offset: -3px;
+  }
+
+  .mobile-expense-action-list button.is-danger {
+    color: #a53e36;
+  }
+
+  .mobile-expense-action-list button:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .mobile-expense-action-list button svg {
+    width: 20px;
+    height: 20px;
+    flex: none;
   }
 
   .real-dashboard .record-pagination {
