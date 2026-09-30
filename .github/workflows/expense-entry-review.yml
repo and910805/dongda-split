@@ -6,13 +6,18 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'currency.mjs'
+      - 'finance.mjs'
       - '.github/workflows/expense-entry-review.yml'
 permissions:
   contents: read
+concurrency:
+  group: expense-review-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,10 +32,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
-      - name: Package isolated review workspace
-        run: tar --exclude=.git --exclude=output --exclude=.env --exclude='node_modules/.cache' -czf /tmp/expense-workspace.tgz .
       - uses: actions/upload-artifact@v4
         with:
-          name: expense-review-workspace
-          path: /tmp/expense-workspace.tgz
+          name: expense-entry-build
+          path: dist/
           retention-days: 3
