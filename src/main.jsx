@@ -6,6 +6,7 @@ import './mobile.css';
 import './dashboard.css';
 import './operation.css';
 import './admin.css';
+import './mobile-refinement.css';
 import ProductApp from './ProductApp.jsx';
 import {BrandLogo as Brand} from './BrandLogo.jsx';
 
@@ -63,7 +64,7 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
   <main>
     <section className={`hero ${heroReady?'hero-ready':'hero-loading'}`}>
       <div className="hero-stage">
-      <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>已有 2,840+ 位旅伴使用旅帳<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
+      <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>和旅伴一起，把每筆帳記清楚<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
       <div className="hero-visual" role="img" aria-label="旅帳 TripTab 的日本行程 iPhone 分帳畫面預覽">
         <HeroAirplane/>
         <div className="ticket"><span>TOKYO · FUJI</span><b>東京富士五日遊</b><small>3 位旅伴 · JPY</small><i aria-hidden="true"></i></div>
@@ -98,7 +99,7 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
       <HeroBirds/>
       <HeroFoliage/>
     </section>
-    <section className="proof" aria-label="旅帳產品特點"><span>不用再開計算機</span><span>不用催朋友匯款</span><span>不用下載 App</span><span>多幣別也能分</span></section>
+    <section className="proof" aria-label="旅帳產品特點"><span>不用再開計算機</span><span>結算結果可分享到 LINE</span><span>不用下載 App</span><span>多幣別也能分</span></section>
 
     <section id="features" className="section product-story">
       <header className="section-intro">

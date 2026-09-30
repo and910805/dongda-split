@@ -1771,7 +1771,7 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,requireExpenseUuids,
     if(!existing){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆支出'})}
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
     if(existing.created_by!==req.userId&&group.owner_id!==req.userId&&!actor?.isSuperuser){await client.query('ROLLBACK');return res.status(403).json({error:'只有記帳人、群組建立者或管理者能修改'})}
-    if(await isExpenseSettlementLocked(client,req.params.id,req.params.expenseId)){await client.query('ROLLBACK');return res.status(409).json({code:'EXPENSE_SETTLEMENT_LOCKED',error:'這筆支出已有轉帳回報，不能改寫帳務歷史；請新增一筆調整或退款。只有回報本身錯誤時，才到還款紀錄撤銷回報'})}
+    if(await isExpenseSettlementLocked(client,req.params.id,req.params.expenseId)){await client.query('ROLLBACK');return res.status(409).json({code:'EXPENSE_SETTLEMENT_LOCKED',error:'這筆支出已有轉帳回報，不能改寫帳務歷史；請新增一筆調整或退款；只有回報本身錯誤時，才到還款紀錄撤銷回報'})}
     const {rows:memberRows}=await client.query(`SELECT gm.user_id::text id,u.is_virtual
       FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1`,[req.params.id]);
     const allowed=new Set(memberRows.filter(row=>!row.is_virtual).map(row=>row.id));
@@ -1833,7 +1833,7 @@ app.delete('/api/groups/:id/expenses/:expenseId',requireUser,requireExpenseUuids
     if(!expense){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆支出'})}
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
     if(expense.created_by!==req.userId&&group.owner_id!==req.userId&&!actor?.isSuperuser){await client.query('ROLLBACK');return res.status(403).json({error:'只有記帳人、群組建立者或管理者能刪除'})}
-    if(await isExpenseSettlementLocked(client,req.params.id,req.params.expenseId)){await client.query('ROLLBACK');return res.status(409).json({code:'EXPENSE_SETTLEMENT_LOCKED',error:'這筆支出已有轉帳回報，不能刪除帳務歷史；請新增一筆調整或退款。只有回報本身錯誤時，才到還款紀錄撤銷回報'})}
+    if(await isExpenseSettlementLocked(client,req.params.id,req.params.expenseId)){await client.query('ROLLBACK');return res.status(409).json({code:'EXPENSE_SETTLEMENT_LOCKED',error:'這筆支出已有轉帳回報，不能刪除帳務歷史；請新增一筆調整或退款；只有回報本身錯誤時，才到還款紀錄撤銷回報'})}
     await client.query('DELETE FROM expenses WHERE id=$1',[req.params.expenseId]);
     await writeAudit(client,req,{
       action:'delete_expense',
