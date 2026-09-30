@@ -22,6 +22,17 @@ test('日期相同時維持原始順序，無效日期固定排在最後',()=>{
   assert.deepEqual(sortExpenses(rows,{key:'date',direction:'desc'}).map(item=>item.id),['first','second','invalid']);
 });
 
+test('補記支出按消費日排序，同日保持原有建立順序',()=>{
+  const rows=[
+    {id:'late-entry',expenseDate:'2026-09-28',createdAt:'2026-09-30T12:00:00Z'},
+    {id:'today-newer',expenseDate:'2026-09-30',createdAt:'2026-09-30T10:00:00Z'},
+    {id:'today-older',expenseDate:'2026-09-30',createdAt:'2026-09-30T08:00:00Z'},
+    {id:'yesterday',expenseDate:'2026-09-29',createdAt:'2026-09-29T08:00:00Z'}
+  ];
+  assert.deepEqual(sortExpenses(rows,{key:'date',direction:'desc'}).map(item=>item.id),['today-newer','today-older','yesterday','late-entry']);
+  assert.deepEqual(sortExpenses(rows,{key:'date',direction:'asc'}).map(item=>item.id),['late-entry','yesterday','today-newer','today-older']);
+});
+
 test('參與金額可升降冪排序，未參與項目固定排在最後',()=>{
   assert.deepEqual(sortExpenses(expenses,{key:'participantAmount',direction:'desc'},'member-a').map(item=>item.id),['old-large','new-small','same-share','middle-no-share']);
   assert.deepEqual(sortExpenses(expenses,{key:'participantAmount',direction:'asc'},'member-a').map(item=>item.id),['new-small','same-share','old-large','middle-no-share']);

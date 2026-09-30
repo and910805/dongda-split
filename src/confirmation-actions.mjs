@@ -11,11 +11,11 @@ export function expenseDeletionConfirmation(title){
 }
 
 export function groupDeletionConfirmation(name){
-  const groupName=readableName(name,'未命名群組');
+  const groupName=readableName(name,'未命名帳本');
   return {
-    title:`刪除群組「${groupName}」？`,
-    description:'群組內的所有支出、分攤與結算紀錄都會一併刪除，且無法復原',
-    confirmLabel:'刪除群組',
+    title:`刪除帳本「${groupName}」？`,
+    description:'帳本內的所有支出、分攤與結算紀錄都會一併刪除，且無法復原',
+    confirmLabel:'刪除帳本',
     tone:'danger'
   };
 }
@@ -34,7 +34,7 @@ export function settlementVoidConfirmation(settlement){
   const toName=readableName(settlement?.to?.displayName,'收款人');
   return {
     title:`撤銷「${fromName} → ${toName}」的轉帳回報？`,
-    description:'撤銷後，TripTab 會重新計算群組結餘，但不會取消銀行或其他支付工具中已完成的實際轉帳',
+    description:'撤銷後，TripTab 會重新計算帳本結餘，但不會取消銀行或其他支付工具中已完成的實際轉帳',
     confirmLabel:'撤銷回報',
     tone:'danger'
   };
@@ -45,7 +45,7 @@ export function roleChangeConfirmation(user){
   if(user?.isSuperuser){
     return {
       title:`移除「${displayName}」的管理權限？`,
-      description:'此帳號將立即失去管理者中心與跨群組查看權限，一般分帳資料不受影響',
+      description:'此帳號將立即失去管理者中心與跨帳本查看權限，一般分帳資料不受影響',
       confirmLabel:'移除管理權限',
       tone:'danger',
       nextValue:false,
@@ -54,7 +54,7 @@ export function roleChangeConfirmation(user){
   }
   return {
     title:`將「${displayName}」設為管理者？`,
-    description:'管理者可以查看全站使用者、群組與稽核資料，並操作帳戶模擬，請確認你信任此帳號',
+    description:'管理者可以查看全站使用者、帳本與稽核資料，並操作帳戶模擬，請確認你信任此帳號',
     confirmLabel:'授予管理權限',
     tone:'primary',
     nextValue:true,

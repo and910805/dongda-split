@@ -20,7 +20,7 @@ const auditDate=value=>new Intl.DateTimeFormat('zh-TW',{dateStyle:'short',timeSt
 const adminTabs=[
   {id:'users',label:'使用者管理',icon:Users,unit:'位'},
   {id:'simulations',label:'帳戶模擬',icon:FlaskConical,unit:'個'},
-  {id:'groups',label:'群組清單',icon:Building2,unit:'個'},
+  {id:'groups',label:'帳本清單',icon:Building2,unit:'個'},
   {id:'audit',label:'稽核紀錄',icon:History,unit:'筆'}
 ];
 const pageSizes={users:10,simulations:6,groups:8,audit:12};
@@ -129,7 +129,7 @@ function AccountSimulator({accounts,refresh,onNotice,search}){
   return <div className="admin-account-simulator">
     <div className="admin-simulator-body">
       <form className="admin-simulator-form" onSubmit={submit} noValidate>
-        <div className="admin-simulator-card-title"><span><UserPlus/></span><div><h3>建立虛擬帳號</h3><p>帳號只會存在 TripTab，並與真實使用者及真實群組隔離</p></div></div>
+        <div className="admin-simulator-card-title"><span><UserPlus/></span><div><h3>建立虛擬帳號</h3><p>帳號只會存在 TripTab，並與真實使用者及真實帳本隔離</p></div></div>
         <div className="admin-simulator-field">
           <label htmlFor="simulated-display-name">顯示名稱 <b aria-hidden="true">*</b></label>
           <input id="simulated-display-name" value={form.displayName} onChange={event=>update('displayName',event.target.value)} onBlur={()=>setAttempted(true)} maxLength="40" placeholder="例如：測試旅伴 A" autoComplete="off" required aria-required="true" disabled={busy} aria-invalid={Boolean(displayNameError)} aria-describedby={displayNameError?'simulated-display-name-error':'simulated-display-name-help'}/>
@@ -147,12 +147,12 @@ function AccountSimulator({accounts,refresh,onNotice,search}){
       </form>
 
       <section className="admin-simulator-list" aria-label="虛擬帳號清單">
-        <div className="admin-simulator-list-head"><div><h3>可用帳號</h3><p>進入後會顯示持續狀態列，可隨時安全返回管理帳號</p></div><span><Info/>僅限測試群組</span></div>
+        <div className="admin-simulator-list-head"><div><h3>可用帳號</h3><p>進入後會顯示持續狀態列，可隨時安全返回管理帳號</p></div><span><Info/>僅限測試帳本</span></div>
         <div className="admin-simulator-accounts">
           {accounts.map(account=><article key={account.id}>
             <div className="admin-simulator-identity"><AdminAvatar user={account} size={44}/><div><b>{account.displayName}</b><small>{account.note||'尚未填寫使用情境'}</small></div></div>
             <dl>
-              <div><dt>群組</dt><dd>{account.groupCount} 個</dd></div>
+              <div><dt>帳本</dt><dd>{account.groupCount} 個</dd></div>
               <div><dt>建立者</dt><dd>{account.createdByName||'系統管理者'}</dd></div>
               <div><dt>建立時間</dt><dd><time dateTime={account.createdAt}>{date(account.createdAt)}</time></dd></div>
             </dl>
@@ -298,7 +298,7 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
           <section className="admin-stats" aria-label="系統統計">
             <article><span><Users/></span><div><small>真實使用者</small><b>{data.stats.userCount.toLocaleString()}</b></div></article>
             <article><span><ShieldCheck/></span><div><small>管理者帳號</small><b>{data.stats.superuserCount.toLocaleString()}</b></div></article>
-            <article><span><Building2/></span><div><small>分帳群組</small><b>{data.stats.groupCount.toLocaleString()}</b></div></article>
+            <article><span><Building2/></span><div><small>分帳帳本</small><b>{data.stats.groupCount.toLocaleString()}</b></div></article>
             <article><span><History/></span><div><small>支出紀錄</small><b>{data.stats.expenseCount.toLocaleString()}</b></div></article>
           </section>
 
@@ -311,10 +311,10 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
           <section className="admin-panel admin-tab-panel" id="admin-panel-users" role="tabpanel" aria-labelledby="admin-tab-users" tabIndex="0" hidden={activeTab!=='users'}>
             <AdminPanelHeader {...panelHeaderProps('users',{eyebrow:'帳號與權限',title:'使用者管理',description:'授予管理權限前請先核對顯示名稱與加入時間',placeholder:'搜尋名稱、使用者 ID 或角色'})}/>
             <div className="admin-user-table">
-              <div className="admin-table-head" aria-hidden="true"><span>使用者</span><span>加入群組</span><span>建立時間</span><span>系統角色</span><span>操作</span></div>
+              <div className="admin-table-head" aria-hidden="true"><span>使用者</span><span>加入帳本</span><span>建立時間</span><span>系統角色</span><span>操作</span></div>
               {paginatedItems.users.items.map(user=><article key={user.id}>
                 <div className="admin-user-name"><AdminAvatar user={user}/><div><b>{user.displayName}</b><small>{user.id}</small></div></div>
-                <span data-label="加入群組">{user.groupCount} 個</span>
+                <span data-label="加入帳本">{user.groupCount} 個</span>
                 <time data-label="建立時間" dateTime={user.createdAt}>{date(user.createdAt)}</time>
                 <span className={`admin-role ${user.isSuperuser?'is-superuser':''}`}><ShieldCheck/>{user.isSuperuser?'管理者':'一般使用者'}</span>
                 <button className={user.isSuperuser?'admin-role-remove':'admin-role-grant'} disabled={updating===user.id||user.id===me.id} onClick={()=>requestSuperuserUpdate(user)}>
@@ -334,9 +334,9 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
           </section>
 
           <section className="admin-panel admin-tab-panel" id="admin-panel-groups" role="tabpanel" aria-labelledby="admin-tab-groups" tabIndex="0" hidden={activeTab!=='groups'}>
-            <AdminPanelHeader {...panelHeaderProps('groups',{eyebrow:'全站帳本',title:'群組清單',description:'用於客服排查與系統健康檢查，不會改變群組成員關係',placeholder:'搜尋群組、建立者、說明或群組 ID'})}/>
+            <AdminPanelHeader {...panelHeaderProps('groups',{eyebrow:'全站帳本',title:'帳本清單',description:'用於客服排查與系統健康檢查，不會改變帳本成員關係',placeholder:'搜尋帳本、建立者、說明或帳本 ID'})}/>
             <div className="admin-group-table">
-              <div className="admin-table-head" aria-hidden="true"><span>群組</span><span>建立者</span><span>成員</span><span>支出</span><span>累計金額</span><span>建立時間</span><span>操作</span></div>
+              <div className="admin-table-head" aria-hidden="true"><span>帳本</span><span>建立者</span><span>成員</span><span>支出</span><span>累計金額</span><span>建立時間</span><span>操作</span></div>
               {paginatedItems.groups.items.map(group=><article key={group.id}>
                 <div className="admin-group-name"><span><Building2/></span><div><b>{group.name} <em className="admin-group-currency">{group.currency||'TWD'}</em></b><small>{group.description||'未填寫說明'}</small></div></div>
                 <span data-label="建立者">{group.ownerName}</span>
@@ -346,13 +346,13 @@ export function AdminConsole({me,onExit,onLogout,onOpenGroup}){
                 <time data-label="建立時間" dateTime={group.createdAt}>{date(group.createdAt)}</time>
                 <button className="admin-open-group" onClick={()=>onOpenGroup(group)}>開啟帳本<ArrowRight/></button>
               </article>)}
-              {!paginatedItems.groups.items.length&&<div className="admin-empty"><Search/><p>{queries.groups?`找不到符合「${queries.groups}」的群組`:'目前沒有群組資料'}</p></div>}
+              {!paginatedItems.groups.items.length&&<div className="admin-empty"><Search/><p>{queries.groups?`找不到符合「${queries.groups}」的帳本`:'目前沒有帳本資料'}</p></div>}
             </div>
             <AdminPagination {...paginationProps('groups')}/>
           </section>
 
           <section className="admin-panel admin-tab-panel" id="admin-panel-audit" role="tabpanel" aria-labelledby="admin-tab-audit" tabIndex="0" hidden={activeTab!=='audit'}>
-            <AdminPanelHeader {...panelHeaderProps('audit',{eyebrow:'異動軌跡',title:'稽核紀錄',description:'查看誰在何時對哪個群組、哪個項目進行新增、修改或刪除',placeholder:'搜尋人員、群組、項目或動作'})}/>
+            <AdminPanelHeader {...panelHeaderProps('audit',{eyebrow:'異動軌跡',title:'稽核紀錄',description:'查看誰在何時對哪個帳本、哪個項目進行新增、修改或刪除',placeholder:'搜尋人員、帳本、項目或動作'})}/>
             <div className="admin-audit-list">
               {paginatedItems.audit.items.map(item=><AuditLogItem key={item.id} item={item}/>)}
               {!paginatedItems.audit.items.length&&<div className="admin-empty"><Check/><p>{queries.audit?`找不到符合「${queries.audit}」的稽核紀錄`:'目前沒有異動紀錄'}</p></div>}

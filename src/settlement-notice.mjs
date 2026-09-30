@@ -26,7 +26,7 @@ export function formatSettlementReportAmount(amountCents,currency='TWD'){
 }
 
 export function buildSettlementNotice(report){
-  const groupName=safeText(report?.groupName)||'未命名旅程';
+  const groupName=safeText(report?.groupName)||'未命名帳本';
   const payerName=safeText(report?.from?.displayName)||'付款人';
   const recipientName=safeText(report?.to?.displayName)||'收款人';
   const reporterName=safeText(report?.reportedBy?.displayName)||payerName;
@@ -47,7 +47,7 @@ export function buildSettlementNotice(report){
     text:`【旅帳 TripTab｜轉帳紀錄】
 ${reporterName} 已將這筆款項標記為「已轉帳」
 
-旅程：${groupName}
+帳本：${groupName}
 付款人：${payerName}
 收款人：${recipientName}
 轉帳金額：${amountLabel}${originalAmountLine}

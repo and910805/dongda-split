@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {formatAuditAmount,presentAuditItem} from '../src/audit-log.mjs';
 
-test('支出異動會整理成包含操作者、群組、項目與動作的摘要',()=>{
+test('支出異動會整理成包含操作者、帳本、項目與動作的摘要',()=>{
   const item=presentAuditItem({
     action:'update_expense',
     actorName:'Andy',
@@ -30,7 +30,7 @@ test('刪除紀錄使用 metadata 快照保留已刪除項目的名稱',()=>{
   assert.equal(item.detail,'NT$ 2,680');
 });
 
-test('撤銷轉帳回報會保留群組、路徑與金額',()=>{
+test('撤銷轉帳回報會保留帳本、路徑與金額',()=>{
   const item=presentAuditItem({
     action:'void_settlement',
     actorName:'Andy',
@@ -53,7 +53,7 @@ test('未知與既有系統動作都有安全的顯示文字',()=>{
   assert.equal(formatAuditAmount(undefined),'');
 });
 
-test('稽核金額與群組換算依實際幣別顯示',()=>{
+test('稽核金額與帳本換算依實際幣別顯示',()=>{
   assert.equal(formatAuditAmount(1234,'USD'),'US$ 12.34');
   assert.equal(formatAuditAmount(126000,'JPY'),'¥ 1,260');
   const item=presentAuditItem({
