@@ -25,6 +25,7 @@ import {
 } from './exchange-rates.mjs';
 import {buildCurrencyConversionPlan} from './group-currency-conversion.mjs';
 import {convertExpenseInputToLedger,normalizeExpenseRate} from './expense-currency.mjs';
+import {resolveExpenseDate} from './expense-date.mjs';
 import {
   LedgerIntegerSafetyError,
   assertGroupExpenseAbsoluteTotalSafe,
@@ -176,6 +177,7 @@ function readIdempotencyRequest(req,operation){
     throw error;
   }
   assertIdempotencyPayloadComplexity(req.body??null);
+  // 保留原始日期欄位，省略日期的舊請求不可因跨日重試而產生不同指紋
   return{
     key,
     operation,
@@ -189,9 +191,10 @@ function splitMetaFromResolved(mode,participantIds,currency,{shares=[],fixedShar
   if(mode==='weights')return{weights:weights.map(item=>({userId:String(item.userId),weight:Number(item.weight)}))};
   return{participantIds};
 }
-function resolveExpenseInput(body,currency,allowed){
+function resolveExpenseInput(body,currency,allowed,{existingExpenseDate}={}){
   const title=String(body?.title||'').trim();
   if(!title||title.length>100)throw new Error('項目名稱需為 1–100 字');
+  const expenseDate=resolveExpenseDate(body?.expenseDate,{existingDate:existingExpenseDate});
   const parsedAmount=parseCurrencyAmount(body?.amount,currency,{allowNegative:true,allowZero:false});
   const sign=body?.kind==='refund'||parsedAmount<0?-1:1;
   const amountCents=sign*Math.abs(parsedAmount);
@@ -212,7 +215,7 @@ function resolveExpenseInput(body,currency,allowed){
     }
   }else{
     const userId=String(body?.payerId||'');
-    if(!allowed.has(userId))throw new Error('付款人不在群組中');
+    if(!allowed.has(userId))throw new Error('付款人不在帳本中');
     payments=[{userId,paymentCents:amountCents}];
   }
   if(!payments.length||payments.reduce((sum,item)=>sum+item.paymentCents,0)!==amountCents){
@@ -251,16 +254,19 @@ function resolveExpenseInput(body,currency,allowed){
   }
   const category=String(body?.category||'其他').slice(0,20);
   const splitMeta=splitMetaFromResolved(mode,participantIds,currency,{shares,fixedShares,weights});
-  return{title,amountCents,participantIds,payments,shares,mode,splitMeta,category};
+  return{title,expenseDate,amountCents,participantIds,payments,shares,mode,splitMeta,category};
 }
 function hasExpectedCurrencyMismatch(body,currentCurrency){
   const expected=String(body?.currency??'TWD').trim().toUpperCase();
   return expected!==String(currentCurrency||'TWD').toUpperCase();
 }
-async function resolveExpenseLedgerInput(body,group,allowed,userId){
+function hasExpectedExpenseActorMismatch(body,userId){
+  return body?.expectedUserId!==undefined&&String(body.expectedUserId)!==String(userId);
+}
+async function resolveExpenseLedgerInput(body,group,allowed,userId,{existingExpenseDate}={}){
   const sourceCurrency=String(body?.expenseCurrency||group.currency||'TWD').trim().toUpperCase();
   if(!isSupportedCurrency(sourceCurrency))throw new Error('不支援這個支出幣別');
-  const sourceInput=resolveExpenseInput(body,sourceCurrency,allowed);
+  const sourceInput=resolveExpenseInput(body,sourceCurrency,allowed,{existingExpenseDate});
   if(sourceCurrency===group.currency){
     return convertExpenseInputToLedger({
       input:sourceInput,
@@ -782,12 +788,12 @@ app.get('/api/currencies',asyncRoute(async(_req,res)=>{
   });
 }));
 app.post('/api/groups/:id/expense-rate',requireUser,asyncRoute(async(req,res)=>{
-  if(!UUID_PATTERN.test(req.params.id))return res.status(400).json({error:'群組資料格式不正確'});
-  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  if(!UUID_PATTERN.test(req.params.id))return res.status(400).json({error:'帳本資料格式不正確'});
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個帳本的成員'});
   const sourceCurrency=String(req.body?.sourceCurrency||'').trim().toUpperCase();
   if(!isSupportedCurrency(sourceCurrency))return res.status(400).json({error:'不支援這個支出幣別'});
   const {rows:[group]}=await pool.query('SELECT id,currency FROM groups WHERE id=$1',[req.params.id]);
-  if(!group)return res.status(404).json({error:'找不到群組'});
+  if(!group)return res.status(404).json({error:'找不到帳本'});
   if(sourceCurrency===group.currency){
     return res.json({
       sourceCurrency,
@@ -964,7 +970,7 @@ app.get('/api/admin/overview',requireUser,requireSuperuser,asyncRoute(async(req,
   res.json({
     stats:statsResult.rows[0],
     users:usersResult.rows,
-    groups:groupsResult.rows.map(group=>({...group,totalCents:safeLedgerNumber(group.totalCents,'群組支出合計')})),
+    groups:groupsResult.rows.map(group=>({...group,totalCents:safeLedgerNumber(group.totalCents,'帳本支出合計')})),
     auditLog:auditResult.rows,
     simulatedAccounts:simulatedResult.rows
   });
@@ -1105,13 +1111,13 @@ app.patch('/api/admin/users/:id/superuser',requireUser,requireSuperuser,asyncRou
 
 app.get('/api/groups',requireUser,asyncRoute(async(req,res)=>{const {rows}=await pool.query(`SELECT g.id,g.name,g.description,g.currency,g.invite_token AS "inviteToken",COUNT(gm2.user_id) FILTER(WHERE COALESCE(u2.is_virtual,false)=false)::int AS "memberCount" FROM groups g JOIN group_members mine ON mine.group_id=g.id AND mine.user_id=$1 LEFT JOIN group_members gm2 ON gm2.group_id=g.id LEFT JOIN users u2 ON u2.id=gm2.user_id GROUP BY g.id ORDER BY g.created_at DESC`,[req.userId]);res.json(rows)}));
 app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{
-  if(typeof req.body?.name!=='string')return res.status(400).json({code:'INVALID_GROUP_NAME_TYPE',error:'群組名稱必須是文字'});
-  if(req.body?.description!==undefined&&typeof req.body.description!=='string')return res.status(400).json({code:'INVALID_GROUP_DESCRIPTION_TYPE',error:'群組說明必須是文字'});
+  if(typeof req.body?.name!=='string')return res.status(400).json({code:'INVALID_GROUP_NAME_TYPE',error:'帳本名稱必須是文字'});
+  if(req.body?.description!==undefined&&typeof req.body.description!=='string')return res.status(400).json({code:'INVALID_GROUP_DESCRIPTION_TYPE',error:'帳本說明必須是文字'});
   if(req.body?.currency!==undefined&&typeof req.body.currency!=='string')return res.status(400).json({code:'INVALID_GROUP_CURRENCY_TYPE',error:'帳本幣別格式不正確'});
   const name=req.body.name.trim();
   const description=(req.body.description||'').trim().slice(0,200);
   const currency=(req.body.currency||'TWD').trim().toUpperCase();
-  if(!name||name.length>60)return res.status(400).json({error:'群組名稱需為 1–60 字'});
+  if(!name||name.length>60)return res.status(400).json({error:'帳本名稱需為 1–60 字'});
   if(!isSupportedCurrency(currency))return res.status(400).json({error:'不支援這個帳本幣別'});
   const client=await pool.connect();
   try{
@@ -1123,7 +1129,7 @@ app.post('/api/groups',requireUser,asyncRoute(async(req,res)=>{
       action:'create_group',
       targetType:'group',
       targetId:rows[0].id,
-      metadata:{groupId:rows[0].id,groupName:name,itemType:'群組',itemName:name,currency}
+      metadata:{groupId:rows[0].id,groupName:name,itemType:'帳本',itemName:name,currency}
     });
     await client.query('COMMIT');
     res.status(201).json(rows[0]);
@@ -1142,7 +1148,7 @@ app.post('/api/invites/:token/join',requireUser,asyncRoute(async(req,res)=>{
       const sameSimulationOwner=group.ownerIsSimulated&&group.joiningIsSimulated&&
         group.ownerSimulationCreator&&group.joiningSimulationCreator&&
         String(group.ownerSimulationCreator||'')===String(group.joiningSimulationCreator||'');
-      if(!sameSimulationOwner){await client.query('ROLLBACK');return res.status(403).json({error:'模擬帳號只能加入同一位管理者建立的測試群組'})}
+      if(!sameSimulationOwner){await client.query('ROLLBACK');return res.status(403).json({error:'模擬帳號只能加入同一位管理者建立的測試帳本'})}
     }
     const {rows:[membership]}=await client.query('INSERT INTO group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING user_id',[group.id,req.userId]);
     if(membership)await writeAudit(client,req,{
@@ -1162,7 +1168,7 @@ const safeLedgerNumber=(value,label)=>postgresBigIntToSafeNumber(value,{label});
 async function assertGroupExpenseTotalSafe(queryable,groupId){
   const {rows}=await queryable.query(`SELECT amount_cents::bigint::text AS "amountCents"
     FROM expenses WHERE group_id=$1 ORDER BY created_at,id`,[groupId]);
-  return assertGroupExpenseAbsoluteTotalSafe(rows,{label:'群組支出總額'});
+  return assertGroupExpenseAbsoluteTotalSafe(rows,{label:'帳本支出總額'});
 }
 async function findExpenseIdempotency(queryable,groupId,actorId,{operation,key}){
   const {rows:[record]}=await queryable.query(`SELECT expense_id AS "expenseId",
@@ -1327,15 +1333,15 @@ const appliedCurrencyConversionResponse=conversion=>({
   roundingDeltaCents:safeLedgerNumber(conversion.roundingDeltaCents,'換算尾差')
 });
 app.get('/api/groups/:id',requireUser,requireGroupUuid,asyncRoute(async(req,res)=>{
-  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
-  if(!await ensureSettlementPlanForGroup(req.params.id))return res.status(404).json({error:'找不到群組'});
+  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個帳本的成員'});
+  if(!await ensureSettlementPlanForGroup(req.params.id))return res.status(404).json({error:'找不到帳本'});
   const elevated=await isSuperuser(req.userId);
   const [groupResult,membersResult,expensesResult,balancesResult,settlementHistoryResult,bankAccessResult,settlementPlanResult]=await Promise.all([
     pool.query(`SELECT id,name,description,currency,invite_token AS "inviteToken",
       owner_id AS "ownerId",ledger_version::bigint::text AS "ledgerVersion"
       FROM groups WHERE id=$1`,[req.params.id]),
     pool.query(`SELECT u.id,u.display_name AS "displayName",u.picture_url AS "pictureUrl",u.is_virtual AS "isFund",gm.role FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1 ORDER BY gm.joined_at`,[req.params.id]),
-    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.split_mode AS "splitMode",e.split_meta AS "splitMeta",e.currency_meta AS "currencyMeta",e.expense_date AS "expenseDate",e.created_at AS "createdAt",e.created_by AS "createdBy",EXISTS(SELECT 1 FROM settlement_payments sp WHERE sp.group_id=e.group_id AND sp.voided_at IS NULL AND sp.created_at>=e.created_at) AS "isLocked",STRING_AGG(DISTINCT pu.display_name,'、') AS "payerName",COUNT(DISTINCT es.user_id)::int AS "shareCount",COUNT(DISTINCT ep.user_id)::int AS "payerCount",JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',ep.user_id,'amountCents',ep.amount_cents::text)) AS payments,JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',es.user_id,'amountCents',es.amount_cents::text)) FILTER (WHERE es.user_id IS NOT NULL) AS shares FROM expenses e JOIN expense_payments ep ON ep.expense_id=e.id JOIN users pu ON pu.id=ep.user_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id ORDER BY e.created_at DESC,e.id DESC`,[req.params.id]),
+    pool.query(`SELECT e.id,e.title,e.amount_cents::bigint::text AS "amountCents",e.category,e.split_mode AS "splitMode",e.split_meta AS "splitMeta",e.currency_meta AS "currencyMeta",e.expense_date::text AS "expenseDate",e.created_at AS "createdAt",e.created_by AS "createdBy",EXISTS(SELECT 1 FROM settlement_payments sp WHERE sp.group_id=e.group_id AND sp.voided_at IS NULL AND sp.created_at>=e.created_at) AS "isLocked",STRING_AGG(DISTINCT pu.display_name,'、') AS "payerName",COUNT(DISTINCT es.user_id)::int AS "shareCount",COUNT(DISTINCT ep.user_id)::int AS "payerCount",JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',ep.user_id,'amountCents',ep.amount_cents::text)) AS payments,JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('userId',es.user_id,'amountCents',es.amount_cents::text)) FILTER (WHERE es.user_id IS NOT NULL) AS shares FROM expenses e JOIN expense_payments ep ON ep.expense_id=e.id JOIN users pu ON pu.id=ep.user_id LEFT JOIN expense_shares es ON es.expense_id=e.id WHERE e.group_id=$1 GROUP BY e.id ORDER BY e.expense_date DESC,e.created_at DESC,e.id DESC`,[req.params.id]),
     pool.query(BALANCE_SQL,[req.params.id]),
     pool.query(`SELECT sp.id,sp.amount_cents::bigint::text AS "amountCents",
       sp.reported_currency AS "reportedCurrency",sp.reported_amount_cents::bigint::text AS "reportedAmountCents",
@@ -1357,7 +1363,7 @@ app.get('/api/groups/:id',requireUser,requireGroupUuid,asyncRoute(async(req,res)
       WHERE access.group_id=$1`,[req.params.id]),
     pool.query(SETTLEMENT_PLAN_SQL,[req.params.id])
   ]);
-  if(!groupResult.rows[0])return res.status(404).json({error:'找不到群組'});
+  if(!groupResult.rows[0])return res.status(404).json({error:'找不到帳本'});
   const balances=balancesResult.rows.map(x=>({...x,balanceCents:safeLedgerNumber(x.balanceCents,'成員結餘')}));
   const activeBankAccess=new Set(bankAccessResult.rows.map(row=>`${row.fromUserId}:${row.toUserId}`));
   const settlements=settlementPlanResult.rows.map(row=>({...row,amountCents:safeLedgerNumber(row.amountCents,'待轉帳金額')})).map(settlement=>{
@@ -1393,15 +1399,15 @@ app.post('/api/groups/:id/currency/preview',requireUser,requireGroupUuid,asyncRo
       ledger_version::bigint::text AS "ledgerVersion",
       EXISTS(SELECT 1 FROM group_members WHERE group_id=groups.id AND user_id=$2) AS "isMember"
       FROM groups WHERE id=$1`,[req.params.id,req.userId]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
     if(!group.isMember&&!actor?.isSuperuser){
       await client.query('ROLLBACK');
-      return res.status(403).json({error:'只有群組成員或管理者能變更帳本幣別'});
+      return res.status(403).json({error:'只有帳本成員或管理者能變更帳本幣別'});
     }
     if(group.currency===targetCurrency){
       await client.query('ROLLBACK');
-      return res.status(400).json({error:`這個群組目前已使用 ${targetCurrency}`});
+      return res.status(400).json({error:`這個帳本目前已使用 ${targetCurrency}`});
     }
     const rateMode=req.body?.exchangeRateMode==='manual'?'manual':'quoted';
     let quote;
@@ -1450,7 +1456,7 @@ app.post('/api/groups/:id/currency/preview',requireUser,requireGroupUuid,asyncRo
       targetCurrency,
       rate:quote
     });
-    assertGroupExpenseAbsoluteTotalSafe(plan.expenses.map(expense=>String(expense.amountCents)),{label:'換算後群組支出總額'});
+    assertGroupExpenseAbsoluteTotalSafe(plan.expenses.map(expense=>String(expense.amountCents)),{label:'換算後帳本支出總額'});
     await client.query('COMMIT');
     if(plan.blockedIssues.length){
       return res.status(422).json({
@@ -1508,7 +1514,7 @@ app.patch('/api/groups/:id/currency',requireUser,requireGroupUuid,asyncRoute(asy
       ledger_version::bigint::text AS "ledgerVersion",
       EXISTS(SELECT 1 FROM group_members WHERE group_id=groups.id AND user_id=$2) AS "isMember"
       FROM groups WHERE id=$1 FOR UPDATE`,[req.params.id,req.userId]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     const appliedAfterLock=await findAppliedCurrencyConversion(client,group.id,preview.previewId);
     if(appliedAfterLock){
       await client.query('COMMIT');
@@ -1517,7 +1523,7 @@ app.patch('/api/groups/:id/currency',requireUser,requireGroupUuid,asyncRoute(asy
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
     if(!group.isMember&&!actor?.isSuperuser){
       await client.query('ROLLBACK');
-      return res.status(403).json({error:'只有群組成員或管理者能變更帳本幣別'});
+      return res.status(403).json({error:'只有帳本成員或管理者能變更帳本幣別'});
     }
     if(group.currency!==preview.fromCurrency||String(group.ledgerVersion)!==String(preview.ledgerVersion)){
       await client.query('ROLLBACK');
@@ -1557,7 +1563,7 @@ app.patch('/api/groups/:id/currency',requireUser,requireGroupUuid,asyncRoute(asy
       targetCurrency:preview.toCurrency,
       rate:preview
     });
-    assertGroupExpenseAbsoluteTotalSafe(plan.expenses.map(expense=>String(expense.amountCents)),{label:'換算後群組支出總額'});
+    assertGroupExpenseAbsoluteTotalSafe(plan.expenses.map(expense=>String(expense.amountCents)),{label:'換算後帳本支出總額'});
     if(plan.blockedIssues.length){
       await client.query('ROLLBACK');
       return res.status(409).json({
@@ -1630,7 +1636,7 @@ app.patch('/api/groups/:id/currency',requireUser,requireGroupUuid,asyncRoute(asy
       metadata:{
         groupId:group.id,
         groupName:group.name,
-        itemType:'群組幣別',
+        itemType:'帳本幣別',
         itemName:`${preview.fromCurrency} → ${preview.toCurrency}`,
         fromCurrency:preview.fromCurrency,
         toCurrency:preview.toCurrency,
@@ -1673,14 +1679,14 @@ app.delete('/api/groups/:id',requireUser,requireGroupUuid,asyncRoute(async(req,r
   try{
     await client.query('BEGIN');
     const {rows:[group]}=await client.query('SELECT id,name,owner_id FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
-    if(group.owner_id!==req.userId&&!elevated){await client.query('ROLLBACK');return res.status(403).json({error:'只有群組建立者或管理者能刪除群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
+    if(group.owner_id!==req.userId&&!elevated){await client.query('ROLLBACK');return res.status(403).json({error:'只有帳本建立者或管理者能刪除帳本'})}
     await client.query('DELETE FROM groups WHERE id=$1',[req.params.id]);
     await writeAudit(client,req,{
       action:'delete_group',
       targetType:'group',
       targetId:group.id,
-      metadata:{groupId:group.id,groupName:group.name,itemType:'群組',itemName:group.name}
+      metadata:{groupId:group.id,groupName:group.name,itemType:'帳本',itemName:group.name}
     });
     await client.query('COMMIT');
     res.json({ok:true});
@@ -1689,16 +1695,17 @@ app.delete('/api/groups/:id',requireUser,requireGroupUuid,asyncRoute(async(req,r
 app.post('/api/groups/:id/funds',requireUser,requireGroupUuid,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
 app.post('/api/groups/:id/funds/:fundId/contributions',requireUser,requireGroupUuid,(_req,res)=>res.status(410).json({error:'公費功能已移除'}));
 app.post('/api/groups/:id/expenses',requireUser,requireGroupUuid,asyncRoute(async(req,res)=>{
+  if(hasExpectedExpenseActorMismatch(req.body,req.userId))return res.status(409).json({code:'ACCOUNT_CHANGED',error:'登入帳號已切換，請切回原帳號後確認儲存結果'});
   const idempotency=readIdempotencyRequest(req,'create_expense');
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
     const {rows:[group]}=await client.query('SELECT id,name,currency FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     const {rows:memberRows}=await client.query(`SELECT gm.user_id::text id,u.is_virtual,
       (gm.user_id=$2) AS "isCurrentUser"
       FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1`,[req.params.id,req.userId]);
-    if(!memberRows.some(row=>row.isCurrentUser)){await client.query('ROLLBACK');return res.status(403).json({error:'你不是這個群組的成員'})}
+    if(!memberRows.some(row=>row.isCurrentUser)){await client.query('ROLLBACK');return res.status(403).json({error:'你不是這個帳本的成員'})}
     if(idempotency){
       const existing=await findExpenseIdempotency(client,group.id,req.userId,idempotency);
       if(existing){
@@ -1721,11 +1728,11 @@ app.post('/api/groups/:id/expenses',requireUser,requireGroupUuid,asyncRoute(asyn
     let input;
     try{input=await resolveExpenseLedgerInput(req.body,group,allowed,req.userId)}
     catch(error){await client.query('ROLLBACK');return res.status(error.code==='EXPENSE_RATE_EXPIRED'?409:400).json({code:error.code,error:error.message,blockedIssues:error.issues})}
-    const {title,amountCents,payments,shares,mode,splitMeta,category,currencyMeta}=input;
+    const {title,expenseDate,amountCents,payments,shares,mode,splitMeta,category,currencyMeta}=input;
     const {rows:[expense]}=await client.query(`INSERT INTO expenses(
-      group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta,currency_meta
-    ) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb) RETURNING id`,
-    [req.params.id,title,amountCents,payments[0].userId,req.userId,category,mode,JSON.stringify(splitMeta),JSON.stringify(currencyMeta)]);
+      group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta,currency_meta,expense_date
+    ) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::date) RETURNING id`,
+    [req.params.id,title,amountCents,payments[0].userId,req.userId,category,mode,JSON.stringify(splitMeta),JSON.stringify(currencyMeta),expenseDate]);
     for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,payment.userId,payment.paymentCents]);
     for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[expense.id,share.userId,share.shareCents]);
     await assertGroupExpenseTotalSafe(client,group.id);
@@ -1739,6 +1746,7 @@ app.post('/api/groups/:id/expenses',requireUser,requireGroupUuid,asyncRoute(asyn
         groupName:group.name,
         itemType:'支出',
         itemName:title,
+        expenseDate,
         amountCents,
         category,
         currency:group.currency,
@@ -1755,40 +1763,46 @@ app.post('/api/groups/:id/expenses',requireUser,requireGroupUuid,asyncRoute(asyn
   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.patch('/api/groups/:id/expenses/:expenseId',requireUser,requireExpenseUuids,asyncRoute(async(req,res)=>{
+  if(hasExpectedExpenseActorMismatch(req.body,req.userId))return res.status(409).json({code:'ACCOUNT_CHANGED',error:'登入帳號已切換，請切回原帳號後確認儲存結果'});
   if(!UUID_PATTERN.test(req.params.id)||!UUID_PATTERN.test(req.params.expenseId))return res.status(400).json({error:'支出資料格式不正確'});
-  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個帳本的成員'});
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
-    const {rows:[group]}=await client.query('SELECT id,name,owner_id,currency FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    const {rows:[group]}=await client.query('SELECT id,name,owner_id,currency,ledger_version::bigint::text AS "ledgerVersion" FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     if(hasExpectedCurrencyMismatch(req.body,group.currency)){
       await client.query('ROLLBACK');
       return res.status(409).json({code:'GROUP_CURRENCY_CHANGED',error:'帳本幣別已變更，請重新整理後再送出'});
     }
-    const {rows:[existing]}=await client.query(`SELECT id,created_by,title,amount_cents,category,split_mode,currency_meta
+    const {rows:[existing]}=await client.query(`SELECT id,created_by,title,amount_cents,category,split_mode,currency_meta,expense_date::text AS "expenseDate"
       FROM expenses WHERE id=$1 AND group_id=$2 FOR UPDATE`,[req.params.expenseId,req.params.id]);
     if(!existing){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆支出'})}
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
-    if(existing.created_by!==req.userId&&group.owner_id!==req.userId&&!actor?.isSuperuser){await client.query('ROLLBACK');return res.status(403).json({error:'只有記帳人、群組建立者或管理者能修改'})}
+    if(existing.created_by!==req.userId&&group.owner_id!==req.userId&&!actor?.isSuperuser){await client.query('ROLLBACK');return res.status(403).json({error:'只有記帳人、帳本建立者或管理者能修改'})}
     if(await isExpenseSettlementLocked(client,req.params.id,req.params.expenseId)){await client.query('ROLLBACK');return res.status(409).json({code:'EXPENSE_SETTLEMENT_LOCKED',error:'這筆支出已有轉帳回報，不能改寫帳務歷史；請新增一筆調整或退款；只有回報本身錯誤時，才到還款紀錄撤銷回報'})}
+    if(req.body?.ledgerVersion!==undefined&&String(req.body.ledgerVersion)!==String(group.ledgerVersion)){
+      await client.query('ROLLBACK');
+      return res.status(409).json({code:'LEDGER_VERSION_CHANGED',error:'帳本已有其他異動，請重新載入後確認這筆支出再修改'});
+    }
     const {rows:memberRows}=await client.query(`SELECT gm.user_id::text id,u.is_virtual
       FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1`,[req.params.id]);
     const allowed=new Set(memberRows.filter(row=>!row.is_virtual).map(row=>row.id));
     let input;
-    try{input=await resolveExpenseLedgerInput(req.body,group,allowed,req.userId)}
+    try{input=await resolveExpenseLedgerInput(req.body,group,allowed,req.userId,{existingExpenseDate:existing.expenseDate})}
     catch(error){await client.query('ROLLBACK');return res.status(error.code==='EXPENSE_RATE_EXPIRED'?409:400).json({code:error.code,error:error.message,blockedIssues:error.issues})}
-    const {title,amountCents,payments,shares,mode,splitMeta,category,currencyMeta}=input;
+    const {title,expenseDate,amountCents,payments,shares,mode,splitMeta,category,currencyMeta}=input;
     const changedFields=[
       existing.title!==title&&'名稱',
+      existing.expenseDate!==expenseDate&&'消費日期',
       safeLedgerNumber(String(existing.amount_cents),'原支出金額')!==amountCents&&'金額',
       existing.category!==category&&'分類',
       existing.split_mode!==mode&&'分攤方式',
       '付款與分攤'
     ].filter(Boolean);
     await client.query(`UPDATE expenses SET title=$1,amount_cents=$2,payer_id=$3,category=$4,
-      split_mode=$5,split_meta=$6::jsonb,currency_meta=$7::jsonb WHERE id=$8`,
-    [title,amountCents,payments[0].userId,category,mode,JSON.stringify(splitMeta),JSON.stringify(currencyMeta),req.params.expenseId]);
+      split_mode=$5,split_meta=$6::jsonb,currency_meta=$7::jsonb,expense_date=$8::date WHERE id=$9`,
+    [title,amountCents,payments[0].userId,category,mode,JSON.stringify(splitMeta),JSON.stringify(currencyMeta),expenseDate,req.params.expenseId]);
     await client.query('DELETE FROM expense_payments WHERE expense_id=$1',[req.params.expenseId]);
     await client.query('DELETE FROM expense_shares WHERE expense_id=$1',[req.params.expenseId]);
     for(const payment of payments)await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[req.params.expenseId,payment.userId,payment.paymentCents]);
@@ -1806,6 +1820,8 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,requireExpenseUuids,
         amountCents,
         category,
         previousItemName:existing.title,
+        expenseDate,
+        previousExpenseDate:existing.expenseDate,
         previousAmountCents:safeLedgerNumber(String(existing.amount_cents),'原支出金額'),
         currency:group.currency,
         inputCurrency:currencyMeta.inputCurrency,
@@ -1822,17 +1838,17 @@ app.patch('/api/groups/:id/expenses/:expenseId',requireUser,requireExpenseUuids,
 }));
 app.delete('/api/groups/:id/expenses/:expenseId',requireUser,requireExpenseUuids,asyncRoute(async(req,res)=>{
   if(!UUID_PATTERN.test(req.params.id)||!UUID_PATTERN.test(req.params.expenseId))return res.status(400).json({error:'支出資料格式不正確'});
-  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  if(!await canReadGroup(req.params.id,req.userId))return res.status(403).json({error:'你不是這個帳本的成員'});
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
     const {rows:[group]}=await client.query('SELECT id,name,owner_id,currency FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     const {rows:[expense]}=await client.query(`SELECT id,created_by,title,amount_cents,category
       FROM expenses WHERE id=$1 AND group_id=$2 FOR UPDATE`,[req.params.expenseId,req.params.id]);
     if(!expense){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆支出'})}
     const {rows:[actor]}=await client.query('SELECT is_superuser AS "isSuperuser" FROM users WHERE id=$1',[req.userId]);
-    if(expense.created_by!==req.userId&&group.owner_id!==req.userId&&!actor?.isSuperuser){await client.query('ROLLBACK');return res.status(403).json({error:'只有記帳人、群組建立者或管理者能刪除'})}
+    if(expense.created_by!==req.userId&&group.owner_id!==req.userId&&!actor?.isSuperuser){await client.query('ROLLBACK');return res.status(403).json({error:'只有記帳人、帳本建立者或管理者能刪除'})}
     if(await isExpenseSettlementLocked(client,req.params.id,req.params.expenseId)){await client.query('ROLLBACK');return res.status(409).json({code:'EXPENSE_SETTLEMENT_LOCKED',error:'這筆支出已有轉帳回報，不能刪除帳務歷史；請新增一筆調整或退款；只有回報本身錯誤時，才到還款紀錄撤銷回報'})}
     await client.query('DELETE FROM expenses WHERE id=$1',[req.params.expenseId]);
     await writeAudit(client,req,{
@@ -1920,11 +1936,11 @@ app.patch('/api/groups/:id/settlements/:settlementId/void',requireUser,requireSe
   try{
     await client.query('BEGIN');
     const {rows:[group]}=await client.query('SELECT id,name,owner_id,currency FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     const {rows:[access]}=await client.query(`SELECT
       EXISTS(SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2) AS "isMember",
       EXISTS(SELECT 1 FROM users WHERE id=$2 AND is_superuser=true) AS "isSuperuser"`,[req.params.id,req.userId]);
-    if(!access?.isMember&&!access?.isSuperuser){await client.query('ROLLBACK');return res.status(403).json({error:'你不是這個群組的成員'})}
+    if(!access?.isMember&&!access?.isSuperuser){await client.query('ROLLBACK');return res.status(403).json({error:'你不是這個帳本的成員'})}
     const {rows:[settlement]}=await client.query(`SELECT sp.id,sp.amount_cents::bigint::text AS "amountCents",sp.created_by AS "createdBy",
       sp.from_user_id AS "fromUserId",sp.voided_at AS "voidedAt",
       fu.display_name AS "fromName",tu.display_name AS "toName"
@@ -1936,7 +1952,7 @@ app.patch('/api/groups/:id/settlements/:settlementId/void',requireUser,requireSe
     if(!settlement){await client.query('ROLLBACK');return res.status(404).json({error:'找不到這筆轉帳回報'})}
     if(settlement.voidedAt){await client.query('ROLLBACK');return res.status(409).json({error:'這筆轉帳回報已撤銷，請重新整理帳本'})}
     const canVoid=access.isSuperuser||String(group.owner_id)===String(req.userId)||String(settlement.createdBy)===String(req.userId)||String(settlement.fromUserId)===String(req.userId);
-    if(!canVoid){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人、原回報人、群組建立者或管理者能撤銷回報'})}
+    if(!canVoid){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人、原回報人、帳本建立者或管理者能撤銷回報'})}
     const {rows:[voided]}=await client.query(`UPDATE settlement_payments
       SET voided_at=now(),voided_by=$1
       WHERE id=$2 AND voided_at IS NULL
@@ -1961,7 +1977,7 @@ app.patch('/api/groups/:id/settlements/:settlementId/void',requireUser,requireSe
   }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
 }));
 app.post('/api/groups/:id/settlements',requireUser,requireGroupUuid,asyncRoute(async(req,res)=>{
-  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個帳本的成員'});
   const requestedFrom=String(req.body?.fromUserId||req.userId);
   const toUserId=String(req.body?.toUserId||'');
   if(!UUID_PATTERN.test(requestedFrom)||!UUID_PATTERN.test(toUserId)||toUserId===requestedFrom)return res.status(400).json({error:'轉帳資料不正確'});
@@ -1969,7 +1985,7 @@ app.post('/api/groups/:id/settlements',requireUser,requireGroupUuid,asyncRoute(a
   try{
     await client.query('BEGIN');
     const group=await ensureSettlementPlan(client,req.params.id);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     if(hasExpectedCurrencyMismatch(req.body,group.currency)){
       await client.query('ROLLBACK');
       return res.status(409).json({code:'GROUP_CURRENCY_CHANGED',error:'帳本幣別已變更，請重新整理後再送出'});
@@ -1987,7 +2003,7 @@ app.post('/api/groups/:id/settlements',requireUser,requireGroupUuid,asyncRoute(a
     if(!planItem){await client.query('ROLLBACK');return res.status(400).json({error:'這筆轉帳已完成或結算方案已更新，請重新整理'})}
     const isGroupOwner=String(group.owner_id)===String(req.userId);
     const isAssisted=String(requestedFrom)!==String(req.userId);
-    if(isAssisted&&!isGroupOwner){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人本人或群組建立者能回報轉帳'})}
+    if(isAssisted&&!isGroupOwner){await client.query('ROLLBACK');return res.status(403).json({error:'只有付款人本人或帳本建立者能回報轉帳'})}
     const {rows:[report]}=await client.query(`INSERT INTO settlement_payments(
       group_id,from_user_id,to_user_id,amount_cents,reported_currency,reported_amount_cents,created_by
     ) VALUES($1,$2,$3,$4,$5,$4,$6) RETURNING id,created_at AS "reportedAt"`,
@@ -2015,16 +2031,17 @@ app.post('/api/groups/:id/settlements',requireUser,requireGroupUuid,asyncRoute(a
   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.post('/api/groups/:id/expenses-v1',requireUser,requireGroupUuid,asyncRoute(async(req,res)=>{
+  if(hasExpectedExpenseActorMismatch(req.body,req.userId))return res.status(409).json({code:'ACCOUNT_CHANGED',error:'登入帳號已切換，請切回原帳號後確認儲存結果'});
   const idempotency=readIdempotencyRequest(req,'create_expense_v1');
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
     const {rows:[group]}=await client.query('SELECT id,name,currency FROM groups WHERE id=$1 FOR UPDATE',[req.params.id]);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     const {rows:memberRows}=await client.query(`SELECT gm.user_id::text id,u.is_virtual,
       (gm.user_id=$2) AS "isCurrentUser"
       FROM group_members gm JOIN users u ON u.id=gm.user_id WHERE gm.group_id=$1`,[req.params.id,req.userId]);
-    if(!memberRows.some(row=>row.isCurrentUser)){await client.query('ROLLBACK');return res.status(403).json({error:'你不是這個群組的成員'})}
+    if(!memberRows.some(row=>row.isCurrentUser)){await client.query('ROLLBACK');return res.status(403).json({error:'你不是這個帳本的成員'})}
     if(idempotency){
       const existing=await findExpenseIdempotency(client,group.id,req.userId,idempotency);
       if(existing){
@@ -2048,10 +2065,10 @@ app.post('/api/groups/:id/expenses-v1',requireUser,requireGroupUuid,asyncRoute(a
     let input;
     try{input=resolveExpenseInput(legacyBody,group.currency,allowed)}
     catch(error){await client.query('ROLLBACK');return res.status(400).json({error:error.message})}
-    const {title,amountCents,payments,shares,mode,splitMeta,category}=input;
-    const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING id`,
-    [req.params.id,title,amountCents,payments[0].userId,req.userId,category,mode,JSON.stringify(splitMeta)]);
+    const {title,expenseDate,amountCents,payments,shares,mode,splitMeta,category}=input;
+    const {rows}=await client.query(`INSERT INTO expenses(group_id,title,amount_cents,payer_id,created_by,category,split_mode,split_meta,expense_date)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::date) RETURNING id`,
+    [req.params.id,title,amountCents,payments[0].userId,req.userId,category,mode,JSON.stringify(splitMeta),expenseDate]);
     await client.query('INSERT INTO expense_payments(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,payments[0].userId,amountCents]);
     for(const share of shares)await client.query('INSERT INTO expense_shares(expense_id,user_id,amount_cents) VALUES($1,$2,$3)',[rows[0].id,share.userId,share.shareCents]);
     await assertGroupExpenseTotalSafe(client,group.id);
@@ -2060,7 +2077,7 @@ app.post('/api/groups/:id/expenses-v1',requireUser,requireGroupUuid,asyncRoute(a
       action:'create_expense',
       targetType:'expense',
       targetId:rows[0].id,
-      metadata:{groupId:group.id,groupName:group.name,itemType:'支出',itemName:title,amountCents,category,currency:group.currency}
+      metadata:{groupId:group.id,groupName:group.name,itemType:'支出',itemName:title,expenseDate,amountCents,category,currency:group.currency}
     });
     await invalidateSettlementPlan(client,req.params.id);
     await client.query('COMMIT');
@@ -2069,14 +2086,14 @@ app.post('/api/groups/:id/expenses-v1',requireUser,requireGroupUuid,asyncRoute(a
   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }));
 app.post('/api/groups/:id/settlements-v1',requireUser,requireGroupUuid,asyncRoute(async(req,res)=>{
-  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個群組的成員'});
+  if(!await assertMember(req.params.id,req.userId))return res.status(403).json({error:'你不是這個帳本的成員'});
   const toUserId=String(req.body?.toUserId||'');
   if(!UUID_PATTERN.test(toUserId)||toUserId===req.userId)return res.status(400).json({error:'轉帳資料不正確'});
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
     const group=await ensureSettlementPlan(client,req.params.id);
-    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到群組'})}
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({error:'找不到帳本'})}
     if(hasExpectedCurrencyMismatch(req.body,group.currency)){
       await client.query('ROLLBACK');
       return res.status(409).json({code:'GROUP_CURRENCY_CHANGED',error:'帳本幣別已變更，請重新整理後再送出'});

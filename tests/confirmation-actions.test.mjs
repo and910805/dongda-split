@@ -17,11 +17,11 @@ test('刪除支出確認會顯示項目名稱與不可復原影響',()=>{
   assert.equal(confirmation.tone,'danger');
 });
 
-test('刪除群組確認會說明支出、分攤與結算都會刪除',()=>{
+test('刪除帳本確認會說明支出、分攤與結算都會刪除',()=>{
   const confirmation=groupDeletionConfirmation('日本五日遊');
-  assert.equal(confirmation.title,'刪除群組「日本五日遊」？');
+  assert.equal(confirmation.title,'刪除帳本「日本五日遊」？');
   assert.match(confirmation.description,/支出、分攤與結算/);
-  assert.equal(confirmation.confirmLabel,'刪除群組');
+  assert.equal(confirmation.confirmLabel,'刪除帳本');
 });
 
 test('移除帳戶確認會說明付款人將失去轉帳資訊',()=>{
@@ -37,7 +37,7 @@ test('撤銷轉帳回報會說明只重算帳本、不會取消實際轉帳',()=
     to:{displayName:'本機小羅'}
   });
   assert.equal(confirmation.title,'撤銷「Andy → 本機小羅」的轉帳回報？');
-  assert.match(confirmation.description,/重新計算群組結餘/);
+  assert.match(confirmation.description,/重新計算帳本結餘/);
   assert.match(confirmation.description,/不會取消銀行/);
   assert.equal(confirmation.confirmLabel,'撤銷回報');
   assert.equal(confirmation.tone,'danger');

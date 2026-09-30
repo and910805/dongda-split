@@ -44,13 +44,13 @@ export function presentAuditItem(item){
 
   switch(action){
     case 'create_group':
-      summary=`${actorName} 建立群組${itemName?quoted(itemName):''}`;
+      summary=`${actorName} 建立帳本${itemName?quoted(itemName):''}`;
       break;
     case 'join_group':
-      summary=`${actorName} 加入群組${groupName?quoted(groupName):''}`;
+      summary=`${actorName} 加入帳本${groupName?quoted(groupName):''}`;
       break;
     case 'delete_group':
-      summary=`${actorName} 刪除群組${itemName?quoted(itemName):''}`;
+      summary=`${actorName} 刪除帳本${itemName?quoted(itemName):''}`;
       break;
     case 'create_expense':
       summary=`${actorName}${groupName?` 在${quoted(groupName)}`:''}新增支出${itemName?quoted(itemName):''}`;
@@ -68,7 +68,7 @@ export function presentAuditItem(item){
       summary=`${actorName}${groupName?` 在${quoted(groupName)}`:''}撤銷轉帳回報${itemName?quoted(itemName):''}`;
       break;
     case 'convert_group_currency':
-      summary=`${actorName}${groupName?` 將${quoted(groupName)}`:' 將群組'}幣別由 ${safeText(metadata.fromCurrency,'—')} 變更為 ${safeText(metadata.toCurrency,'—')}`;
+      summary=`${actorName}${groupName?` 將${quoted(groupName)}`:' 將帳本'}幣別由 ${safeText(metadata.fromCurrency,'—')} 變更為 ${safeText(metadata.toCurrency,'—')}`;
       break;
     case 'sync_exchange_rates':
       summary=`${actorName} 手動同步每日匯率`;

@@ -7,6 +7,7 @@ import './dashboard.css';
 import './operation.css';
 import './admin.css';
 import './mobile-refinement.css';
+import './ledger-usability.css';
 import ProductApp from './ProductApp.jsx';
 import {BrandLogo as Brand} from './BrandLogo.jsx';
 
@@ -64,7 +65,7 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
   <main>
     <section className={`hero ${heroReady?'hero-ready':'hero-loading'}`}>
       <div className="hero-stage">
-      <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>和旅伴一起，把每筆帳記清楚<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
+      <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立帳本 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>和旅伴一起，把每筆帳記清楚<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
       <div className="hero-visual" role="img" aria-label="旅帳 TripTab 的日本行程 iPhone 分帳畫面預覽">
         <HeroAirplane/>
         <div className="ticket"><span>TOKYO · FUJI</span><b>東京富士五日遊</b><small>3 位旅伴 · JPY</small><i aria-hidden="true"></i></div>
@@ -134,7 +135,7 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
         </header>
         <ol className="workflow-list">
           {[
-            ['01','使用 LINE 登入','確認身分後建立旅程','約 30 秒'],
+            ['01','使用 LINE 登入','確認身分後建立帳本','約 30 秒'],
             ['02','分享給旅伴','傳送邀請連結，開啟後即可加入','免下載'],
             ['03','邊花邊記','每個人都能新增支出與查看明細','即時同步'],
             ['04','查看結算','自動整理每個人的應收應付','簡化轉帳'],
@@ -159,20 +160,20 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
       <header className="section-intro">
         <span className="section-kicker">04 / 常見問題</span>
         <h2>開始前<br/>先把問題說清楚</h2>
-        <p>如果還有其他問題，可以先建立測試旅程，所有功能都能直接體驗</p>
+        <p>如果還有其他問題，可以先建立測試帳本，所有功能都能直接體驗</p>
       </header>
       <div className="faq-list">
-        <details><summary>需要下載 App 嗎？</summary><p>不用，開啟邀請連結即可加入旅程，手機與電腦都能使用</p></details>
+        <details><summary>需要下載 App 嗎？</summary><p>不用，開啟邀請連結即可加入帳本，手機與電腦都能使用</p></details>
         <details><summary>為什麼需要使用 LINE 登入？</summary><p>旅帳使用 LINE 的基本個人資料確認旅伴身分，讓邀請與每筆支出能對應到正確成員；不會讀取聊天內容，也不需要加入官方帳號</p></details>
         <details><summary>每一筆支出都只能平均分嗎？</summary><p>不是，可以平均分攤，也能依實際情況自訂每個人的金額或份數</p></details>
         <details><summary>旅帳會自動計算誰該付誰嗎？</summary><p>會，旅帳會依每個人的支出與分攤結果計算餘額，並簡化需要轉帳的次數</p></details>
-        <details><summary>建立旅程需要信用卡嗎？</summary><p>不需要信用卡，建立旅程後就能直接邀請旅伴開始記帳</p></details>
+        <details><summary>建立帳本需要信用卡嗎？</summary><p>不需要信用卡，建立帳本後就能直接邀請旅伴開始記帳</p></details>
       </div>
     </section>
 
     <section className="closing-cta">
       <div><span className="section-kicker">準備出發</span><h2>回憶留在旅程<br/>帳目交給旅帳</h2></div>
-      <div className="closing-actions"><button className="primary" onClick={enter}>免費建立旅程 <ArrowRight/></button><span>使用 LINE 快速登入 · 免下載 App</span></div>
+      <div className="closing-actions"><button className="primary" onClick={enter}>免費建立帳本 <ArrowRight/></button><span>使用 LINE 快速登入 · 免下載 App</span></div>
     </section>
   </main>
   <footer><Brand light/><p>一起出發，清楚結算</p><div className="footer-links"><a href="#features">功能</a><a href="#how">使用方式</a><a href="#faq">常見問題</a></div><span>© 2026 旅帳 TripTab</span></footer>

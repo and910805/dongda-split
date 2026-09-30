@@ -1,3 +1,5 @@
+import {expenseCalendarDate} from '../expense-date.mjs';
+
 export const DEFAULT_EXPENSE_SORT={key:'date',direction:'desc'};
 
 const numericValue=value=>{
@@ -17,8 +19,8 @@ export const filterExpenses=(expenses,query)=>{
 };
 
 const expenseDateValue=expense=>{
-  const timestamp=Date.parse(expense?.createdAt);
-  return Number.isFinite(timestamp)?timestamp:null;
+  const date=expenseCalendarDate(expense);
+  return date===null?null:Number(date.replaceAll('-',''));
 };
 
 export const expenseParticipantAmount=(expense,participantId)=>{

@@ -29,7 +29,7 @@ test('產生可供 LINE 分享的制式轉帳通知',()=>{
   assert.equal(notice.amountLabel,'NT$ 12,600');
   assert.match(notice.timeLabel,/^2026\/07\/27 14:05$/);
   assert.match(notice.text,/【旅帳 TripTab｜轉帳紀錄】/);
-  assert.match(notice.text,/旅程：東京五日旅行/);
+  assert.match(notice.text,/帳本：東京五日旅行/);
   assert.match(notice.text,/付款人：小明/);
   assert.match(notice.text,/收款人：小美/);
   assert.match(notice.text,/轉帳金額：NT\$ 12,600/);
@@ -96,7 +96,7 @@ test('名稱中的換行不會破壞制式通知欄位',()=>{
     from:{displayName:'小明\n付款人'},
     to:{displayName:'小美\r\n收款人'}
   });
-  assert.match(text,/旅程：東京 五日旅行/);
+  assert.match(text,/帳本：東京 五日旅行/);
   assert.match(text,/付款人：小明 付款人/);
   assert.match(text,/收款人：小美 收款人/);
 });
