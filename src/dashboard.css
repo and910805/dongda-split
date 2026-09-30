@@ -1384,6 +1384,7 @@
 }
 
 .expense-form-section {
+  min-width: 0;
   padding-top: 21px;
   margin-top: 21px;
 }
@@ -1560,13 +1561,61 @@
   margin: 0;
 }
 
+.expense-form .avatar {
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  height: 32px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.expense-form .expense-member-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-form .amount-rows > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 32px minmax(0, 1fr) 132px;
+  gap: 10px;
+  padding: 9px 10px;
+}
+
+.expense-form .amount-rows label {
+  min-width: 0;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.expense-form .amount-rows input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
 .advanced-participants {
   display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
+}
+
+.advanced-participants.with-values {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .advanced-participants > div {
   display: grid;
+  min-width: 0;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: center;
@@ -1576,8 +1625,8 @@
   background: var(--surface);
 }
 
-.advanced-participants.with-values > div {
-  grid-template-columns: minmax(0, 1fr) 130px;
+.advanced-participants.with-values > div.selected {
+  grid-template-columns: minmax(0, 1fr) 156px;
 }
 
 .advanced-participants > div.selected {
@@ -1612,16 +1661,21 @@
 
 .advanced-participants > div > label {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 7px;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
   align-items: center;
+  margin: 0;
   font-size: 11px;
 }
 
 .advanced-participants > div > label input {
-  min-height: 36px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
   margin: 0;
   padding: 7px 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 .share-summary {
@@ -2127,10 +2181,6 @@
     overflow: visible;
   }
 
-  .advanced-participants.with-values > div {
-    grid-template-columns: minmax(0, 1fr) 112px;
-  }
-
   .sticky-actions {
     bottom: -16px;
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
@@ -2166,6 +2216,22 @@
   .expense-rate-heading button {
     justify-self: start;
   }
+
+  .advanced-participants,
+  .advanced-participants.with-values > div.selected {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .advanced-participants > div > label {
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .expense-form .amount-rows > div {
+    grid-template-columns: 32px minmax(0, 1fr) 120px;
+    gap: 8px;
+    padding: 8px;
+  }
 }
 
 @media (max-width: 420px) {
@@ -2185,14 +2251,6 @@
 
   .form-two {
     grid-template-columns: 1fr;
-  }
-
-  .advanced-participants.with-values > div {
-    grid-template-columns: 1fr;
-  }
-
-  .advanced-participants > div > label {
-    grid-template-columns: 72px 1fr;
   }
 
   .expense-modal-head {
