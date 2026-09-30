@@ -1,254 +1,234 @@
-/* Scoped to expense entry: dashboard, settlement and other dialogs stay unchanged. */
+/* A_desktop + B_guided_steps. Everything is scoped to the expense dialog. */
 .overlay.expense-entry-overlay {
-  display: flex;
-  padding: 24px;
-  align-items: center;
-  justify-content: center;
-  background: #16332985;
-  backdrop-filter: blur(3px);
+  box-sizing: border-box; position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: #2442342b; backdrop-filter: blur(2px);
 }
 .overlay .modal.real-modal.advanced-modal.expense-entry-dialog {
-  --entry-ink: #233f34;
-  --entry-muted: #586b60;
-  --entry-accent: #246b4b;
-  --entry-border: #dce2d8;
-  width: min(1040px, 100%);
-  max-width: 1040px;
-  height: min(840px, calc(min(var(--entry-viewport-height, 100dvh), 100dvh) - 48px));
-  max-height: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  scrollbar-gutter: auto;
-  border: 1px solid #e1e4da;
-  border-radius: 24px;
-  background: #faf9f4;
-  color: var(--entry-ink);
-  box-shadow: 0 24px 90px #10291e30;
+  box-sizing: border-box;
+  --entry-ink: #234238; --entry-muted: #6b7b63; --entry-accent: #254f3e;
+  --entry-border: #d9e1cf; --entry-paper: #fffefa; --entry-soft: #f3f5eb;
+  width: min(1040px, 100%); max-width: 1040px; height: auto;
+  max-height: calc(min(var(--entry-viewport-height, 100dvh), 100dvh) - 48px);
+  display: flex; flex-direction: column; margin: 0; padding: 0;
+  overflow: hidden; border: 1px solid var(--entry-border); border-radius: 18px;
+  background: var(--entry-paper); color: var(--entry-ink);
+  box-shadow: 0 24px 70px #233f3424; scrollbar-gutter: auto;
   font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  font-size: 14px; line-height: 1.5;
 }
-.expense-entry-dialog [hidden] { display: none !important; }
 .expense-entry-dialog *, .expense-entry-dialog *::before, .expense-entry-dialog *::after { box-sizing: border-box; }
+.expense-entry-dialog [hidden] { display: none !important; }
+.expense-entry-dialog :is(h2,h3,p) { margin: 0; }
+.expense-entry-dialog :is(button,input,select) { font: inherit; }
+.expense-entry-dialog :is(button,summary,select) { cursor: pointer; }
+.expense-entry-dialog :is(button,input,select,summary):focus-visible { outline: 3px solid #b5852c; outline-offset: 3px; }
+.expense-entry-dialog :is(button,input,select):disabled { cursor: default; opacity: .6; }
+.expense-entry-dialog svg { flex-shrink: 0; width: 18px; height: 18px; }
+.expense-entry-dialog :is(strong,input) { font-variant-numeric: tabular-nums; }
+.expense-entry-dialog .entry-person-name { min-width: 0; overflow-wrap: anywhere; }
 .overlay .expense-entry-dialog .expense-modal-head {
-  flex: none;
-  padding: 21px 28px 18px;
-  margin: 0;
-  border-bottom: 1px solid var(--entry-border);
-  background: #faf9f4;
+  display: flex; align-items: center; flex: none; gap: 8px;
+  margin: 0; padding: 24px 26px 20px; border-bottom: 1px solid var(--entry-border);
+  background: var(--entry-paper);
 }
-.overlay .expense-entry-dialog .expense-modal-eyebrow { display: none; }
-.overlay .expense-entry-dialog .expense-modal-head h2 { margin: 0; font-size: 23px; line-height: 1.35; letter-spacing: .01em; }
-.overlay .expense-entry-dialog .expense-ledger-context { margin: 6px 0 0; color: var(--entry-muted); font-size: 13px; }
-.overlay .expense-entry-dialog .modal-x { position: static; flex: 0 0 44px; width: 44px; height: 44px; margin: 0; border-radius: 12px; color: var(--entry-ink); }
-.overlay .expense-entry-dialog .entry-form { display: flex; flex-direction: column; flex: 1; min-height: 0; margin: 0; padding: 0; gap: 0; }
-.expense-entry-dialog .entry-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 24px 28px; scroll-padding: 20px; }
-.expense-entry-dialog .expense-inputs { border: 0; padding: 0; margin: 0; min-width: 0; }
-.expense-entry-dialog .entry-grid { display: grid; grid-template-columns: minmax(0, 1fr) 342px; gap: 28px; align-items: start; }
-.expense-entry-dialog .entry-fields, .expense-entry-dialog .entry-fields > section { min-width: 0; }
-.expense-entry-dialog .expense-form-section { min-width: 0; margin: 0; padding: 0; border: 0; }
-.overlay .expense-entry-dialog .expense-form-section:not(.expense-basics) { margin: 22px 0 0; padding: 20px 0 0; border-top: 1px solid var(--entry-border); }
-.expense-entry-dialog .expense-form-section legend { margin: 0 0 12px; padding: 0; float: none; width: 100%; }
-.expense-entry-dialog .expense-section-title { display: flex; align-items: center; gap: 9px; }
-.expense-entry-dialog .expense-section-title b { font-size: 15px; font-weight: 700; }
-.expense-entry-dialog .expense-section-number { width: 24px; height: 24px; font-size: 12px; background: #e8eee4; color: #346144; }
-.overlay .expense-entry-dialog label { color: var(--entry-muted); font-size: 13px; line-height: 1.6; }
-.overlay .expense-entry-dialog input, .overlay .expense-entry-dialog select {
-  min-width: 0; width: 100%; max-width: 100%; min-height: 44px;
-  padding: 10px 12px; border: 1px solid #cbd6c9; border-radius: 11px;
-  background: #fffefa; color: var(--entry-ink); font-size: 16px;
+.expense-entry-dialog .expense-modal-heading { min-width: 0; flex: 1; }
+.overlay .expense-entry-dialog .expense-modal-head h2 { font-size: 24px; font-weight: 750; line-height: 1.35; letter-spacing: 0; }
+.overlay .expense-entry-dialog .expense-ledger-context { margin: 5px 0 0; font-size: 12px; color: var(--entry-muted); overflow-wrap: anywhere; }
+.expense-entry-dialog .expense-ledger-context strong { font-weight: 500; }
+.overlay .expense-entry-dialog .entry-icon-button {
+  display: grid; place-items: center; position: static;
+  flex: 0 0 40px; width: 40px; height: 40px; min-height: 40px; margin: 0; padding: 0;
+  border: 0; border-radius: 8px; box-shadow: none; background: transparent; color: var(--entry-muted);
 }
-.expense-entry-dialog input, .expense-entry-dialog strong { font-variant-numeric: tabular-nums; }
-.overlay .expense-entry-dialog input[aria-invalid="true"] { border-color: #ac3528; box-shadow: 0 0 0 1px #ac3528; }
-.expense-entry-dialog :is(button, input, select, summary):focus-visible { outline: 3px solid #8cab6a; outline-offset: 3px; }
-.expense-entry-dialog .entry-amount { display: block; padding: 15px 17px 10px; background: #eeefe4; border: 1px solid #dbe0d0; border-radius: 16px; }
-/* Override the legacy 16px !important rule only for the amount display. */
-.overlay .expense-entry-dialog .entry-amount input {
-  height: 60px; min-height: 60px; padding: 0; margin-top: 2px; border: 0; border-radius: 5px;
-  background: transparent; color: var(--entry-ink); font-size: 42px !important; font-weight: 720; line-height: 1.2; letter-spacing: -.025em;
+.overlay .expense-entry-dialog .entry-icon-button:hover { background: var(--entry-soft); }
+.overlay .expense-entry-dialog .entry-form { display: flex; flex: 0 1 auto; flex-direction: column; min-height: 0; margin: 0; padding: 0; gap: 0; }
+.expense-entry-dialog .entry-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 24px 26px 18px; scroll-padding: 16px; }
+.expense-entry-dialog .expense-inputs { min-width: 0; margin: 0; padding: 0; border: 0; }
+.expense-entry-dialog .entry-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.08fr); gap: 28px; align-items: start; }
+.expense-entry-dialog .entry-fields { min-width: 0; }
+.expense-entry-dialog .entry-split { min-width: 0; min-height: 360px; padding-left: 28px; border-left: 1px solid var(--entry-border); }
+/* Large amount + discreet currency selector; raw numeric text remains in state. */
+.expense-entry-dialog .entry-amount { padding: 10px 14px 12px; border: 1px solid var(--entry-border); border-radius: 12px; background: #fbfcf6; }
+.expense-entry-dialog .entry-amount[data-invalid="true"] { border-color: #ad4336; }
+.expense-entry-dialog .entry-amount-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; }
+.overlay .expense-entry-dialog .entry-amount-heading > label { display: block; margin: 0; color: var(--entry-muted); font-size: 12px; font-weight: 400; }
+.expense-entry-dialog .entry-amount-value { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.expense-entry-dialog .entry-amount-value > span { color: var(--entry-muted); font-size: 19px; }
+.overlay .expense-entry-dialog .entry-amount-value input {
+  width: 100%; min-width: 0; height: 60px; min-height: 0; margin: 0; padding: 0;
+  border: 0; border-radius: 4px; background: transparent; color: var(--entry-ink);
+  font-size: 42px !important; font-weight: 750; line-height: 1.25; letter-spacing: -.035em; box-shadow: none;
 }
-.expense-entry-dialog .entry-amount input::-webkit-inner-spin-button { -webkit-appearance: none; }
-.expense-entry-dialog .expense-title-field { display: grid; gap: 5px; margin-top: 14px; }
-.expense-entry-dialog .expense-title-field .required-mark { display: none; }
-.overlay .expense-entry-dialog .expense-basic-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 14px; }
-.expense-entry-dialog .expense-basic-grid .expense-date-field { grid-column: auto; }
-.expense-entry-dialog .expense-basic-grid label { display: grid; gap: 5px; align-content: start; }
-.expense-entry-dialog .expense-extra-settings { margin-top: 14px; padding: 0 12px 12px; border: 1px solid var(--entry-border); background: #f6f5ee; }
-.expense-entry-dialog .expense-extra-settings:not([open]) { padding-bottom: 0; }
-.expense-entry-dialog .expense-extra-settings > summary { min-height: 44px; padding: 10px 0; font-size: 13px; color: var(--entry-muted); }
-.expense-entry-dialog .expense-disclosure { min-height: 44px; margin-top: 10px; padding: 10px 12px; border-color: var(--entry-border); color: var(--entry-ink); background: #fffefa; font-size: 13px; }
-.expense-entry-dialog .expense-disclosure[aria-expanded="true"] { background: #edf2e9; }
-.expense-entry-dialog .expense-disclosure svg { width: 17px; height: 17px; }
-.expense-entry-dialog .expense-disclosure[aria-expanded="true"] svg { transform: rotate(90deg); }
-.expense-entry-dialog .participant-heading { margin: 0; display: flex; justify-content: space-between; gap: 12px; }
-.expense-entry-dialog .participant-heading > b { font-size: 13px; color: var(--entry-muted); font-weight: 500; }
-.expense-entry-dialog .expense-participant-tools { display: grid; grid-template-columns: 1fr 1fr 1.15fr; gap: 8px; margin: 10px 0 8px; }
-.expense-entry-dialog .expense-participant-tools button { display: flex; justify-content: center; align-items: center; gap: 3px; min-width: 0; min-height: 44px; padding: 8px 6px; color: var(--entry-ink); border-color: #cbd6c9; background: #fffefa; font-size: 13px; white-space: normal; }
-.expense-entry-dialog .expense-participant-tools svg { width: 15px; height: 15px; }
-.expense-entry-dialog .expense-participant-tools button[aria-pressed="true"] { color: #25553a; background: #e8efdf; border-color: #8ca87d; box-shadow: inset 0 0 0 1px #8ca87d; }
-.expense-entry-dialog .expense-participant-selection { margin: 8px 0; color: var(--entry-muted); }
-.expense-entry-dialog .entry-selected-names { margin: 4px 0 10px; font-size: 13px; color: var(--entry-muted); overflow-wrap: anywhere; }
-.expense-entry-dialog .split-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
-.expense-entry-dialog .split-tabs button { min-height: 44px; padding: 8px; font-size: 13px; }
-.expense-entry-dialog .advanced-participants { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.expense-entry-dialog .advanced-participants.with-values { grid-template-columns: 1fr; }
-.expense-entry-dialog .advanced-participants > div { min-width: 0; background: #fffefa; border-color: var(--entry-border); }
-.expense-entry-dialog .advanced-participants > div.selected { background: #ecf2e7; border-color: #91aa83; }
-.expense-entry-dialog .advanced-participants > div > button { min-height: 48px; padding: 9px; min-width: 0; }
-.expense-entry-dialog .expense-member-name { white-space: normal; overflow-wrap: anywhere; font-size: 14px; }
-.expense-entry-dialog .advanced-participants.with-values > div { display: flex; align-items: center; flex-wrap: wrap; }
-.expense-entry-dialog .advanced-participants.with-values > div > button { flex: 1 1 150px; }
-.expense-entry-dialog .advanced-participants > div > label { flex: 1 1 135px; min-width: 0; padding: 8px 10px; }
-.expense-entry-dialog .advanced-participants > div > label input { width: 100%; min-height: 44px; }
-.expense-entry-dialog .amount-rows > div { grid-template-columns: 32px minmax(0, 1fr) minmax(100px, 140px); }
-.expense-entry-dialog .amount-rows label { min-width: 0; }
-.expense-entry-dialog .amount-rows input { min-width: 0; width: 100%; }
-.expense-entry-dialog .share-summary { display: flex; flex-wrap: wrap; gap: 8px; }
-.expense-entry-dialog .share-summary b { overflow-wrap: anywhere; }
-.expense-entry-dialog .entry-preview { min-width: 0; position: sticky; top: 0; }
-.expense-entry-dialog .entry-preview-card { border: 1px solid #d9e0cf; border-radius: 18px; padding: 22px; background: #f2f4e9; }
-.expense-entry-dialog .entry-preview-heading, .expense-entry-dialog .entry-preview-heading > span:first-child { display: flex; align-items: center; gap: 8px; }
-.expense-entry-dialog .entry-preview-heading { justify-content: space-between; font-size: 14px; font-weight: 700; }
-.expense-entry-dialog .entry-preview-heading svg { width: 18px; height: 18px; }
-.expense-entry-dialog .entry-preview-badge { padding: 4px 8px; border-radius: 6px; border: 1px solid #cdd8bf; color: #586650; font-size: 11px; font-weight: 500; white-space: nowrap; }
-.expense-entry-dialog .entry-preview-total { padding: 22px 0 18px; border-bottom: 1px solid #d7decc; }
-.expense-entry-dialog .entry-preview-total > div { display: flex; align-items: start; gap: 10px; justify-content: space-between; }
-.expense-entry-dialog .entry-preview-total h3 { margin: 0; min-width: 0; font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; }
-.expense-entry-dialog .entry-preview-total > strong { display: block; margin: 7px 0 5px; font-size: 32px; line-height: 1.35; letter-spacing: -.03em; overflow-wrap: anywhere; }
-.expense-entry-dialog .entry-preview-total p { margin: 5px 0 0; font-size: 12px; color: var(--entry-muted); }
-.expense-entry-dialog .entry-preview-total p.entry-converted { color: #31673e; }
-.expense-entry-dialog .entry-preview-payment { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 10px; padding: 16px 0; border-bottom: 1px solid #d7decc; font-size: 13px; }
-.expense-entry-dialog .entry-preview-payment > span { color: var(--entry-muted); }
-.expense-entry-dialog .entry-preview-payment p { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; margin: 0 0 4px; }
-.expense-entry-dialog .entry-preview-payment b { overflow-wrap: anywhere; min-width: 0; }
-.expense-entry-dialog .entry-preview-payment p > span { font-variant-numeric: tabular-nums; }
-.expense-entry-dialog .entry-preview-members-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 17px 0 10px; font-size: 13px; }
-.expense-entry-dialog .entry-preview-members { list-style: none; max-height: 264px; overflow: auto; padding: 0; margin: 0; scrollbar-width: thin; }
-.expense-entry-dialog .entry-preview-members li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 9px 0; font-size: 14px; }
-.expense-entry-dialog .entry-person-initial { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e8d4; color: #47633c; font-size: 12px; font-weight: 600; }
-.expense-entry-dialog .entry-person-name { overflow-wrap: anywhere; }
-.expense-entry-dialog .entry-preview-members strong { font-size: 14px; text-align: right; }
-.expense-entry-dialog .entry-preview-sum { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 0; border-top: 1px solid #d7decc; margin-top: 8px; font-size: 14px; }
-.expense-entry-dialog .entry-preview-empty { padding: 14px 0; color: var(--entry-muted); font-size: 14px; line-height: 1.75; }
-.expense-entry-dialog .entry-personal-result { display: grid; gap: 5px; padding: 14px; border-radius: 10px; background: #e4ecd9; color: #345332; font-size: 13px; }
-.expense-entry-dialog .entry-personal-result > strong { font-size: 18px; overflow-wrap: anywhere; }
-.expense-entry-dialog .entry-preview-note { color: var(--entry-muted); font-size: 12px; line-height: 1.65; margin: 12px 0 0; }
-.expense-entry-dialog .entry-preview-footnote { display: flex; align-items: start; gap: 5px; color: var(--entry-muted); font-size: 11px; line-height: 1.7; margin: 18px 0 0; }
-.expense-entry-dialog .entry-preview-footnote svg { width: 15px; height: 15px; flex: 0 0 15px; margin-top: 2px; }
-.expense-entry-dialog .entry-edit { display: none; }
-.overlay .expense-entry-dialog .entry-actions {
-  flex: none; position: relative; z-index: 2; display: flex; flex-wrap: nowrap;
-  align-items: center; justify-content: space-between; gap: 18px;
-  margin: 0; padding: 16px 28px; border-top: 1px solid var(--entry-border); background: #faf9f4;
-  box-shadow: 0 -4px 16px #233b2710;
-}
-.expense-entry-dialog .expense-save-summary { display: grid; gap: 3px; min-width: 0; }
-.overlay .expense-entry-dialog .expense-save-summary small { font-size: 12px; color: var(--entry-muted); }
-.expense-entry-dialog .expense-save-summary strong { font-size: 22px; line-height: 1.3; overflow-wrap: anywhere; }
-.expense-entry-dialog .expense-action-buttons { display: flex; width: auto; flex: none; gap: 10px; }
-.overlay .expense-entry-dialog .expense-action-buttons button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; width: auto; flex: none; min-height: 48px; padding: 12px 22px; font-size: 15px; border-radius: 12px; white-space: nowrap; }
-.overlay .expense-entry-dialog .primary { background: var(--entry-accent); border: 1px solid var(--entry-accent); color: #fff; }
-.overlay .expense-entry-dialog .secondary-button { background: #fffefa; border: 1px solid #ccd6c6; color: var(--entry-ink); }
-.expense-entry-dialog button:disabled { opacity: .6; cursor: not-allowed; }
-.expense-entry-dialog .expense-action-buttons svg { width: 18px; height: 18px; }
-.expense-entry-dialog .expense-submission-status { margin: 0 0 20px; }
-.expense-entry-dialog .expense-submission-status.form-error { margin: 20px 0 0; }
-.expense-entry-dialog .expense-exchange-rate { margin-top: 16px; border-radius: 12px; }
-.expense-entry-dialog .expense-exchange-rate > label { display: flex; align-items: center; gap: 8px; }
-.expense-entry-dialog .expense-exchange-rate > label > span { flex: none; }
-.expense-entry-dialog .expense-exchange-rate input { min-width: 0; }
-
-@media (min-width: 768px) and (max-width: 1000px) {
-  .expense-entry-dialog .entry-grid { grid-template-columns: minmax(0, 1fr) 285px; gap: 18px; }
-  .expense-entry-dialog .entry-scroll { padding: 20px; }
-  .expense-entry-dialog .entry-preview-card { padding: 17px; }
-  .expense-entry-dialog .entry-preview-total > strong { font-size: 28px; }
-}
+.overlay .expense-entry-dialog .entry-amount-value input::placeholder { color: #9aab94; }
+.overlay .expense-entry-dialog .entry-title-field { display: block; margin: 14px 0 0; padding: 9px 12px 10px; border: 1px solid var(--entry-border); border-radius: 10px; color: var(--entry-muted); font-size: 12px; background: #fff; }
+.overlay .expense-entry-dialog .entry-title-field input { display: block; width: 100%; min-width: 0; height: 27px; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 3px; color: var(--entry-ink); background: transparent; font-size: 16px !important; box-shadow: none; }
+.expense-entry-dialog .entry-title-field:focus-within, .expense-entry-dialog .entry-amount:focus-within { border-color: #9aaa87; }
+/* Native controls stay keyboard/screen-reader accessible under their visual label. */
+.overlay .expense-entry-dialog .entry-native-picker { display: inline-flex; align-items: center; position: relative; min-width: 0; margin: 0; color: var(--entry-ink); cursor: pointer; }
+.expense-entry-dialog .entry-native-picker > span { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; pointer-events: none; }
+.overlay .expense-entry-dialog .entry-native-picker > :is(select,input) { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; font-size: 16px !important; }
+.expense-entry-dialog .entry-native-picker:focus-within { outline: 3px solid #b5852c; outline-offset: 2px; }
+.expense-entry-dialog .entry-native-picker svg { width: 14px; height: 14px; }
+.overlay .expense-entry-dialog .entry-currency-picker { min-height: 32px; padding: 2px 0 2px 12px; font-size: 12px; }
+.expense-entry-dialog .entry-detail-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.overlay .expense-entry-dialog .entry-chip { min-height: 36px; padding: 7px 11px; border: 1px solid #dfe3d5; border-radius: 7px; background: #f5f5ee; font-size: 12px; }
+.expense-entry-dialog .entry-chip svg:first-child { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.expense-entry-dialog .entry-date-chip { min-width: 142px; }
+/* Payer remains separate from beneficiaries and lives next to multiple payments. */
+.expense-entry-dialog .entry-payment { margin-top: 12px; border-top: 1px solid var(--entry-border); padding-top: 8px; }
+.expense-entry-dialog .entry-payment-line { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+.overlay .expense-entry-dialog .entry-payer-picker { max-width: 70%; min-height: 44px; border-radius: 7px; }
+.expense-entry-dialog .entry-payer-picker > span { justify-content: flex-end; gap: 9px; }
+.expense-entry-dialog .entry-payer-picker b { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.expense-entry-dialog .entry-multiple-label { font-size: 13px; }
+.expense-entry-dialog .entry-payment-help { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.expense-entry-dialog .entry-payment-help small { color: var(--entry-muted); font-size: 11px; }
+.overlay .expense-entry-dialog .entry-text-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex-shrink: 0; min-height: 36px; margin: 0; padding: 6px 0; border: 0; border-radius: 6px; color: #517447; background: transparent; font-size: 12px; box-shadow: none; }
+.expense-entry-dialog .entry-text-button svg { width: 15px; height: 15px; }
+.expense-entry-dialog .entry-text-button:hover { text-decoration: underline; }
+.expense-entry-dialog .entry-payment-amounts { max-height: 300px; overflow: auto; margin: 8px 0; }
+.expense-entry-dialog .entry-payment-person { display: grid; grid-template-columns: 28px minmax(0,1fr) minmax(100px,145px); gap: 8px; align-items: center; padding: 8px 0; }
+.expense-entry-dialog .entry-payment-person > label { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 12px; color: var(--entry-muted); }
+.overlay .expense-entry-dialog .entry-payment-person input, .overlay .expense-entry-dialog .entry-member-value input { min-width: 0; width: 100%; min-height: 40px; padding: 8px; border: 1px solid var(--entry-border); border-radius: 7px; background: #fff; color: var(--entry-ink); font-size: 16px; }
+.expense-entry-dialog .entry-other-settings { margin-top: 4px; border: 0; padding: 0; }
+.expense-entry-dialog .entry-other-settings > summary { display: flex; align-items: center; justify-content: space-between; list-style: none; min-height: 40px; padding: 7px 0; color: var(--entry-muted); font-size: 12px; }
+.expense-entry-dialog .entry-other-settings > summary::-webkit-details-marker { display: none; }
+.expense-entry-dialog .entry-other-settings[open] > summary svg { transform: rotate(90deg); }
+.expense-entry-dialog .entry-kind-toggle, .expense-entry-dialog .entry-split-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; margin: 8px 0; }
+.overlay .expense-entry-dialog :is(.entry-kind-toggle,.entry-split-tabs) button { min-height: 40px; padding: 7px; border: 1px solid var(--entry-border); border-radius: 7px; background: #fff; color: var(--entry-ink); font-size: 12px; }
+.overlay .expense-entry-dialog button[aria-pressed="true"]:not(.entry-member-toggle) { background: #e3ecd7; border-color: #95ae80; color: #415f37; font-weight: 650; }
+/* Desktop: one right column for selection, split options and the live result. */
+.expense-entry-dialog .entry-split-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
+.expense-entry-dialog .entry-split-heading h3 { font-size: 18px; font-weight: 750; }
+.expense-entry-dialog .entry-split-heading small { flex-shrink: 0; color: var(--entry-muted); font-size: 12px; }
+.expense-entry-dialog .expense-participant-tools { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 0; }
+.overlay .expense-entry-dialog .expense-participant-tools button { display: block; min-width: 0; min-height: 42px; margin: 0; padding: 8px 4px; border: 1px solid var(--entry-border); border-radius: 7px; background: #fff; color: #506548; font-size: 13px; box-shadow: none; white-space: normal; }
+.expense-entry-dialog .entry-split-method { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; font-size: 12px; color: var(--entry-muted); }
+.expense-entry-dialog .entry-help { margin: 8px 0 0; color: var(--entry-muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.expense-entry-dialog .entry-warning { margin: 10px 0; padding: 10px; color: #805323; background: #faf0dc; font-size: 12px; line-height: 1.7; border-radius: 6px; }
+.expense-entry-dialog .entry-avatar { display: inline-grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border: 0; border-radius: 50%; object-fit: cover; background: #e4ead9; color: #516b46; font-size: 13px; font-weight: 650; }
+.expense-entry-dialog .entry-avatar[data-tone="1"] { background: #ede2cf; color: #8a714e; }
+.expense-entry-dialog .entry-avatar[data-tone="2"] { background: #dfe8e4; color: #647e79; }
+.expense-entry-dialog .entry-avatar[data-tone="3"] { background: #eceecb; color: #858844; }
+.expense-entry-dialog .entry-preview-members { list-style: none; max-height: 340px; overflow: auto; margin: 0; padding: 0 12px; border: 1px solid var(--entry-border); border-radius: 10px; background: #fcfdf7; scrollbar-width: thin; }
+.expense-entry-dialog .entry-preview-members li { display: grid; grid-template-columns: 28px minmax(0,1fr) minmax(0,auto); gap: 10px; align-items: center; min-height: 49px; padding: 10px 0; font-size: 14px; }
+.expense-entry-dialog .entry-preview-members li + li { border-top: 1px solid #e2e7d9; }
+.expense-entry-dialog .entry-preview-members strong { text-align: right; overflow-wrap: anywhere; font-size: 15px; line-height: 1.4; }
+.expense-entry-dialog .entry-preview-sum { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0; padding: 14px 0 0; color: #6b8058; font-size: 13px; }
+.expense-entry-dialog .entry-preview-empty { padding: 20px 14px; border: 1px dashed var(--entry-border); border-radius: 8px; color: var(--entry-muted); font-size: 13px; line-height: 1.7; }
+.expense-entry-dialog .entry-member-picker { max-height: 310px; overflow: auto; border: 1px solid var(--entry-border); border-radius: 9px; margin: 0 0 12px; padding: 0; background: #fff; scrollbar-width: thin; }
+.expense-entry-dialog .entry-member-option + .entry-member-option { border-top: 1px solid #e2e7d9; }
+.overlay .expense-entry-dialog .entry-member-toggle { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 47px; margin: 0; padding: 9px 11px; border: 0; border-radius: 0; color: var(--entry-ink); background: #fff; text-align: left; box-shadow: none; }
+.expense-entry-dialog .entry-member-toggle .entry-person-name { flex: 1; }
+.expense-entry-dialog .entry-member-toggle:hover { background: #f7f9f2; }
+.expense-entry-dialog .entry-checkbox { display: grid; place-items: center; flex: 0 0 18px; width: 18px; height: 18px; border: 1px solid #b9c6ab; border-radius: 5px; color: #fff; background: #fff; }
+.expense-entry-dialog .entry-member-option[data-selected="true"] .entry-checkbox { background: #648651; border-color: #648651; }
+.expense-entry-dialog .entry-checkbox svg { width: 13px; height: 13px; }
+.expense-entry-dialog .entry-member-value { display: grid; grid-template-columns: minmax(0,1fr) minmax(100px,145px); gap: 8px; align-items: center; margin: 0; padding: 0 12px 10px 49px; color: var(--entry-muted); font-size: 12px; }
+.expense-entry-dialog .entry-allocation-total { margin: 8px 0 12px; font-size: 12px; color: var(--entry-muted); overflow-wrap: anywhere; }
+/* Currency and save recovery keep their full existing controls and messages. */
+.expense-entry-dialog .expense-exchange-rate { margin-top: 12px; padding: 12px; background: var(--entry-soft); border: 1px solid var(--entry-border); border-radius: 8px; }
+.expense-entry-dialog .expense-rate-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.expense-entry-dialog .expense-rate-heading > span { display: grid; gap: 4px; }
+.expense-entry-dialog .expense-rate-heading small { font-size: 11px; color: var(--entry-muted); }
+.expense-entry-dialog .expense-exchange-rate > label { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; }
+.overlay .expense-entry-dialog .expense-exchange-rate input { min-width: 0; flex: 1; width: 80px; min-height: 42px; padding: 8px; border: 1px solid var(--entry-border); border-radius: 7px; font-size: 16px; color: var(--entry-ink); background: #fff; }
+.expense-entry-dialog .expense-exchange-rate > p { display: flex; gap: 6px; align-items: start; margin-top: 8px; font-size: 12px; color: #875221; }
+.expense-entry-dialog .expense-converted-preview { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; font-size: 12px; }
+.expense-entry-dialog .expense-converted-preview small { flex-basis: 100%; font-size: 11px; color: var(--entry-muted); }
+.expense-entry-dialog .expense-submission-status { margin: 0 0 16px; padding: 14px; border: 1px solid #d6b66b; border-radius: 9px; background: #fff4da; color: #715220; overflow-wrap: anywhere; font-size: 13px; line-height: 1.7; }
+.expense-entry-dialog .expense-submission-status b { display: flex; align-items: center; gap: 6px; }
+.expense-entry-dialog .expense-submission-status p { margin: 4px 0; }
+.expense-entry-dialog .expense-submission-status[data-state="failed"] { display: flex; gap: 10px; margin: 16px 0 0; color: #963c32; border-color: #e3b2a9; background: #fff0ec; }
+.expense-entry-dialog .expense-submission-status small { font-size: 12px; }
+/* Footer is outside the scroll container and always available. */
+.overlay .expense-entry-dialog .entry-actions { position: relative; display: flex; flex: none; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 20px; margin: 0; padding: 18px 26px; border-top: 1px solid var(--entry-border); background: #f6f8ee; box-shadow: none; }
+.expense-entry-dialog .expense-save-summary { display: grid; min-width: 0; gap: 3px; }
+.expense-entry-dialog .expense-save-summary > strong { color: #385f32; font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+.expense-entry-dialog .expense-save-summary > small { color: #718460; font-size: 12px; overflow-wrap: anywhere; }
+.expense-entry-dialog .expense-action-buttons { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+.overlay .expense-entry-dialog .entry-cancel { min-width: 44px; min-height: 44px; padding: 8px; border: 0; background: transparent; box-shadow: none; color: #6d815a; font-size: 13px; }
+.overlay .expense-entry-dialog .entry-actions .primary { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 172px; min-height: 48px; padding: 12px 22px; border: 0; border-radius: 10px; background: var(--entry-accent); color: #fff; box-shadow: none; font-size: 15px; font-weight: 700; outline: 2px solid #ba8b32; outline-offset: 3px; }
+.overlay .expense-entry-dialog .entry-actions .primary:hover { background: #1d4132; }
+.overlay .expense-entry-dialog .entry-actions .primary:focus-visible { outline-width: 3px; outline-offset: 4px; }
+/* Mobile review screen from B: centered total, three rows, individual amounts. */
+.expense-entry-dialog .entry-confirm-total { text-align: center; padding: 10px 0 24px; }
+.expense-entry-dialog .entry-confirm-total > p { margin: 0; color: var(--entry-muted); font-size: 12px; overflow-wrap: anywhere; }
+.expense-entry-dialog .entry-confirm-total > div { display: flex; justify-content: center; align-items: baseline; gap: 8px; margin: 8px 0 4px; }
+.expense-entry-dialog .entry-confirm-total > div > span { font-size: 18px; color: var(--entry-muted); }
+.expense-entry-dialog .entry-confirm-total strong { min-width: 0; font-size: 40px; line-height: 1.3; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.expense-entry-dialog .entry-confirm-total p.entry-converted { margin-top: 6px; color: #4f743e; }
+.expense-entry-dialog .entry-confirm-details { border-top: 1px dashed var(--entry-border); padding: 12px 0; }
+.overlay .expense-entry-dialog .entry-review-row { display: flex; align-items: start; justify-content: space-between; gap: 18px; width: 100%; min-height: 34px; margin: 0; padding: 7px 0; border: 0; border-radius: 4px; color: #456043; background: transparent; font-size: 12px; text-align: right; }
+.expense-entry-dialog .entry-review-row > span:first-child { color: var(--entry-muted); text-align: left; flex-shrink: 0; }
+.expense-entry-dialog .entry-review-row > span:last-child { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.expense-entry-dialog .entry-review-row:hover { background: var(--entry-soft); }
 @media (max-width: 767px) {
-  .overlay.expense-entry-overlay { padding: 0; align-items: end; backdrop-filter: none; }
-  .overlay .modal.real-modal.advanced-modal.expense-entry-dialog {
-    width: 100%; max-width: none; border: 0;
-    height: calc(min(var(--entry-viewport-height, 100dvh), 100dvh) - env(safe-area-inset-top));
-    border-radius: 0;
-  }
-  .overlay .expense-entry-dialog .expense-modal-head { padding: 15px 18px 12px; }
-  .overlay .expense-entry-dialog .expense-modal-head h2 { font-size: 19px; }
-  .overlay .expense-entry-dialog .expense-ledger-context { font-size: 12px; max-width: calc(100vw - 90px); }
-  .expense-entry-dialog .entry-stepper { display: flex; flex: none; list-style: none; padding: 13px 18px; margin: 0; gap: 8px; border-bottom: 1px solid var(--entry-border); background: #f4f4eb; }
-  .expense-entry-dialog .entry-stepper li { display: flex; flex: 1; align-items: center; gap: 5px; font-size: 11px; color: #60715f; white-space: nowrap; }
-  .expense-entry-dialog .entry-stepper li > span { display: grid; place-items: center; flex: 0 0 23px; width: 23px; height: 23px; border: 1px solid #aebba4; border-radius: 50%; background: #fffdf7; font-size: 12px; }
-  .expense-entry-dialog .entry-stepper li[aria-current="step"] { color: #245338; font-weight: 700; }
-  .expense-entry-dialog .entry-stepper li[aria-current="step"] > span { border-color: #2f6544; background: #2f6544; color: white; }
-  .expense-entry-dialog .entry-stepper li[data-complete="true"] > span { background: #e2ebd5; border-color: #94ab80; color: #326638; }
-  .expense-entry-dialog .entry-stepper svg { width: 14px; height: 14px; }
-  .expense-entry-dialog .entry-scroll { padding: 20px 18px 24px; }
+  .overlay.expense-entry-overlay { padding: 0; align-items: stretch; background: var(--entry-paper,#fffefa); backdrop-filter: none; }
+  .overlay .modal.real-modal.advanced-modal.expense-entry-dialog { width: 100%; max-width: none; height: min(var(--entry-viewport-height,100dvh),100dvh); max-height: none; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .overlay .expense-entry-dialog .expense-modal-head { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; min-height: 64px; padding: calc(6px + env(safe-area-inset-top,0px)) 16px 4px; gap: 0; border: 0; }
+  .overlay .expense-entry-dialog .expense-modal-head h2 { text-align: center; font-size: 18px; }
+  .overlay .expense-entry-dialog .expense-ledger-context { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .overlay .expense-entry-dialog .entry-icon-button { width: 44px; height: 44px; color: var(--entry-ink); }
+  .expense-entry-dialog .entry-stepper { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; list-style: none; flex: none; margin: 0; padding: 0 20px; }
+  .expense-entry-dialog .entry-stepper li { display: flex; align-items: center; gap: 5px; min-width: 0; min-height: 34px; padding: 0 0 9px; border-bottom: 2px solid #e1e6d9; color: #8d9780; font-size: 10px; white-space: nowrap; }
+  .expense-entry-dialog .entry-stepper li > span { display: grid; place-items: center; width: 17px; height: 17px; flex: 0 0 17px; border-radius: 50%; color: #809170; background: #edf0e5; font-size: 10px; }
+  .expense-entry-dialog .entry-stepper li[aria-current="step"] { border-color: #477044; color: #3e6336; font-weight: 700; }
+  .expense-entry-dialog .entry-stepper li[aria-current="step"] > span { color: #fff; background: #477044; }
+  .expense-entry-dialog .entry-stepper li[data-complete="true"] { border-color: #a7bd94; }
+  .overlay .expense-entry-dialog .entry-form { flex: 1; }
+  .expense-entry-dialog .entry-scroll { padding: 22px 20px 18px; }
   .expense-entry-dialog .entry-grid { display: block; }
-  .expense-entry-dialog .entry-step-title { margin: 0 0 20px; font-size: 21px; line-height: 1.45; letter-spacing: .015em; outline: none; }
-  .expense-entry-dialog .expense-basics > legend { display: none; }
-  .expense-entry-dialog .expense-section-number { display: none; }
-  .overlay .expense-entry-dialog section[aria-label="付款與分攤"] > fieldset:first-child { margin: 0; padding: 0; border: 0; }
-  .overlay .expense-entry-dialog .expense-form-section:not(.expense-basics) { padding-top: 20px; margin-top: 20px; }
-  .overlay .expense-entry-dialog .entry-amount input { font-size: 43px !important; min-height: 62px; }
-  .expense-entry-dialog .entry-amount { padding: 15px 16px 13px; }
-  .overlay .expense-entry-dialog .expense-basic-grid { gap: 10px; }
-  .overlay .expense-entry-dialog .expense-basic-grid select, .overlay .expense-entry-dialog .expense-basic-grid input { font-size: 16px; padding-left: 9px; padding-right: 9px; }
-  .expense-entry-dialog .entry-inline-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; margin-top: 18px; border: 1px solid #d5dfc8; border-radius: 12px; background: #eaf0e0; font-size: 14px; }
-  .expense-entry-dialog .entry-inline-result strong { font-size: 22px; }
-  .expense-entry-dialog .entry-preview { position: static; }
-  .expense-entry-dialog .entry-preview-card { padding: 18px; border-radius: 16px; }
-  .expense-entry-dialog .entry-preview-total { padding-top: 15px; }
-  .expense-entry-dialog .entry-preview-total > strong { font-size: 34px; }
-  .expense-entry-dialog .entry-preview-members { max-height: none; overflow: visible; }
-  .expense-entry-dialog .entry-edit { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 6px; border: 0; color: #2c6040; background: transparent; font-size: 12px; white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; }
-  .expense-entry-dialog .entry-preview-members-title { padding-top: 8px; padding-bottom: 5px; }
-  .overlay .expense-entry-dialog .entry-actions { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); gap: 12px; }
-  .expense-entry-dialog .expense-action-buttons { gap: 7px; }
-  .overlay .expense-entry-dialog .expense-action-buttons button { padding: 11px 13px; min-height: 48px; font-size: 14px; gap: 5px; }
-  .expense-entry-dialog .expense-save-summary strong { font-size: 19px; }
-  .overlay .expense-entry-dialog .expense-save-summary small { font-size: 11px; }
+  .expense-entry-dialog .entry-split { min-height: 0; padding: 0; border: 0; }
+  .expense-entry-dialog .entry-step-intro { margin-bottom: 20px; }
+  .expense-entry-dialog .entry-step-intro h3 { font-size: 21px; font-weight: 750; letter-spacing: -.025em; }
+  .expense-entry-dialog .entry-step-intro p { margin: 6px 0 0; color: var(--entry-muted); font-size: 12px; }
+  .expense-entry-dialog .entry-amount { padding: 12px 14px 14px; }
+  .overlay .expense-entry-dialog .entry-amount-value input { height: 66px; font-size: 46px !important; }
+  .overlay .expense-entry-dialog .entry-title-field { margin-top: 16px; padding: 10px 12px; }
+  .expense-entry-dialog .entry-detail-chips { margin: 14px 0; gap: 8px; }
+  .overlay .expense-entry-dialog .entry-chip { min-height: 34px; padding: 7px 10px; font-size: 12px; }
+  .expense-entry-dialog .entry-ledger-card { margin-top: 12px; padding: 13px 12px; border-radius: 10px; background: #f0f4e8; }
+  .expense-entry-dialog .entry-ledger-card > div { display: flex; justify-content: space-between; align-items: start; gap: 12px; font-size: 13px; }
+  .expense-entry-dialog .entry-ledger-card strong { min-width: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+  .expense-entry-dialog .entry-ledger-card small { display: block; margin-top: 5px; color: var(--entry-muted); font-size: 12px; }
+  .expense-entry-dialog .entry-mini-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -5px 0 18px; padding: 11px 12px; border-radius: 9px; background: #f5f5ed; font-size: 12px; }
+  .expense-entry-dialog .entry-mini-summary > span { min-width: 0; overflow-wrap: anywhere; }
+  .expense-entry-dialog .entry-mini-summary strong { flex-shrink: 0; font-size: 14px; }
+  .expense-entry-dialog .entry-form[data-step="1"] .entry-step-intro { margin-bottom: 6px; }
+  .expense-entry-dialog .entry-payment { margin: 0 0 12px; padding-top: 4px; }
+  .expense-entry-dialog .entry-payment-help > small { display: none; }
+  .expense-entry-dialog .entry-payment-help { justify-content: flex-end; }
+  .overlay .expense-entry-dialog .entry-payment-help .entry-text-button { min-height: 28px; padding: 2px 0; }
+  .expense-entry-dialog .entry-split-heading { margin-bottom: 10px; }
+  .expense-entry-dialog .entry-split-heading h3 { font-size: 13px; font-weight: 500; }
+  .expense-entry-dialog .expense-participant-tools { gap: 7px; margin-bottom: 12px; }
+  .overlay .expense-entry-dialog .expense-participant-tools button { min-height: 40px; font-size: 13px; }
+  .expense-entry-dialog .entry-member-picker { margin-bottom: 0; max-height: 300px; }
+  .overlay .expense-entry-dialog .entry-member-toggle { min-height: 47px; }
+  .expense-entry-dialog .entry-inline-result { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: #f0f4e8; font-size: 13px; }
+  .expense-entry-dialog .entry-inline-result strong { text-align: right; font-size: 21px; overflow-wrap: anywhere; }
+  .expense-entry-dialog .entry-confirm-total { padding-top: 6px; }
+  .expense-entry-dialog .entry-confirmation .entry-preview-members { max-height: 340px; padding: 0 11px; }
+  .expense-entry-dialog .entry-confirmation .entry-preview-members li { min-height: 42px; padding: 8px 0; font-size: 13px; }
+  .expense-entry-dialog .entry-confirmation .entry-preview-members strong { font-size: 14px; }
+  .expense-entry-dialog .entry-confirmation .entry-avatar { width: 26px; height: 26px; flex-basis: 26px; }
+  .expense-entry-dialog .entry-preview-sum { padding-top: 14px; font-size: 12px; }
+  .overlay .expense-entry-dialog .entry-actions { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 10px 20px calc(20px + env(safe-area-inset-bottom,0px)); background: var(--entry-paper); }
+  .expense-entry-dialog .expense-save-summary { text-align: center; }
+  .expense-entry-dialog .expense-save-summary > small { color: var(--entry-muted); font-size: 11px; }
+  .expense-entry-dialog .expense-action-buttons { width: 100%; gap: 10px; }
+  .overlay .expense-entry-dialog .entry-actions .primary { flex: 1; min-width: 0; min-height: 48px; width: 100%; padding: 12px 8px; font-size: 14px; }
+  .expense-entry-dialog .entry-confirm-payments > span:last-child { gap: 5px; }
 }
 @media (max-width: 359px) {
-  .expense-entry-dialog .entry-stepper { padding-left: 12px; padding-right: 12px; gap: 3px; }
-  .expense-entry-dialog .entry-stepper li { font-size: 10px; }
-  .expense-entry-dialog .entry-scroll { padding-left: 14px; padding-right: 14px; }
-  .overlay .expense-entry-dialog .entry-actions { gap: 6px; padding-left: 10px; padding-right: 10px; }
-  .overlay .expense-entry-dialog .expense-action-buttons button { font-size: 13px; padding-left: 9px; padding-right: 9px; }
-  .expense-entry-dialog .expense-save-summary strong { font-size: 17px; }
-  .expense-entry-dialog .entry-preview-card { padding: 14px; }
-  .expense-entry-dialog .entry-preview-members li { gap: 6px; }
+  .expense-entry-dialog .entry-scroll { padding-right: 16px; padding-left: 16px; }
+  .expense-entry-dialog .entry-stepper { padding-right: 16px; padding-left: 16px; gap: 5px; }
+  .expense-entry-dialog .entry-stepper li { font-size: 9px; }
+  .overlay .expense-entry-dialog .entry-actions { padding-right: 16px; padding-left: 16px; }
+  .expense-entry-dialog .entry-member-value { padding-left: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .expense-entry-dialog *, .expense-entry-dialog *::before, .expense-entry-dialog *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .expense-entry-dialog *, .expense-entry-dialog *::before, .expense-entry-dialog *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
-
-/* Reset legacy form spacing; one label and one scroll container per task. */
-.expense-entry-dialog .entry-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-.overlay .expense-entry-dialog .entry-payer-field { margin: 0; }
-.overlay .expense-entry-dialog .entry-payer-field select { margin: 0; }
-.overlay .expense-entry-dialog .expense-kind-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-.overlay .expense-entry-dialog .advanced-participants,
-.overlay .expense-entry-dialog .amount-rows { max-height: none; overflow: visible; }
-@media (min-width: 768px) {
-  .overlay .expense-entry-dialog .expense-modal-head { padding-top: 16px; padding-bottom: 14px; }
-  .expense-entry-dialog .entry-scroll { padding-top: 18px; }
-  .expense-entry-dialog .expense-basics > legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .overlay .expense-entry-dialog .entry-amount { margin-top: 0; padding: 10px 16px 6px; }
-  .overlay .expense-entry-dialog .entry-amount input { min-height: 49px; height: 49px; }
-  .overlay .expense-entry-dialog .expense-title-field { margin-top: 10px; }
-  .overlay .expense-entry-dialog .expense-title-field input,
-  .overlay .expense-entry-dialog .expense-basic-grid input,
-  .overlay .expense-entry-dialog .expense-basic-grid select { margin-top: 0; }
-  .overlay .expense-entry-dialog .expense-basic-grid { margin-top: 10px; }
-  .overlay .expense-entry-dialog .expense-extra-settings { margin-top: 10px; }
-  .overlay .expense-entry-dialog .expense-form-section:not(.expense-basics) { margin-top: 14px; padding-top: 8px; }
-  .expense-entry-dialog .expense-form-section legend { margin-bottom: 8px; }
-  .overlay .expense-entry-dialog .entry-pay-single { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-  .expense-entry-dialog .entry-pay-single legend { grid-column: 1 / -1; }
-  .expense-entry-dialog .entry-pay-single .expense-disclosure { margin: 0; }
-  .expense-entry-dialog .entry-preview-card { padding: 18px; }
-  .expense-entry-dialog .entry-preview-total { padding: 15px 0; }
-  .expense-entry-dialog .entry-preview-members li { padding: 7px 0; }
-}
-
-.expense-entry-dialog .expense-participant-tools button[aria-pressed="false"] { color: var(--entry-ink); background: #fffefa; border-color: #cbd6c9; box-shadow: none; }
-@media (min-width: 768px) { .expense-entry-dialog .expense-section-number { display: none; } }
