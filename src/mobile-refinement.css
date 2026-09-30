@@ -1317,6 +1317,15 @@
     line-height: 1.4;
   }
 
+  /* 支出表單由標頭與內容各自留白，避免重複縮窄成員及金額欄 */
+  .overlay .advanced-modal {
+    padding: 0;
+  }
+
+  .overlay .advanced-modal .expense-modal-head h2 {
+    margin-right: 0;
+  }
+
   .overlay .modal small,
   .overlay .modal label,
   .overlay .modal .eyebrow,
