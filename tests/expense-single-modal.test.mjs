@@ -80,7 +80,7 @@ for (const [status, message] of [[401, /expired/], [403, /permission/], [404, /a
 });
 
  test('Expense entry has one modal and an inline details region', () => {
-  assert.equal((source.match(/role="dialog"/g) || []).length, 1);
+  assert.equal((source.match(/\srole="dialog"\s/g) || []).length, 1);
   assert.ok(!source.includes('role="alertdialog"'));
   assert.ok(!source.includes('<dialog'));
   assert.match(source, /<section hidden=\{!detailsOpen\} id="es-details"/);
