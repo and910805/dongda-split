@@ -1,34 +1,34 @@
 import {formatCurrencyAmount, getCurrency} from '../currency.mjs';
 
-// Traditional Chinese labels; persisted category values remain backward-compatible.
+// Labels are English; persisted category values remain backward-compatible.
 export const ENTRY_CATEGORIES = Object.freeze([
-  {value: '\u9910\u98f2', label: '餐飲'},
-  {value: '\u4f4f\u5bbf', label: '住宿'},
-  {value: '\u4ea4\u901a', label: '交通'},
-  {value: '\u8cfc\u7269', label: '購物'},
-  {value: '\u5176\u4ed6', label: '其他'},
+  {value: '\u9910\u98f2', label: 'Food'},
+  {value: '\u4f4f\u5bbf', label: 'Stay'},
+  {value: '\u4ea4\u901a', label: 'Transport'},
+  {value: '\u8cfc\u7269', label: 'Shopping'},
+  {value: '\u5176\u4ed6', label: 'Other'},
 ]);
 export const ENTRY_CURRENCY_NAMES = Object.freeze({
-  TWD: '新台幣', JPY: '日圓', KRW: '韓元',
-  USD: '美元', CNY: '人民幣', THB: '泰銖',
+  TWD: 'NT dollar', JPY: 'Yen', KRW: 'Won',
+  USD: 'US dollar', CNY: 'Yuan', THB: 'Baht',
 });
 export const ENTRY_SPLITS = Object.freeze([
-  {id: 'equal', label: '平均分攤', icon: 'equal', help: '選中的人平均分攤；點名字即可加入或移除。'},
-  {id: 'exact', label: '各分多少', icon: 'coins', help: '填入每個人的負擔金額，合計必須等於總金額。'},
-  {id: 'hybrid', label: '先指定，再均分', icon: 'split', help: '有人負擔固定金額，就選「固定金額」；其他人選「均分剩餘」。'},
-  {id: 'weights', label: '按份數', icon: 'ratio', help: '填入每人份數，例如大人 2 份、小孩 1 份，依比例分攤。'},
+  {id: 'equal', label: 'Split equally', icon: 'equal', help: 'Split between selected people. Tap a name to include or exclude them.'},
+  {id: 'exact', label: 'Exact amounts', icon: 'coins', help: 'Enter what each person owes. The amounts must add up to the total.'},
+  {id: 'hybrid', label: 'Fixed + equal', icon: 'split', help: 'Set a fixed amount for some people. Everyone else splits the remainder.'},
+  {id: 'weights', label: 'By shares', icon: 'ratio', help: 'Enter shares, such as 2 for an adult and 1 for a child. Costs follow that ratio.'},
 ]);
 
 export function entryCategoryLabel(value) {
-  return ENTRY_CATEGORIES.find(item => item.value === value)?.label || '其他';
+  return ENTRY_CATEGORIES.find(item => item.value === value)?.label || 'Other';
 }
 
 // Validation totals can overflow even when each individual input is valid.
 // This formatter never repairs or submits a value; the server remains authoritative.
 export function formatEntryAmount(cents, currency) {
-  if (!Number.isSafeInteger(cents)) return '超出範圍';
+  if (!Number.isSafeInteger(cents)) return 'Out of range';
   try { return formatCurrencyAmount(cents, currency); }
-  catch { return '無效金額'; }
+  catch { return 'Invalid amount'; }
 }
 
 export function entryShare(row, currency) {
@@ -39,34 +39,34 @@ export function entryShare(row, currency) {
 
 export function entryAmountError(currency) {
   const {decimals} = getCurrency(currency);
-  return decimals ? `請輸入有效的 ${currency} 金額，最多 ${decimals} 位小數。` : `請輸入有效的 ${currency} 整數金額。`;
+  return decimals ? `Enter a valid ${currency} amount with up to ${decimals} decimal places.` : `Enter a valid ${currency} amount in whole units.`;
 }
 
 // Keep service codes and stored content unchanged. Do not expose raw database
-// errors or raw service messages in this Traditional Chinese entry surface.
+// errors or untranslated service messages in this English-only entry surface.
 export function entryServiceError(error) {
   const code = error?.data?.code;
   const known = {
-    ACCOUNT_CHANGED: '登入帳號已變更，請切回原帳號後再確認這次儲存結果。',
-    LEDGER_VERSION_CHANGED: '帳本已變更，請關閉記帳視窗、重新整理帳本，核對後再儲存。',
-    IDEMPOTENCY_KEY_REUSED: '這個提交識別碼已使用，請先確認原始儲存結果，再新增其他帳目。',
-    IDEMPOTENT_RESOURCE_DELETED: '這筆帳目曾經儲存，之後已被刪除；確認結果不會重新建立帳目。',
+    ACCOUNT_CHANGED: 'Your account has changed. Switch back to the original account to check this save.',
+    LEDGER_VERSION_CHANGED: 'This ledger has changed. Close the editor, refresh the ledger, and review before saving again.',
+    IDEMPOTENCY_KEY_REUSED: 'This request key is already in use. Check the original save before creating another entry.',
+    IDEMPOTENT_RESOURCE_DELETED: 'This entry was saved and later deleted. Checking it will not recreate it.',
   };
   if (Object.hasOwn(known, code)) return known[code];
-  if (error?.status === 401) return '登入已逾期，請重新登入後再確認儲存結果。';
-  if (error?.status === 403) return '你已沒有修改此帳本的權限。';
-  if (error?.status === 404) return '此帳本或帳目已不存在，或目前無法存取。';
-  if (error?.status === 409) return '帳目已變更，請重新整理帳本並核對最新版本。';
-  if (error?.status === 429) return '操作過於頻繁，請稍候再試。';
-  return '無法完成這次請求，輸入內容已保留。請檢查帳目後再試。';
+  if (error?.status === 401) return 'Your session has expired. Sign in again before checking this save.';
+  if (error?.status === 403) return 'You no longer have permission to update this ledger.';
+  if (error?.status === 404) return 'This ledger or entry is no longer available.';
+  if (error?.status === 409) return 'This entry has changed. Refresh the ledger and review the latest version.';
+  if (error?.status === 429) return 'Too many requests. Wait a moment before trying again.';
+  return 'The request could not be completed. Your input has been kept. Review the entry and try again.';
 }
 
 export function entryPreviewError(preview, {totalCents, currency, selectedCount, mode}) {
   if (!preview.error) return '';
-  if (!Number.isSafeInteger(totalCents) || totalCents <= 0) return '填入金額後，即可查看每人的分攤。';
-  if (!selectedCount) return '請至少選擇一位成員。';
-  if (mode === 'exact') return '請為每位已選成員填寫大於 0 的金額，合計必須等於總金額。';
-  if (mode === 'hybrid') return '請保留至少一人均分剩餘金額，固定金額也需留下足夠的餘額。';
-  if (mode === 'weights') return '份數必須大於 0，且總額須足夠讓每人至少分配一個最小單位。';
-  return `總金額太小，無法讓每人至少分配一個 ${currency} 的最小單位。`;
+  if (!Number.isSafeInteger(totalCents) || totalCents <= 0) return 'Enter an amount to see each person’s share.';
+  if (!selectedCount) return 'Select at least one person.';
+  if (mode === 'exact') return 'Enter a positive amount for each selected person. The sum must match the total.';
+  if (mode === 'hybrid') return 'Keep at least one person sharing the remainder. Fixed amounts must leave enough for them.';
+  if (mode === 'weights') return 'Use positive shares and a total large enough for everyone to receive one minimum unit.';
+  return `The total is too small to give everyone one minimum ${currency} unit.`;
 }

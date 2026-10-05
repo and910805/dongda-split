@@ -1,7 +1,9 @@
 /* Single expense modal only. The ledger, other dialogs and data stay unchanged. */
 .overlay.expense-single-overlay {
   display: flex; align-items: center; justify-content: center; padding: 24px;
-  background: #19392b80; backdrop-filter: blur(4px); z-index: 40;
+  background: #19392b80; backdrop-filter: blur(4px);
+  /* Match the shared modal layer (60), above mobile navigation (45). */
+  position: fixed; inset: 0; z-index: var(--z-overlay, 60);
 }
 .overlay .modal.real-modal.advanced-modal.expense-single-modal {
   --es-paper: #fffef9; --es-bg: #f4f2e9; --es-ink: #213d32;
@@ -57,7 +59,7 @@
 .expense-single-modal .es-participants { grid-column: 2; grid-row: 1 / span 2; border-left: 1px solid var(--es-line); margin: 20px 0; padding-top: 0; padding-bottom: 0; align-self: stretch; }
 .expense-single-modal .es-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 13px; }
 .expense-single-modal .es-section-heading h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 700; line-height: 1.4; }
-.expense-single-modal .es-section-number { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border: 1px solid #d4dcc5; border-radius: 50%; font-size: 10px; color: #6b7b5b; font-weight: 600; }
+.expense-single-modal .es-section-number { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border: 1px solid #d4dcc5; border-radius: 50%; font-size: 10px; color: #6b7b5b; font-weight: 600; }
 .expense-single-modal .es-label-note { color: #707e64; font-size: 11px; text-align: right; }
 .expense-single-modal .es-basics-grid { display: grid; gap: 11px; }
 .expense-single-modal .es-amount-block { min-width: 0; padding: 9px 16px 8px; border: 1px solid #d9dfcb; border-radius: 12px; background: #f5f7ed; }
