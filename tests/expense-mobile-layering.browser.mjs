@@ -16,13 +16,14 @@ const cssPath = index.match(/<link[^>]+href="([^"]+\.css)"/)[1];
 const script = readFileSync(join(dist, jsPath.replace(/^\//, '')), 'utf8');
 const styles = readFileSync(join(dist, cssPath.replace(/^\//, '')), 'utf8');
 const screenshotDir = process.env.ENTRY_SCREENSHOTS;
+const description = '晚餐。加飲料 12.34';
 const fixture = {
-  id: 'review', name: 'Weekend getaway', description: 'Browser regression fixture',
+  id: 'review', name: '週末旅行。帳本', description: 'Browser regression fixture',
   currency: 'TWD', ledgerVersion: 1, ownerId: 'you', createdBy: 'you',
   createdAt: '2026-10-05T00:00:00Z', updatedAt: '2026-10-05T00:00:00Z',
   totalExpenseCents: 0, expenses: [], settlements: [], balances: [],
   members: [{id: 'you', displayName: 'Kaiyo'}, ...Array.from({length: 14}, (_, i) => ({
-    id: `member-${i + 1}`, displayName: i === 12 ? 'A member with a long name' : `Member ${i + 1}`,
+    id: `member-${i + 1}`, displayName: i === 12 ? '成員。需要完整保留的長姓名' : `Member ${i + 1}`,
   }))],
 };
 const mock = `
@@ -50,7 +51,7 @@ window.fetch = async (url, options = {}) => {
   throw new Error('Unexpected mock request: '+path);
 };
 `;
-const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${styles}</style></head><body><div id="root"></div><script>${mock}\n${script}</script></body></html>`;
+const html = `<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${styles}</style></head><body><div id="root"></div><script>${mock}\n${script}</script></body></html>`;
 
 async function launch() {
   const executable = [process.env.CHROME_PATH, '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find(path => path && existsSync(path));
@@ -74,6 +75,9 @@ async function page(browser,width,height,initial='') {
   const {sessionId}=await browser.send('Target.attachToTarget',{targetId,flatten:true});
   const send=(method,params)=>browser.send(method,params,sessionId);
   await send('Page.enable');await send('Runtime.enable');
+  // Mock fetch does not intercept CSS imports or images. Keep those offline too.
+  await send('Network.enable');
+  await send('Network.setBlockedURLs',{urls:['http://*','https://*']});
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   const {frameTree}=await send('Page.getFrameTree');
@@ -98,8 +102,21 @@ const saveIsVisible = `(()=>{
  return {portal:overlay.parentElement===document.body,aboveNav:!nav.getClientRects().length||Number(getComputedStyle(overlay).zIndex)>Number(getComputedStyle(nav).zIndex),rootInert:root.inert,rootHidden:root.getAttribute('aria-hidden'),locked:document.body.style.overflow==='hidden',visible:r.top>=0&&r.bottom<=view.height+view.offsetTop+1&&r.left>=0&&r.right<=innerWidth,hit:save.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)),noOverflow:modal.scrollWidth<=modal.clientWidth+1,oneModal:document.querySelectorAll('[aria-modal="true"]').length===1};})()`;
 function assertLayout(result) { for(const key of ['portal','aboveNav','rootInert','locked','visible','hit','noOverflow','oneModal'])assert.equal(result[key],true,key);assert.equal(result.rootHidden,'true'); }
 
+async function assertCopy(p, saveLabel = '儲存支出') {
+ const userText = [fixture.name, description, ...fixture.members.map(member => member.displayName)];
+ const result = await p.evaluate(`(()=>{
+  const modal=document.querySelector('.expense-single-modal');
+  let text=modal.textContent + Array.from(modal.querySelectorAll('[aria-label], [placeholder], [title]')).map(el=>['aria-label','placeholder','title'].map(name=>el.getAttribute(name)||'').join(' ')).join(' ');
+  for(const value of ${JSON.stringify(userText)})text=text.split(value).join('');
+  return {lang:modal.lang,hasFullStop:text.includes(String.fromCharCode(0x3002)),save:modal.querySelector('.es-save').innerText.trim(),oldEnglish:/Save expense|View details|Split equally|Keep editing/.test(text)};
+ })()`);
+ assert.equal(result.lang,'zh-TW');assert.equal(result.save,saveLabel);
+ assert.equal(result.hasFullStop,false,'System copy must not contain Chinese full stops');
+ assert.equal(result.oldEnglish,false,'Expense entry must remain in Traditional Chinese');
+}
+
 // This starts the real ProductApp and its bottom navigation, not a modal-only shell.
-test('Built expense entry: mobile layering and English copy', {timeout:120000}, async t => {
+test('Built expense entry: mobile layering and Traditional Chinese without full stops', {timeout:120000}, async t => {
  const browser=await launch();
  try {
   for(const [width,height] of [[320,700],[349,749],[390,844],[430,932],[760,650],[844,390],[1440,1000]]) {
@@ -110,28 +127,31 @@ test('Built expense entry: mobile layering and English copy', {timeout:120000}, 
      await p.evaluate("document.querySelector('#root').style.transform='translateZ(0)'");
      const opener=await p.evaluate("document.querySelector('.mobile-bottom-add')?.getClientRects().length ? '.mobile-bottom-add' : '.header-primary'");
      await p.click(opener);await p.wait('!!document.querySelector("#es-amount")');
-     assertLayout(await p.evaluate(saveIsVisible));
-     await p.input('#es-amount','1500');await p.input('#es-description','Dinner');
+     assertLayout(await p.evaluate(saveIsVisible));await assertCopy(p);
+     assert.equal(await p.evaluate("document.querySelector('#es-context > span').textContent"),fixture.name);
+     assert.ok((await p.evaluate("document.querySelector('.es-people-table').textContent")).includes(fixture.members[13].displayName));
+     await p.input('#es-amount','1500');await p.input('#es-description',description);
      await p.click('.es-quick-person:nth-child(2)');
      for(let i=0;i<4;i++) {
       await p.click(`.es-split-option:nth-child(${i+1})`);
-      assertLayout(await p.evaluate(saveIsVisible));
-      assert.equal(await p.evaluate(`/[\\u3400-\\u9fff]/u.test(document.querySelector('.expense-single-modal').innerText)`),false,'Unexpected Chinese system text');
+      assertLayout(await p.evaluate(saveIsVisible));await assertCopy(p);
      }
      await p.click('.es-split-option:first-child');
      await p.evaluate("document.querySelector('.es-scroll').scrollTop=1e6");
      assertLayout(await p.evaluate(saveIsVisible));
      if([349,390,1440].includes(width))await p.screenshot(`fixed-${width}`);
-     await p.click('.es-dock-detail');assertLayout(await p.evaluate(saveIsVisible));
+     await p.click('.es-dock-detail');assertLayout(await p.evaluate(saveIsVisible));await assertCopy(p);
+     assert.equal(await p.evaluate("document.querySelector('#es-details h4').textContent"),description);
      assert.equal(await p.evaluate("document.querySelector('#es-amount').value"),'1500');
      await p.click('.es-dock-detail');
-     await p.click('.es-cancel');await p.wait('!!document.querySelector(".es-discard")');
+     await p.click('.es-cancel');await p.wait('!!document.querySelector(".es-discard")');await assertCopy(p);
      assert.equal(await p.evaluate("document.querySelectorAll('[aria-modal=true]').length"),1);
      await p.click('.es-discard .es-secondary');
      await p.click('.es-save');await p.wait('!document.querySelector(".expense-single-modal")');
      const result=await p.evaluate("({inert:document.querySelector('#root').inert,hidden:document.querySelector('#root').getAttribute('aria-hidden'),overflow:document.body.style.overflow,requests:__entryQA.requests.filter(r=>r.path.endsWith('/expenses'))})");
      assert.equal(result.inert,false);assert.equal(result.hidden,null);assert.equal(result.overflow,'');
      assert.equal(result.requests.length,1);assert.equal(result.requests[0].body.participantIds.length,15);assert.equal(result.requests[0].body.category,'\u9910\u98f2');
+     assert.equal(result.requests[0].body.title,description,'User punctuation must not be stripped');
     }finally{await p.close();}
    });
   }
@@ -141,7 +161,7 @@ test('Built expense entry: mobile layering and English copy', {timeout:120000}, 
     await p.click('.mobile-bottom-add');await p.input('#es-amount','1234');await p.input('#es-description','Draft');
     await p.evaluate('void(window.originalModal=document.querySelector(".expense-single-modal"))');
     await p.send('Emulation.setDeviceMetricsOverride',{width:390,height:420,deviceScaleFactor:1,mobile:false});await delay(100);
-    assertLayout(await p.evaluate(saveIsVisible));
+    assertLayout(await p.evaluate(saveIsVisible));await assertCopy(p);
     assert.equal(await p.evaluate('document.querySelector(".expense-single-modal")===window.originalModal'),true);
     assert.equal(await p.evaluate('document.querySelector("#es-amount").value'),'1234');
     await p.click('.es-close');await p.wait('!!document.querySelector(".es-discard")');await p.click('.es-discard .es-danger');
@@ -149,16 +169,32 @@ test('Built expense entry: mobile layering and English copy', {timeout:120000}, 
     await p.click('.mobile-bottom-add');assertLayout(await p.evaluate(saveIsVisible));
    }finally{await p.close();}
   });
-  await t.test('Unknown saves reuse their original key and English recovery message',async()=>{
+  await t.test('Unknown saves reuse their original key and localized recovery message',async()=>{
    const p=await page(browser,349,749);
    try{
-    await p.click('.mobile-bottom-add');await p.input('#es-amount','1500');await p.input('#es-description','Dinner');await p.click('.es-quick-person:nth-child(2)');
+    await p.click('.mobile-bottom-add');await p.input('#es-amount','1500');await p.input('#es-description',description);await p.click('.es-quick-person:nth-child(2)');
     await p.evaluate("__entryQA.nextMode='unknown'");await p.click('.es-save');await p.wait('!!document.querySelector(".es-unknown")');
-    assertLayout(await p.evaluate(saveIsVisible));
-    assert.match(await p.evaluate("document.querySelector('.es-save').innerText"),/Check save result/);
+    assertLayout(await p.evaluate(saveIsVisible));await assertCopy(p,'確認儲存結果');
     await p.click('.es-save');await p.wait('!document.querySelector(".expense-single-modal")');
     const requests=await p.evaluate("__entryQA.requests.filter(r=>r.path.endsWith('/expenses'))");
     assert.equal(requests.length,2);assert.equal(requests[0].headers['Idempotency-Key'],requests[1].headers['Idempotency-Key']);
+    assert.equal(requests[1].body.title,description);
+   }finally{await p.close();}
+  });
+  await t.test('Refund and validation copy omit full stops without changing decimal values or user text',async()=>{
+   const p=await page(browser,390,844);
+   try{
+    await p.click('.mobile-bottom-add');await p.click('.es-save');await p.wait('!!document.querySelector(".es-error")');await assertCopy(p);
+    await p.input('#es-description',description);await p.input('#es-amount','12.34');
+    await p.click('.es-card-head .es-switch button:nth-child(2)');
+    await p.evaluate("(()=>{const el=document.querySelector('#es-currency');el.value='USD';el.dispatchEvent(new Event('change',{bubbles:true}));})()");
+    await p.wait("document.querySelector('#es-rate')?.value==='0.215'");
+    await p.input('#es-rate','32.4');await assertCopy(p,'儲存退款');assertLayout(await p.evaluate(saveIsVisible));
+    await p.click('.es-save');await p.wait('!document.querySelector(".expense-single-modal")');
+    const requests=await p.evaluate("__entryQA.requests.filter(r=>r.path.endsWith('/expenses'))");
+    assert.equal(requests.length,1);
+    assert.equal(requests[0].body.kind,'refund');assert.equal(requests[0].body.amount,'12.34');
+    assert.equal(requests[0].body.expenseCurrency,'USD');assert.equal(requests[0].body.exchangeRate,'32.4');assert.equal(requests[0].body.title,description);
    }finally{await p.close();}
   });
  }finally{await browser.close();}
