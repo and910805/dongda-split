@@ -75,6 +75,9 @@ async function page(browser,width,height,initial='') {
   const {sessionId}=await browser.send('Target.attachToTarget',{targetId,flatten:true});
   const send=(method,params)=>browser.send(method,params,sessionId);
   await send('Page.enable');await send('Runtime.enable');
+  // Mock fetch does not intercept CSS imports or images. Keep those offline too.
+  await send('Network.enable');
+  await send('Network.setBlockedURLs',{urls:['http://*','https://*']});
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   const {frameTree}=await send('Page.getFrameTree');
