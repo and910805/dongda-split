@@ -1,0 +1,215 @@
+/* Coastal ledger presentation only
+   Existing React controls, financial values and the body-level modal remain intact
+   Decorative assets are local, not remote image services or screenshots of controls */
+.real-app:has(.real-dashboard) {
+  --coast-paper: #fffdf8;
+  --coast-bg: #f7f3e9;
+  --coast-ink: #15383b;
+  --coast-muted: #748586;
+  --coast-green: #087b57;
+  --coast-line: #e3eae3;
+  background: var(--coast-bg);
+  color: var(--coast-ink);
+  font-family: 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+}
+.real-app:has(.real-dashboard) .real-side {
+  width: 224px; padding: 20px 16px 25px; background: #fffefa;
+  border-right: 1px solid #e8eae2; box-shadow: none;
+}
+.real-app:has(.real-dashboard) .real-side > .brand { gap: 14px; font-size: 24px; --brand-symbol-size: 40px; margin: 0 5px 26px; }
+.real-app:has(.real-dashboard) .real-side .brand-wordmark { gap: 6px; }
+.real-app:has(.real-dashboard) .login-user { margin: 0 0 24px; padding: 14px 11px; min-height: 70px; border: 1px solid #e0e7e2; background: #fffefa; border-radius: 12px; box-shadow: none; }
+.real-app:has(.real-dashboard) .login-user b { font-size: 15px; }
+.real-app:has(.real-dashboard) .login-user small { font-size: 11px; color: var(--coast-muted); }
+.real-app:has(.real-dashboard) .side-label { font-size: 12px; letter-spacing: 0; color: #677c7c; margin: 0 10px 16px; }
+.real-app:has(.real-dashboard) .group-switcher { gap: 5px; }
+.real-app:has(.real-dashboard) .group-switcher button { min-height: 66px; border: none; padding: 10px 14px; border-radius: 12px; }
+.real-app:has(.real-dashboard) .group-switcher button.active { background: #e4f2e9; color: #12583f; box-shadow: none; }
+.real-app:has(.real-dashboard) .group-switcher button b { font-size: 16px; }
+.real-app:has(.real-dashboard) .group-switcher button small { font-size: 11px; color: #83948b; margin-top: 3px; }
+.real-app:has(.real-dashboard) .new-group { min-height: 47px; margin-top: 7px; background: #fffefa; border-radius: 9px; border-color: #d4e2da; font-size: 15px; }
+.real-app:has(.real-dashboard) .real-workspace { position: relative; margin-left: 224px; width: calc(100% - 224px); background: var(--coast-bg); min-height: 100vh; }
+.real-app:has(.real-dashboard) .real-workspace::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 560px;
+  background: url('/ledger-coast.webp') top center / 100% auto no-repeat;
+  mask-image: linear-gradient(#000 0%, #000 53%, transparent 76%);
+  pointer-events: none;
+}
+.real-app:has(.real-dashboard) .real-workspace > header {
+  position: relative; top: auto; height: 82px; padding: 10px 32px; border: 0; background: transparent; box-shadow: none;
+}
+.real-app:has(.real-dashboard) .desktop-group-title small { color: #6e8283; font-size: 13px; }
+.real-app:has(.real-dashboard) .desktop-group-title h2 { color: #15383b; font-size: 21px; line-height: 1.4; }
+.real-app:has(.real-dashboard) .real-header-actions { gap: 12px; }
+.real-app:has(.real-dashboard) .header-primary { min-height: 48px; padding: 0 22px; background: #087b57; border-radius: 9px; font-size: 15px; box-shadow: 0 4px 11px #075b3d12; }
+.real-app:has(.real-dashboard) .header-secondary { min-height: 46px; border: 1px solid #dce5df; border-radius: 9px; padding: 0 16px; background: #fffffff2; color: #21413d; }
+.real-app:has(.real-dashboard) .real-dashboard { position: relative; width: 100%; max-width: none; margin: 0; padding: 22px 32px 50px; }
+.real-app:has(.real-dashboard) .mobile-overview-pair { margin: 0; }
+.real-app:has(.real-dashboard) .group-hero {
+  position: relative; border: 0; border-radius: 0; box-shadow: none; background: transparent;
+  height: auto; min-height: 230px; margin: 0 0 27px; padding: 25px 0 0; overflow: visible;
+  display: block;
+}
+.real-app:has(.real-dashboard) .group-overview-copy { padding: 0; min-width: 0; }
+.real-app:has(.real-dashboard) .group-title-row { display: flex; align-items: center; gap: 16px; margin: 0; }
+.real-app:has(.real-dashboard) .group-hero h1 { max-width: min(630px, 70%); margin: 0; color: var(--coast-ink); font-size: clamp(30px, 2.9vw, 48px); font-weight: 800; line-height: 1.25; letter-spacing: -.045em; overflow-wrap: anywhere; }
+.real-app:has(.real-dashboard) .currency-badge { background: #dcefe0; border: 0; color: #197451; min-height: 29px; padding: 4px 14px; border-radius: 99px; font-size: 13px; }
+.real-app:has(.real-dashboard) .group-overview-copy > p { max-width: 640px; margin: 10px 0 17px; color: #2e4e4e; line-height: 1.6; font-size: 16px; }
+.real-app:has(.real-dashboard) .group-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0; margin: 0 0 22px; font-size: 12px; color: #698080; }
+.real-app:has(.real-dashboard) .group-meta > span { display: inline-flex; align-items: center; gap: 7px; padding: 0 17px; border-left: 1px solid #becdc5; }
+.real-app:has(.real-dashboard) .group-meta > span:first-child { border: 0; padding-left: 0; }
+.real-app:has(.real-dashboard) .group-meta svg { width: 16px; height: 16px; }
+.real-app:has(.real-dashboard) .group-overview-side { position: absolute; right: 0; top: -13px; padding: 0; width: auto; }
+.real-app:has(.real-dashboard) .group-admin-menu { position: relative; z-index: 5; }
+.real-app:has(.real-dashboard) .group-admin-menu summary { min-height: 48px; padding: 0 17px; border-radius: 9px; background: #fffefbf7; border: 1px solid #dce4db; color: #213f3a; font-size: 13px; }
+.real-app:has(.real-dashboard) .group-admin-menu > div { background: #fffefa; border-color: #dce4db; box-shadow: 0 12px 36px #2d42251c; }
+.real-app:has(.real-dashboard) .group-member-wall { border: 0; margin: 0; padding: 0; max-width: min(100%, 990px); }
+.real-app:has(.real-dashboard) .group-member-wall-head { display: none; }
+.real-app:has(.real-dashboard) .group-member-avatars { display: flex; flex-wrap: nowrap; gap: 9px; padding: 3px 3px 8px; margin: 0; overflow-x: auto; scrollbar-width: thin; list-style: none; }
+.real-app:has(.real-dashboard) .group-member-avatars li { flex: none; }
+.real-app:has(.real-dashboard) .group-member-avatar { display: grid; place-items: center; width: 46px; height: 46px; padding: 3px; border: 1px solid #d7e2db; border-radius: 50%; background: #fff; box-shadow: 0 3px 7px #19392b10; }
+.real-app:has(.real-dashboard) .group-member-avatar .avatar { width: 38px !important; height: 38px !important; font-size: 16px; }
+.real-app:has(.real-dashboard) .mobile-summary-cluster { display: block; position: relative; margin: 0 0 20px; }
+.real-app:has(.real-dashboard) .real-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 0; }
+.real-app:has(.real-dashboard) .real-stats .stat-card { display: flex; align-items: center; gap: 16px; padding: 18px 19px; min-height: 116px; border: 1px solid #ffffffd9; background: #fffefaed; border-radius: 15px; box-shadow: 0 4px 20px #30403003; color: var(--coast-ink); }
+.real-app:has(.real-dashboard) .stat-card > div { min-width: 0; }
+.real-app:has(.real-dashboard) .real-stats .stat-card small { color: #70827c; font-size: 12px; font-weight: 500; }
+.real-app:has(.real-dashboard) .real-stats .stat-card h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px; font-size: 24px; line-height: 1.3; margin: 5px 0 2px; color: var(--coast-ink); font-weight: 750; font-variant-numeric: tabular-nums; }
+.real-app:has(.real-dashboard) .real-stats .stat-card h3.negative { color: #9e482f; }
+.real-app:has(.real-dashboard) .stat-card .balance-direction { font-size: 20px; }
+.real-app:has(.real-dashboard) .real-stats .stat-card p { color: #83948a; margin: 3px 0 0; font-size: 12px; }
+.real-app:has(.real-dashboard) .real-stats .mobile-stat-icon,
+.real-app:has(.real-dashboard) .real-stats .balance-stat::before { display: grid; place-items: center; width: 56px; height: 56px; flex: none; background: #e7f3e9; color: #147b55; border: 0; border-radius: 50%; margin: 0; }
+.real-app:has(.real-dashboard) .real-stats .mobile-stat-icon svg { width: 28px; height: 28px; }
+.real-app:has(.real-dashboard) .real-stats .balance-stat::before { content: ''; background: #e7f3e9 url('/coastal-wallet.svg') center / 28px no-repeat; }
+.real-app:has(.real-dashboard) .real-stats .balance-stat { order: 1; }
+.real-app:has(.real-dashboard) .real-stats .stat-card:nth-child(2) { order: 2; }
+.real-app:has(.real-dashboard) .real-stats .mobile-summary-stat { order: 3; }
+.real-app:has(.real-dashboard) .real-stats .settlement-stat { order: 4; grid-column: auto; }
+/* The admin action already exists in the persistent sidebar; do not duplicate it as a fifth statistic */
+.real-app:has(.real-dashboard) .real-stats .mobile-admin-stat { display: none; }
+.real-app:has(.real-dashboard) .real-grid { display: grid; grid-template-columns: minmax(0, 1.68fr) minmax(330px, 1fr); gap: 16px; align-items: start; }
+.real-app:has(.real-dashboard) .activity-column { gap: 0; min-width: 0; border: 1px solid #e1e9e1; background: #fffefaed; border-radius: 17px; overflow: hidden; }
+.real-app:has(.real-dashboard) .activity-tabs { display: flex; align-items: stretch; height: 72px; padding: 0 20px; margin: 0; gap: 0; border: 0; border-bottom: 1px solid #edf0e9; border-radius: 0; background: #f5f8f1b0; box-shadow: none; }
+.real-app:has(.real-dashboard) .activity-tabs button { position: relative; display: flex; flex: 1; align-items: center; justify-content: center; gap: 11px; min-height: 58px; margin: 0; padding: 0 16px; border: 0; border-radius: 0; background: transparent; color: #81918a; box-shadow: none; font-size: 15px; font-weight: 650; }
+.real-app:has(.real-dashboard) .activity-tabs button.active { background: #fffefa; color: #09613f; box-shadow: none; }
+.real-app:has(.real-dashboard) .activity-tabs button.active::after { content: ''; position: absolute; left: 18px; bottom: 8px; width: 74px; height: 2px; background: #087b57; }
+.real-app:has(.real-dashboard) .activity-tabs b { display: grid; place-items: center; font-size: 12px; min-width: 29px; height: 27px; padding: 0 9px; border-radius: 99px; background: #fff; color: #708680; }
+.real-app:has(.real-dashboard) .activity-tabs .active b { color: #fff; background: #087b57; }
+.real-app:has(.real-dashboard) .expense-panel, .real-app:has(.real-dashboard) .repayment-panel { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.real-app:has(.real-dashboard) .expense-panel { padding: 0; }
+.real-app:has(.real-dashboard) .expense-panel > .section-head { display: block; padding: 14px 18px; min-height: 79px; border: 0; }
+/* The labelled tab already names this panel; keep the sort announcement accessible */
+.real-app:has(.real-dashboard) .expense-panel > .section-head > div:first-child { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.real-app:has(.real-dashboard) .expense-head-actions { display: flex; align-items: center; gap: 10px; width: 100%; }
+.real-app:has(.real-dashboard) .expense-search { flex: 1; width: auto; max-width: none; min-width: 0; height: 46px; min-height: 46px; border-radius: 10px; background: #fff; border: 1px solid #dce5df; box-shadow: none; }
+.real-app:has(.real-dashboard) .expense-search input { width: 100%; min-width: 0; font-size: 13px; }
+.real-app:has(.real-dashboard) .expense-member-filter { flex: 0 1 220px; min-width: 140px; height: 48px; border: 1px solid #dce5df; border-radius: 10px; background: #fffefb; }
+.real-app:has(.real-dashboard) .expense-count { height: 46px; min-width: 76px; padding: 0 12px; color: #0a684b; border: 1px solid #dbe9df; background: #edf6ec; border-radius: 9px; }
+.real-app:has(.real-dashboard) .expense-record-table { border: 0; border-radius: 0; overflow-x: auto; }
+.real-app:has(.real-dashboard) .record-table-head,
+.real-app:has(.real-dashboard) .record-list > article { display: grid; grid-template-columns: 80px minmax(92px, 1fr) 74px 85px 104px 50px 73px 105px; align-items: center; gap: 10px; padding: 12px 19px; min-width: 765px; }
+.real-app:has(.real-dashboard) .record-table-head { padding-top: 4px; padding-bottom: 4px; min-height: 50px; color: #758a82; background: #f3f7ef; font-size: 11px; border: 0; }
+.real-app:has(.real-dashboard) .record-table-head .record-sort-button { font-size: 11px; }
+.real-app:has(.real-dashboard) .record-list > article { min-height: 87px; border-bottom: 1px solid #e9ede7; background: #ffffff70; }
+.real-app:has(.real-dashboard) .record-list > article:hover { background: #f3f7ee; }
+.real-app:has(.real-dashboard) .record-date { font-size: 12px; color: #869890; }
+.real-app:has(.real-dashboard) .record-name b { font-size: 14px; color: #173c39; }
+.real-app:has(.real-dashboard) .record-payer { font-size: 12px; color: #7d9189; }
+.real-app:has(.real-dashboard) .record-share-amount b { font-size: 13px; color: #00845a; }
+.real-app:has(.real-dashboard) .record-price b { font-size: 13px; color: #183d3b; }
+.real-app:has(.real-dashboard) .record-price small { font-size: 10px; color: #8b9b92; }
+.real-app:has(.real-dashboard) .record-status { font-size: 10px; padding: 5px 7px; border: 0; background: #eff6f0; }
+.real-app:has(.real-dashboard) .record-status.is-locked { background: #fff3d8; color: #a98042; }
+.real-app:has(.real-dashboard) .expense-locked { min-height: 38px; padding: 0 10px; border: 1px solid #cfe0d5; border-radius: 9px; background: #fffefa; font-size: 11px; }
+.real-app:has(.real-dashboard) .record-category { font-size: 11px; border: 0; color: #84958c; background: #f0f4ee; }
+.real-app:has(.real-dashboard) .settlements { position: relative; top: auto; padding: 0; border: 1px solid #e1e9e1; border-radius: 17px; background: #fffefaed; box-shadow: none; overflow: hidden; }
+.real-app:has(.real-dashboard) .settlement-heading { position: relative; display: flex; justify-content: space-between; align-items: flex-start; min-height: 117px; padding: 17px 18px 18px 36px; background: url('/coastal-settlement.svg') 0 16px / 105px auto no-repeat; }
+.real-app:has(.real-dashboard) .settlement-heading > div { position: relative; min-width: 0; padding-left: 12px; }
+.real-app:has(.real-dashboard) .settlement-heading h2 { margin: 2px 0 5px; color: var(--coast-ink); font-size: 25px; font-weight: 750; }
+.real-app:has(.real-dashboard) .settlement-heading .section-kicker { color: #7a8e84; font-size: 11px; }
+.real-app:has(.real-dashboard) .settlement-heading p { margin: 0; color: #7b8c84; font-size: 12px; line-height: 1.6; }
+.real-app:has(.real-dashboard) .settlement-help-button { flex: none; width: 38px; height: 38px; border: 1px solid #dde7de; background: #fff; color: #81958a; }
+.real-app:has(.real-dashboard) .settlement-repayment-note { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 47px; margin: 0; padding: 12px 16px; border: 0; border-top: 1px solid #e5ece3; border-bottom: 1px solid #e5ece3; border-radius: 0; background: #f1f6eb; color: #6c8478; font-size: 11px; text-align: left; }
+.real-app:has(.real-dashboard) .settlement-repayment-note b { font-size: 11px; color: #157456; white-space: nowrap; }
+.real-app:has(.real-dashboard) .settlements .all-clear { position: relative; display: flex; align-items: center; justify-content: flex-start; flex-direction: column; min-height: 290px; padding: 28px 30px 25px; color: var(--coast-ink); text-align: center; }
+.real-app:has(.real-dashboard) .settlements .all-clear > svg { display: block; width: 59px; height: 59px; min-height: 59px; padding: 16px; color: #188c64; border: 1px solid #a2d5b7; border-radius: 50%; margin: 0 0 23px; background: #fffefa; }
+.real-app:has(.real-dashboard) .settlements .all-clear > b { position: relative; font-size: 17px; line-height: 1.5; margin: 0; font-weight: 750; }
+.real-app:has(.real-dashboard) .settlements .all-clear > p { position: relative; max-width: 340px; color: #7d9085; font-size: 12px; line-height: 1.8; margin: 8px 0 0; }
+/* Decorative travel caption, never a substitute for the calculated settlement state */
+.real-app:has(.real-dashboard) .settlements .all-clear:not(:has(.empty-primary))::after { content: '旅程很棒，\A 也感謝一起分擔的你們'; white-space: pre-line; font-family: 'Kaiti TC', 'AR PL UKai TW', 'DFKai-SB', 'KaiTi', serif; color: #849789; font-size: 23px; line-height: 1.7; letter-spacing: .08em; margin-top: 25px; transform: rotate(-5deg); pointer-events: none; }
+.real-app:has(.real-dashboard) .settlement-list { padding: 16px; }
+.real-app:has(.real-dashboard) .repayment-panel { padding: 24px; }
+.real-app:has(.real-dashboard) :is(button, a, summary, input, select):focus-visible { outline: 3px solid #a47e36; outline-offset: 3px; }
+@media (min-width: 901px) {
+ .real-app:has(.real-dashboard) .mobile-shortcuts { position: absolute; display: flex; top: 82px; left: calc(50% + 94px); justify-content: flex-start; width: auto; margin: 0; padding: 0; border: 0; background: transparent; }
+ .real-app:has(.real-dashboard) .mobile-shortcuts .shortcut-card { min-height: 30px; padding: 4px 9px; gap: 6px; font-size: 11px; color: #486e59; background: transparent; }
+ .real-app:has(.real-dashboard) .mobile-shortcuts .shortcut-icon { width: 16px; height: 16px; background: none; padding: 0; }
+ .real-app:has(.real-dashboard) .mobile-shortcuts svg { width: 16px; height: 16px; }
+ .real-app:has(.real-dashboard) .mobile-shortcuts .shortcut-invite,
+ .real-app:has(.real-dashboard) .mobile-shortcuts .mobile-admin-shortcut { display: none; }
+}
+@media (min-width: 901px) and (max-width: 1360px) {
+ .real-app:has(.real-dashboard) .real-side { width: 202px; padding-inline: 12px; }
+ .real-app:has(.real-dashboard) .real-workspace { margin-left: 202px; width: calc(100% - 202px); }
+ .real-app:has(.real-dashboard) .real-dashboard { padding-inline: 22px; }
+ .real-app:has(.real-dashboard) .real-stats .stat-card { padding: 18px 12px; gap: 9px; }
+ .real-app:has(.real-dashboard) .real-stats .mobile-stat-icon,
+ .real-app:has(.real-dashboard) .real-stats .balance-stat::before { width: 40px; height: 40px; }
+ .real-app:has(.real-dashboard) .real-stats h3 { font-size: 21px; }
+ .real-app:has(.real-dashboard) .real-grid { grid-template-columns: minmax(0, 1fr); }
+ .real-app:has(.real-dashboard) .settlements { max-width: none; }
+}
+@media (max-width: 900px) {
+ .real-app:has(.real-dashboard) .real-side { display: none; }
+ .real-app:has(.real-dashboard) .real-workspace { width: 100%; margin: 0; }
+ .real-app:has(.real-dashboard) .real-workspace::before { height: 340px; background-size: auto 280px; background-position: right top; opacity: .5; }
+ .real-app:has(.real-dashboard) .real-workspace > header { position: sticky; top: 0; height: 66px; padding: 10px 16px; background: #fffcf6f5; border-bottom: 1px solid #e4e8dd; }
+ .real-app:has(.real-dashboard) .real-dashboard { padding: 18px 14px 28px; background: transparent; }
+ .real-app:has(.real-dashboard) .mobile-ledger-heading { position: relative; padding: 0; margin-bottom: 16px; color: var(--coast-ink); }
+ .real-app:has(.real-dashboard) .mobile-ledger-heading h1 { color: var(--coast-ink); font-size: 24px; }
+ .real-app:has(.real-dashboard) .mobile-group-settings { background: #fffefa; border-color: #dbe3d5; }
+ /* Keep the existing mobile page switching and dedicated summary logic */
+ .real-app:has(.real-dashboard) .mobile-overview-pair,
+ .real-app:has(.real-dashboard) .mobile-summary-cluster { display: none; }
+ .real-app:has(.real-dashboard) .real-grid { display: flex; flex-direction: column; gap: 16px; }
+ .real-app:has(.real-dashboard) .activity-column { width: 100%; border-radius: 14px; }
+ .real-app:has(.real-dashboard) .activity-tabs { min-height: 56px; height: auto; padding-inline: 7px; }
+ .real-app:has(.real-dashboard) .activity-tabs button { min-height: 54px; padding: 0 10px; font-size: 13px; gap: 8px; }
+ .real-app:has(.real-dashboard) .activity-tabs button.active::after { bottom: 4px; left: 12px; width: 56px; }
+ .real-app:has(.real-dashboard) .expense-panel > .section-head { padding: 12px; }
+ .real-app:has(.real-dashboard) .expense-head-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
+ .real-app:has(.real-dashboard) .expense-search { width: 100%; grid-column: 1 / -1; }
+ .real-app:has(.real-dashboard) .expense-member-filter { min-width: 0; width: 100%; }
+ .real-app:has(.real-dashboard) .expense-count { justify-self: end; min-width: 64px; }
+ .real-app:has(.real-dashboard) .expense-record-table { overflow: visible; }
+ .real-app:has(.real-dashboard) .record-table-head { display: none; }
+ .real-app:has(.real-dashboard) .record-list > article { display: block; grid-template-columns: none; min-width: 0; min-height: 0; padding: 0; }
+ .real-app:has(.real-dashboard) .settlements { width: 100%; }
+ .real-app:has(.real-dashboard) .settlement-heading { min-height: 103px; padding: 16px 17px 16px 25px; }
+ .real-app:has(.real-dashboard) .settlement-heading h2 { font-size: 23px; }
+ .real-app:has(.real-dashboard) .settlements .all-clear { min-height: 280px; padding: 25px 18px; }
+ .real-app:has(.real-dashboard) .settlements .all-clear > b { font-size: 16px; }
+ .real-app:has(.real-dashboard) .settlement-repayment-note { font-size: 10px; }
+ .real-app:has(.real-dashboard) .mobile-bottom-nav { background: #fffefaf8; border-color: #dce5d6; }
+ .real-app:has(.real-dashboard) .mobile-bottom-add { background: #087b57; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .real-app:has(.real-dashboard) .real-workspace::before { animation: none; }
+}
+
+@media (min-width: 901px) {
+ .real-app:has(.real-dashboard) .real-stats .balance-stat h3 { display: flex; flex-direction: row; gap: 4px; text-align: left; }
+ .real-app:has(.real-dashboard) .real-stats .balance-stat .balance-value { color: #15383b; font-size: 21px; }
+ .real-app:has(.real-dashboard) .real-stats .balance-stat .balance-direction { color: #15383b; font-size: 20px; }
+ .real-app:has(.real-dashboard) .real-stats .mobile-summary-stat:not(.mobile-admin-stat) { padding-bottom: 31px; padding-top: 14px; }
+ .real-app:has(.real-dashboard) .activity-tabs button { justify-content: flex-start; }
+ .real-app:has(.real-dashboard) .activity-tabs button:last-child { justify-content: center; }
+}
+
+@media (min-width: 1361px) and (max-width: 1550px) {
+ .real-app:has(.real-dashboard) .real-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+}
+@media (min-width: 901px) {
+ .real-app:has(.real-dashboard) .settlements { grid-column: auto; order: initial; }
+}
