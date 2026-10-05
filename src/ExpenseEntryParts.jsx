@@ -22,7 +22,7 @@ export function EntryIcon({name, className = ''}) {
 
 export function EntryAvatar({person, currentUserId, index = 0}) {
   const [failedUrl, setFailedUrl] = useState(null);
-  const name = String(person.id) === String(currentUserId) ? 'You' : person.displayName || 'Member';
+  const name = String(person.id) === String(currentUserId) ? '你' : person.displayName || '成員';
   return <span className={`es-avatar es-tone-${index % 4}`} aria-hidden="true">
     {person.pictureUrl && person.pictureUrl !== failedUrl
       ? <img src={person.pictureUrl} alt="" referrerPolicy="no-referrer" onError={() => setFailedUrl(person.pictureUrl)}/>
