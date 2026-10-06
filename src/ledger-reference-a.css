@@ -1,0 +1,143 @@
+/* Reference A: one home for each action; responsive geometry, not a screenshot UI */
+.real-app:has(.real-dashboard) .real-side { padding: 24px 16px 16px; overflow-y: auto; }
+.real-app:has(.real-dashboard) .real-side > .brand { --brand-symbol-size: 50px; margin: 0 12px 26px; }
+.real-app:has(.real-dashboard) .login-user { min-height: 72px; padding: 12px; }
+.real-app:has(.real-dashboard) .group-switcher button { gap: 12px; min-height: 62px; padding: 8px 12px; }
+.real-app:has(.real-dashboard) .group-switcher button > div { min-width: 0; }
+.real-app:has(.real-dashboard) .group-switcher button b { font-size: 15px; overflow-wrap: anywhere; }
+.real-app:has(.real-dashboard) .ledger-cover { display: block; flex: none; width: 34px; height: 34px; border-radius: 8px; background: url('/ledger-coast.webp') 42% 50% / auto 70px; }
+.real-app:has(.real-dashboard) .ledger-cover.cover-1 { background-position: 76% 50%; }
+.real-app:has(.real-dashboard) .ledger-cover.cover-2 { background-position: 60% 50%; }
+.real-app:has(.real-dashboard) .ledger-cover.cover-3 { background-position: 12% 50%; }
+.real-app:has(.real-dashboard) .side-footer { margin-top: auto; padding-top: 16px; position: relative; }
+.real-app:has(.real-dashboard) .side-footer::before { content: ''; display: block; height: 105px; background: url('/coastal-leaf.svg') left bottom / 160px auto no-repeat; opacity: .65; pointer-events: none; }
+.real-app:has(.real-dashboard) .desktop-group-title { display: flex; align-items: center; gap: 12px; }
+.real-app:has(.real-dashboard) .desktop-group-title small { font-size: 12px; }
+.real-app:has(.real-dashboard) .desktop-group-title small::after { content: '›'; margin-left: 12px; }
+.real-app:has(.real-dashboard) .desktop-group-title h2 { font-size: 13px; margin: 0; }
+.real-app:has(.real-dashboard) .header-user-avatar { display: none; }
+.real-app:has(.real-dashboard) .group-overview-copy > .ledger-travel-note { font-size: 14px; color: #577474; margin: -8px 0 17px; }
+.real-app:has(.real-dashboard) .group-title-row { flex-wrap: wrap; }
+.real-app:has(.real-dashboard) .group-member-wall { max-width: 820px; }
+.real-app:has(.real-dashboard) .group-member-avatars { gap: 9px; overflow: visible; flex-wrap: wrap; }
+.real-app:has(.real-dashboard) .ledger-members-more { background: #087b57; color: #fff; font-weight: 600; }
+.real-app:has(.real-dashboard) .real-stats .mobile-summary-stat:not(.mobile-admin-stat) { padding: 18px 19px; }
+.real-app:has(.real-dashboard) .real-stats .balance-stat small { display: none; }
+.real-app:has(.real-dashboard) .real-stats .stat-card p { font-size: 12px; line-height: 1.5; }
+.real-app:has(.real-dashboard) .real-stats .balance-stat .balance-value { font-size: 23px; }
+.real-app:has(.real-dashboard) .activity-tabs button { min-width: 180px; padding: 0 14px; }
+.real-app:has(.real-dashboard) .activity-tabs button.active::after { left: 0; right: 0; width: auto; bottom: 6px; }
+.real-app:has(.real-dashboard) .expense-head-actions { display: grid; grid-template-columns: minmax(170px, 1fr) 160px 154px; gap: 12px; }
+.real-app:has(.real-dashboard) .expense-search { min-height: 36px; height: 36px; border-radius: 7px; }
+.real-app:has(.real-dashboard) .expense-date-filter { display: flex; align-items: center; position: relative; gap: 8px; padding: 0 12px; height: 36px; border: 1px solid #dce5df; background: #fff; border-radius: 7px; min-width: 0; margin: 0; }
+.real-app:has(.real-dashboard) .expense-date-filter svg { width: 16px; height: 16px; flex: none; pointer-events: none; }
+.real-app:has(.real-dashboard) .expense-date-filter select { width: 100%; min-width: 0; height: 100%; border: 0; background: transparent; padding: 0; appearance: none; font: inherit; font-size: 12px; color: #315858; cursor: pointer; }
+.real-app:has(.real-dashboard) .expense-member-filter { min-width: 0; width: 100%; height: 36px; min-height: 36px; border-radius: 7px; padding: 0 10px; }
+.real-app:has(.real-dashboard) .expense-member-filter-avatar { width: 20px; height: 20px; }
+.real-app:has(.real-dashboard) .expense-member-filter-avatar .avatar { width: 20px!important; height: 20px!important; }
+.real-app:has(.real-dashboard) .expense-member-filter-copy { min-width: 0; }
+.real-app:has(.real-dashboard) .expense-member-filter-copy small { display: none; }
+.real-app:has(.real-dashboard) .expense-member-filter-copy b { font-size: 12px; }
+.real-app:has(.real-dashboard) .expense-count { position: absolute; width: 1px; height: 1px; min-width: 0; margin: -1px; padding: 0; clip-path: inset(50%); overflow: hidden; }
+.real-app:has(.real-dashboard) .record-table-head { min-height: 42px; padding: 8px 20px; font-size: 12px; }
+.real-app:has(.real-dashboard) .record-list > article { min-height: 57px; padding: 8px 20px; font-size: 12px; }
+.real-app:has(.real-dashboard) .record-list > article .record-name b { font-size: 14px; }
+.real-app:has(.real-dashboard) .record-meta { margin-top: 1px; }
+.real-app:has(.real-dashboard) .record-list > article .record-price b { font-size: 13px; }
+.real-app:has(.real-dashboard) .record-currency { display: none; }
+.real-app:has(.real-dashboard) .record-category { border-radius: 9px; font-size: 11px; padding: 6px 8px; }
+.real-app:has(.real-dashboard) .record-status { font-size: 10px; gap: 4px; padding: 5px 7px; }
+.real-app:has(.real-dashboard) .ledger-row-more { display: grid; place-items: center; width: 36px; height: 36px; border: 0; background: transparent; border-radius: 8px; color: #42696a; }
+.real-app:has(.real-dashboard) .ledger-row-more:hover, .real-app:has(.real-dashboard) .ledger-row-more[aria-expanded=true] { background: #e8f3ed; }
+.real-app:has(.real-dashboard) .settlement-heading { padding: 24px 20px 22px 76px; min-height: 108px; gap: 12px; flex-wrap: wrap; }
+.real-app:has(.real-dashboard) .settlement-heading .section-kicker { display: none; }
+.real-app:has(.real-dashboard) .settlement-heading h2 { font-size: 24px; margin-bottom: 6px; }
+.real-app:has(.real-dashboard) .settlement-heading p { font-size: 12px; }
+.real-app:has(.real-dashboard) .settlement-balances { display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #d2e2dc; border-radius: 8px; padding: 0 12px; min-height: 40px; background: #fffefb; color: #204c4b; font-size: 12px; flex: none; }
+.real-app:has(.real-dashboard) .settlement-balances svg { width: 15px; height: 15px; }
+.real-app:has(.real-dashboard) .settlements .all-clear { position: relative; padding: 115px 28px 24px; min-height: 325px; }
+.real-app:has(.real-dashboard) .settlements .all-clear::before { content: ''; position: absolute; width: 250px; height: 100px; top: 30px; left: 50%; transform: translateX(-50%); background: url('/coastal-settled.svg') center / contain no-repeat; pointer-events: none; }
+.real-app:has(.real-dashboard) .settlements .all-clear > svg { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: 64px; height: 64px; margin: 0; background: #fffefb; padding: 19px; }
+.real-app:has(.real-dashboard) .settlements .all-clear > b { font-size: 17px; margin-top: 32px; }
+.real-app:has(.real-dashboard) .settlements .all-clear > p { font-size: 13px; }
+.real-app:has(.real-dashboard) .settlements .all-clear::after { margin-top: 36px; font-size: 22px; }
+.real-app:has(.real-dashboard) .settlements > .settlement-help-button { display: flex; align-items: center; gap: 6px; width: auto; height: auto; min-height: 36px; padding: 6px 12px; margin: 0 auto 12px; border: 0; border-radius: 8px; background: transparent; color: #607b74; font-size: 11px; }
+.real-app:has(.real-dashboard) .settlements > .settlement-help-button svg { width: 14px; height: 14px; }
+.real-app:has(.real-dashboard) .settlement-repayment-note.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; clip-path: inset(50%); overflow: hidden; }
+.real-app:has(.real-dashboard) :is(.expense-date-filter,.expense-member-filter):focus-within { outline: 2px solid #087b57; outline-offset: 2px; }
+.real-app:has(.real-dashboard) button:focus-visible { outline: 3px solid #8d7040; outline-offset: 2px; }
+.ledger-row-menu { position: fixed; z-index: var(--z-overlay,60); width: min(218px,calc(100vw - 16px)); padding: 6px; border: 1px solid #dce7df; border-radius: 10px; background: #fffefa; box-shadow: 0 8px 26px #163e3c22; color: #244b47; font-family: 'Noto Sans TC','Noto Sans CJK TC',sans-serif; }
+.ledger-row-menu button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 10px; background: transparent; border: 0; border-radius: 7px; text-align: left; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.ledger-row-menu button:hover,.ledger-row-menu button:focus-visible { background: #e7f3eb; outline: 2px solid #087b57; outline-offset: -2px; }
+.ledger-row-menu svg { width: 17px; height: 17px; }
+.ledger-row-menu .is-danger { color: #a43e35; }
+@media (min-width:901px) and (max-width:1350px) {
+ .real-app:has(.real-dashboard) .real-grid { grid-template-columns: minmax(0,1fr); }
+ .real-app:has(.real-dashboard) .real-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .real-app:has(.real-dashboard) .real-stats .stat-card { min-height: 100px; }
+ .real-app:has(.real-dashboard) .group-overview-side { margin-left: 16px; }
+ .real-app:has(.real-dashboard) .group-member-wall { max-width: 100%; }
+ .real-app:has(.real-dashboard) .group-hero { min-height: 245px; }
+}
+@media (min-width:1351px) and (max-width:1510px) {
+ .real-app:has(.real-dashboard) .real-grid { grid-template-columns: minmax(0,1fr) 330px; }
+ .real-app:has(.real-dashboard) .real-stats .stat-card { padding: 16px 12px; gap: 10px; }
+ .real-app:has(.real-dashboard) .real-stats .mobile-stat-icon,.real-app:has(.real-dashboard) .real-stats .balance-stat::before { width: 46px; height: 46px; }
+ .real-app:has(.real-dashboard) .record-table-head,.real-app:has(.real-dashboard) .record-list > article { grid-template-columns: 68px minmax(85px,1fr) 62px 76px 82px 54px 58px 32px; gap: 6px; padding-inline: 10px; }
+ .real-app:has(.real-dashboard) .expense-head-actions { grid-template-columns: minmax(125px,1fr) 125px 125px; gap: 8px; }
+}
+@media (max-width:900px) {
+ .real-app:has(.real-dashboard) .desktop-group-title { display: none; }
+ .real-app:has(.real-dashboard) .real-workspace { width: 100%; margin: 0; }
+ .real-app:has(.real-dashboard) .real-workspace > header { padding: calc(10px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left)); height: auto; min-height: 66px; z-index: 30; }
+ .real-app:has(.real-dashboard) .real-dashboard { padding: 20px max(14px,env(safe-area-inset-right)) calc(92px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left)); }
+ .real-app:has(.real-dashboard) .mobile-ledger-heading { align-items: center; gap: 10px; }
+ .real-app:has(.real-dashboard) .mobile-ledger-heading > div { min-width: 0; }
+ .real-app:has(.real-dashboard) .mobile-ledger-heading h1 { font-size: 23px; line-height: 1.4; overflow-wrap: anywhere; }
+ .real-app:has(.real-dashboard) .mobile-group-settings { min-height: 44px; flex: none; padding: 8px 10px; font-size: 12px; }
+ .real-app:has(.real-dashboard) .mobile-personal-balance { background: #fffefaed; border: 1px solid #e0e8df; border-radius: 16px; box-shadow: none; padding: 20px; }
+ .real-app:has(.real-dashboard) .mobile-personal-balance .balance-total { font-size: 32px; line-height: 1.25; color: #163f3c; }
+ .real-app:has(.real-dashboard) .mobile-personal-balance .balance-link { min-height: 44px; }
+ .real-app:has(.real-dashboard) .mobile-expense-row { min-height: 80px; }
+ .real-app:has(.real-dashboard) .mobile-expense-copy { min-width: 0; }
+ .real-app:has(.real-dashboard) .mobile-expense-copy b { overflow-wrap: anywhere; }
+ .real-app:has(.real-dashboard) .activity-tabs { height: auto; min-height: 56px; padding: 0 10px; }
+ .real-app:has(.real-dashboard) .activity-tabs button { flex: 1; min-width: 0; min-height: 54px; font-size: 13px; padding: 0 8px; }
+ .real-app:has(.real-dashboard) .expense-head-actions { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+ .real-app:has(.real-dashboard) .expense-search { grid-column: 1 / -1; min-height: 44px; height: 44px; }
+ .real-app:has(.real-dashboard) .expense-date-filter,.real-app:has(.real-dashboard) .expense-member-filter { height: 44px; min-height: 44px; }
+ .real-app:has(.real-dashboard) .expense-search input,.real-app:has(.real-dashboard) .expense-date-filter select,.real-app:has(.real-dashboard) .expense-member-filter select { font-size: 16px; }
+ .real-app:has(.real-dashboard) .record-list > article { min-height: 0; padding: 0; }
+ .real-app:has(.real-dashboard) .record-list .expense-row-actions { display: none; }
+ .real-app:has(.real-dashboard) .mobile-expense-actions-toggle { min-width: 44px; min-height: 44px; }
+ .real-app:has(.real-dashboard) .settlement-heading { padding: 20px 16px 18px 60px; min-height: 116px; }
+ .real-app:has(.real-dashboard) .settlement-balances { min-height: 44px; width: 100%; }
+ .real-app:has(.real-dashboard) .settlements .all-clear { padding: 110px 20px 24px; min-height: 320px; }
+ .real-app:has(.real-dashboard) .mobile-bottom-nav { position: fixed; inset: auto 0 0; width: 100%; border-radius: 0; padding: 8px max(10px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left)); z-index: 45; }
+ .real-app:has(.real-dashboard) .mobile-bottom-nav button { min-height: 48px; }
+ .real-app:has(.real-dashboard) .real-grid { padding-bottom: 0; }
+}
+@media (prefers-reduced-motion:reduce) { .ledger-row-menu { scroll-behavior: auto; } }
+@media (min-width:901px) {
+ .real-app:has(.real-dashboard) .real-workspace > header { backdrop-filter: none; }
+ .real-app:has(.real-dashboard) .group-overview-side { margin-left: 48px; }
+}
+@media (max-width:900px) {
+ .real-app:has(.real-dashboard) .real-workspace::before { background-image: url('/ledger-coast-mobile.webp'); background-size: cover; height: 300px; opacity: .35; mask-image: linear-gradient(#000,transparent); }
+ .real-app:has(.real-dashboard) .real-dashboard[data-mobile-view="overview"] > .real-grid,
+ .real-app:has(.real-dashboard) .real-dashboard[data-mobile-view="expenses"] > .real-grid > .settlements,
+ .real-app:has(.real-dashboard) .real-dashboard[data-mobile-view="settlements"] > .real-grid > .activity-column { display: none; }
+ .real-app:has(.real-dashboard) .mobile-expense-record-more { width: 44px; min-height: 44px; }
+}
+@media (max-width:760px) {
+ .expense-single-modal .es-modal-header { padding-top: calc(12px + env(safe-area-inset-top)); }
+ .expense-single-modal .es-scroll { padding-left: max(12px,env(safe-area-inset-left)); padding-right: max(12px,env(safe-area-inset-right)); }
+ .expense-single-modal .es-save-dock { padding-left: max(16px,env(safe-area-inset-left)); padding-right: max(16px,env(safe-area-inset-right)); }
+}
+.real-app:has(.real-dashboard) .real-side,
+.real-app:has(.real-dashboard) .real-workspace { transition: none; }
+@media (max-width:900px) {
+ .real-app:has(.real-dashboard) .expense-head-actions > .expense-date-filter { grid-column: 1; grid-row: 2; width: 100%; }
+ .real-app:has(.real-dashboard) .expense-head-actions > .expense-member-filter { grid-column: 2; grid-row: 2; width: 100%; }
+ .real-app:has(.real-dashboard) .expense-head-actions > .expense-search { grid-row: 1; }
+}

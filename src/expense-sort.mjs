@@ -51,3 +51,11 @@ export const nextExpenseSort=(current,key)=>{
   if(current?.key!==key)return {key,direction:'desc'};
   return {key,direction:current.direction==='desc'?'asc':'desc'};
 };
+
+// Compare calendar dates, not UTC instants, so filtering matches the displayed date.
+export const expenseDateOptions = expenses => [...new Set((expenses || [])
+  .map(expenseCalendarDate).filter(Boolean))].sort().reverse();
+
+export const filterExpensesByDate = (expenses, date = 'all') =>
+  !date || date === 'all' ? [...(expenses || [])]
+    : (expenses || []).filter(expense => expenseCalendarDate(expense) === date);
