@@ -1,0 +1,54 @@
+/* Supplied handwritten wordmark: preserve its aspect ratio and clear space */
+.brand.brand-handwritten {
+  display: inline-flex;
+  width: 156px;
+  max-width: 100%;
+  height: auto;
+  flex: none;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  line-height: 0;
+}
+.brand.brand-handwritten > .brand-lockup {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 176 / 100;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  flex: none;
+}
+.brand-symbol.brand-signature-mark {
+  --brand-symbol-size: 40px;
+  filter: none;
+  border-radius: 0;
+  transform: none;
+}
+.real-side > .brand.brand-handwritten,
+.admin-side > .brand.brand-handwritten {
+  width: 164px;
+  margin: 0 auto 20px;
+  padding: 0;
+}
+.real-app:has(.real-dashboard) .real-side > .brand.brand-handwritten {
+  width: 164px;
+  margin: 0 auto 20px;
+  padding: 0;
+}
+.site > nav .brand.brand-handwritten { width: 156px; }
+.site .phone-head .brand.brand-handwritten { width: 72px; }
+.site > footer .brand.brand-handwritten { width: 144px; }
+@media (max-width: 600px) {
+  .site > nav .brand.brand-handwritten { width: 100px; }
+  .site > footer .brand.brand-handwritten { width: 124px; }
+}
+@media (max-width: 360px) {
+  .real-app .brand-signature-mark.mobile-header-mark {
+    display: flex;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+  }
+}
