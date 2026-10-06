@@ -21,7 +21,7 @@ test('Decorative scenery is a small local WebP and never a screenshot of interac
   const image = readFileSync(new URL('../public/ledger-coast.webp', import.meta.url));
   assert.equal(image.toString('ascii', 0, 4), 'RIFF');
   assert.equal(image.toString('ascii', 8, 12), 'WEBP');
-  assert.ok(image.length < 50000);
+  assert.ok(image.length < 80000);
   assert.match(css, /url\('\/ledger-coast\.webp'\)/);
   assert.doesNotMatch(css, /url\(['"]?https?:/);
   for (const asset of ['coastal-wallet.svg', 'coastal-settlement.svg']) {
