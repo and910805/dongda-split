@@ -2,6 +2,7 @@ import React,{useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} fr
 import {createPortal} from 'react-dom';
 import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,BarChart3,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Home,Info,Link2,LoaderCircle,LogOut,MessageCircle,MoreHorizontal,Pencil,Plus,ReceiptText,RefreshCcw,Search,Settings2,ShieldCheck,Trash2,UserRound,Users,WalletCards,X} from './ui-icons.jsx';
 import {LedgerExpenseActions} from './LedgerExpenseActions.jsx';
+import './ledger-header.css';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
@@ -120,6 +121,8 @@ function Notice({notice,dismiss}){
 
 export default function ProductApp({Home}){
   const [me,setMe]=useState(null),[groups,setGroups]=useState([]),[activeId,setActiveId]=useState(null),[group,setGroup]=useState(null),[loading,setLoading]=useState(true),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[notice,setNotice]=useState(null),[showCreate,setShowCreate]=useState(false),[showExpense,setShowExpense]=useState(false),[editingExpense,setEditingExpense]=useState(null),[showInvite,setShowInvite]=useState(false),[showProfile,setShowProfile]=useState(false),[transferReport,setTransferReport]=useState(null);
+  // The dashboard owns settings state; the header supplies its desktop location.
+  const [headerSettingsHost,setHeaderSettingsHost]=useState(null);
   const [initialExpenseKind,setInitialExpenseKind]=useState('expense');
   const [currencyData,setCurrencyData]=useState({currencies:DEFAULT_CURRENCIES,exchangeRates:null});
   const [devLoginLoading,setDevLoginLoading]=useState(false),[devLoginError,setDevLoginError]=useState(''),[adminMode,setAdminMode]=useState(false),[adminViewingId,setAdminViewingId]=useState(null),[endingSimulation,setEndingSimulation]=useState(false);
@@ -256,12 +259,13 @@ export default function ProductApp({Home}){
         <div className="real-header-actions">
           <button type="button" className="header-user-avatar" onClick={()=>setShowProfile(true)} aria-label="開啟個人資料"><Person person={me} size={36}/></button>
           <button className="header-secondary" disabled={!group||adminViewing} onClick={()=>setShowInvite(true)}><Users/> 邀請成員</button>
+          <div className="header-ledger-settings" ref={setHeaderSettingsHost}/>
           {adminViewing?<span className="admin-view-badge"><ShieldCheck/>管理檢視</span>:<button className="primary header-primary" disabled={!group||groupLoading} onClick={openNewExpense}><Plus/> 新增支出</button>}
           <button type="button" className="mobile-header-avatar" aria-label="開啟個人資料與收款帳戶設定" onClick={()=>setShowProfile(true)}><Person person={me} size={38}/></button>
           <button className="mobile-logout" aria-label="登出" onClick={logout}><LogOut/></button>
         </div>
       </header>
-      {groupError&&!group?<WorkspaceError message={groupError} retry={activeId?refreshGroup:refreshGroups}/>:!groups.length?<EmptyGroups create={()=>setShowCreate(true)}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} group={group} me={me} currencies={currencyData} addExpense={adminViewing?null:openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} currencyChanged={async result=>{await Promise.all([refreshGroups(),refreshGroup()]);notify(result.alreadyApplied?'這次幣別換算先前已完成':`帳本已換算為 ${result.currency}`)}} refreshing={groupLoading} openAdmin={me.isSuperuser?()=>setAdminMode(true):null} openProfile={()=>setShowProfile(true)} onTransferReported={setTransferReport} adminViewing={adminViewing}/>}
+      {groupError&&!group?<WorkspaceError message={groupError} retry={activeId?refreshGroup:refreshGroups}/>:!groups.length?<EmptyGroups create={()=>setShowCreate(true)}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} settingsHost={headerSettingsHost} group={group} me={me} currencies={currencyData} addExpense={adminViewing?null:openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} currencyChanged={async result=>{await Promise.all([refreshGroups(),refreshGroup()]);notify(result.alreadyApplied?'這次幣別換算先前已完成':`帳本已換算為 ${result.currency}`)}} refreshing={groupLoading} openAdmin={me.isSuperuser?()=>setAdminMode(true):null} openProfile={()=>setShowProfile(true)} onTransferReported={setTransferReport} adminViewing={adminViewing}/>}
     </section>
     <Notice notice={notice} dismiss={()=>setNotice(null)}/>
     {showCreate&&<CreateGroup currencies={currencyData.currencies} close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} currencies={currencyData.currencies} expense={editingExpense} initialKind={initialExpenseKind} currentUserId={me.id} onNotice={notify} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>} {showProfile&&<ProfileModal me={me} close={()=>setShowProfile(false)} saved={bankAccount=>{setMe(current=>({...current,bankAccount}));setShowProfile(false);notify(bankAccount.configured?'已更新常用收款帳戶':'已移除常用收款帳戶')}}/>} {transferReport&&<TransferNoticeModal report={transferReport} close={closeTransferReport}/>}
@@ -325,7 +329,7 @@ function SettlementBankShare({groupId,settlement,shared,configured,refresh,openP
     {error&&<p className="settlement-bank-error" role="alert"><AlertCircle/>{error}</p>}
   </div>;
 }
-function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,removeGroup,refresh,currencyChanged,refreshing=false,openAdmin,openProfile,onTransferReported,adminViewing=false}){
+function GroupDashboard({settingsHost,group,me,currencies,addExpense,editExpense,invite,removeGroup,refresh,currencyChanged,refreshing=false,openAdmin,openProfile,onTransferReported,adminViewing=false}){
   const [paying,setPaying]=useState(''),[pendingSettlement,setPendingSettlement]=useState(null),[transferError,setTransferError]=useState(''),[deleting,setDeleting]=useState(''),[deletingGroup,setDeletingGroup]=useState(false),[showSettlementHelp,setShowSettlementHelp]=useState(false),[showBalances,setShowBalances]=useState(false),[selectedExpenseShares,setSelectedExpenseShares]=useState(null),[selectedMemberId,setSelectedMemberId]=useState(null),[actionError,setActionError]=useState('');
   const [showCurrencyChange,setShowCurrencyChange]=useState(false),[groupAdminOpen,setGroupAdminOpen]=useState(false),[showMobileTools,setShowMobileTools]=useState(false);
   const [pendingAction,setPendingAction]=useState(null),[confirmationError,setConfirmationError]=useState('');
@@ -477,6 +481,14 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
   const openMobileTool=action=>{setShowMobileTools(false);requestAnimationFrame(()=>{document.getElementById(`mobile-group-settings-${group.id}`)?.focus({preventScroll:true});action()})};
   const handleActivityTabKeyDown=event=>{let nextTab;if(event.key==='ArrowLeft'||event.key==='Home')nextTab='expenses';if(event.key==='ArrowRight'||event.key==='End')nextTab='repayments';if(!nextTab)return;event.preventDefault();focusActivityTab(nextTab)};
   return <main className={`real-dashboard ${refreshing?'is-refreshing':''}`} data-mobile-view={mobileNavActive} aria-busy={refreshing}>
+    {settingsHost && createPortal(
+          <details className="group-admin-menu" open={groupAdminOpen}><summary aria-expanded={groupAdminOpen} onClick={event=>{event.preventDefault();setGroupAdminOpen(open=>!open)}}><Settings2 aria-hidden="true"/>帳本設定</summary><div>
+            <div className="group-admin-current"><span>帳本幣別</span><b>{currencyInfo.code} · {currencyInfo.name}</b></div>
+            <button type="button" className="group-currency-action" onClick={()=>{setGroupAdminOpen(false);setShowCurrencyChange(true)}}>換算帳本金額</button>
+            <p>所有帳本成員都可以調整帳本幣別；換算前會先顯示匯率與尾差</p>
+            {(group.ownerId===me.id||adminViewing)&&<><p>{adminViewing?'你正以管理者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p><button className="danger-action" disabled={deletingGroup} onClick={requestDeleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除帳本'}</button></>}
+          </div></details>
+      , settingsHost)}
     {refreshing&&<div className="workspace-progress" role="status"><span></span><span className="sr-only">正在更新帳本資料</span></div>}
     {actionError&&<div className="inline-alert" role="alert"><AlertCircle/><span>{actionError}</span><button onClick={()=>setActionError('')} aria-label="關閉錯誤訊息"><X/></button></div>}
     <div className="mobile-ledger-heading"><div><h1 id={`mobile-ledger-title-${group.id}`} tabIndex={-1}>{mobileNavActive==='overview'?'帳本總覽':mobileNavActive==='expenses'?'每一筆支出':'把帳結清，輕鬆收尾'}</h1><span>{memberCount} 位旅伴 · {currencyCode}</span></div><button type="button" className="mobile-group-settings" id={`mobile-group-settings-${group.id}`} onClick={()=>setShowMobileTools(true)} aria-haspopup="dialog"><Settings2 aria-hidden="true"/><span>帳本設定</span></button></div>
@@ -490,16 +502,8 @@ function GroupDashboard({group,me,currencies,addExpense,editExpense,invite,remov
       </article>
       <section className="group-hero" id={`group-overview-${group.id}`} aria-labelledby="group-title">
         <div className="group-overview-copy">
-          <div className="group-title-row"><h1 id="group-title">{group.name}</h1><span className="currency-badge">{currencyCode}</span><div className="group-overview-side">
-          <details className="group-admin-menu" open={groupAdminOpen}><summary aria-expanded={groupAdminOpen} onClick={event=>{event.preventDefault();setGroupAdminOpen(open=>!open)}}><Settings2 aria-hidden="true"/>帳本設定</summary><div>
-            <div className="group-admin-current"><span>帳本幣別</span><b>{currencyInfo.code} · {currencyInfo.name}</b></div>
-            <button type="button" className="group-currency-action" onClick={()=>{setGroupAdminOpen(false);setShowCurrencyChange(true)}}>換算帳本金額</button>
-            <p>所有帳本成員都可以調整帳本幣別；換算前會先顯示匯率與尾差</p>
-            {(group.ownerId===me.id||adminViewing)&&<><p>{adminViewing?'你正以管理者身分管理這個帳本':'刪除後，所有支出與結算都無法復原'}</p><button className="danger-action" disabled={deletingGroup} onClick={requestDeleteCurrentGroup}>{deletingGroup?<LoaderCircle/>:<Trash2/>}{deletingGroup?'刪除中…':'刪除帳本'}</button></>}
-          </div></details>
-        </div></div>
+          <div className="group-title-row"><h1 id="group-title">{group.name}</h1><span className="currency-badge">{currencyCode}</span></div>
           <p>{group.description||'一起記下每筆共同花費，最後輕鬆結清'}</p>
-          <p className="ledger-travel-note">山海相伴，旅途的每一刻，都值得被好好記錄</p>
           <div className="group-meta">
             <span className="member-count-meta"><Users/>{memberCount} 位成員</span>
             <span><CircleHelp/>{currencyCode} {currencyInfo.name}</span>
