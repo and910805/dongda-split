@@ -48,6 +48,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Prepare isolated visual review runtime
+        run: tar -czf /tmp/ledger-review-runtime.tar.gz node_modules *.mjs *.js Dockerfile
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ledger-review-runtime
+          path: /tmp/ledger-review-runtime.tar.gz
+          retention-days: 1
       - run: pnpm test
       - run: pnpm build
       - name: Verify expense modal with the real app navigation
