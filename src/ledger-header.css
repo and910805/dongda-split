@@ -1,0 +1,31 @@
+/* Keep desktop settings in the header's real layout and keyboard order. */
+.real-app .header-ledger-settings {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.real-app .header-ledger-settings:empty { display: none; }
+.real-app:has(.real-dashboard) .header-ledger-settings .group-admin-menu > summary {
+  min-height: 46px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+.real-app:has(.real-dashboard) .header-ledger-settings summary:focus-visible {
+  outline: 3px solid #8d7040;
+  outline-offset: 2px;
+}
+@media (min-width: 901px) {
+  .real-app:has(.real-dashboard) .real-workspace > header { gap: 16px; }
+  .real-app:has(.real-dashboard) .desktop-group-title { min-width: 0; }
+  .real-app:has(.real-dashboard) .desktop-group-title small { flex: none; }
+  .real-app:has(.real-dashboard) .desktop-group-title h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+/* Mobile retains its existing settings button and single expense entry. */
+@media (max-width: 900px) {
+  .real-app .header-ledger-settings { display: none; }
+}
