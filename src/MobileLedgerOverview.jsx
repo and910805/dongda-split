@@ -10,7 +10,7 @@ export function MobileLedgerOverview({group,me,mine,isMember,openSettlements,ope
   const recent=sortExpenses(group.expenses,DEFAULT_EXPENSE_SORT).slice(0,3);
   const total=group.expenses.reduce((sum,expense)=>sum+Number(expense.amountCents),0);
   const empty=group.expenses.length===0;
-  const label=!isMember?'帳本待結算':empty?'從第一筆開始':mine<0?'你尚需支付':mine>0?'你尚可收回':'你目前沒有待結算款項';
+  const label=!isMember?'帳本待結算':empty?'從第一筆開始':mine<0?'你尚需支付':mine>0?'你尚可收回':'我的餘額';
   const context=!isMember?'查看成員的應收應付與還款紀錄':empty?'記下共同花費，旅帳會幫你算好分攤':mine<0?'查看付款對象，完成付款後再記錄':mine>0?'旅伴回報付款後，這裡會更新':'目前沒有你的待結算款項';
   return <section className="mobile-overview-v2" aria-label="帳本總覽">
     <article className={`mobile-personal-balance ${mine>0?'is-receivable':mine<0?'is-payable':'is-settled'}`}>

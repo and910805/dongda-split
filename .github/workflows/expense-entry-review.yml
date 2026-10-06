@@ -25,21 +25,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Retain allowlisted UI review sources
-        uses: actions/upload-artifact@v4
-        with:
-          name: ledger-review-source
-          path: |
-            src/
-            tests/
-            currency.mjs
-            finance.mjs
-            expense-date.mjs
-            package.json
-            pnpm-lock.yaml
-            pnpm-workspace.yaml
-            index.html
-          retention-days: 3
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -59,7 +44,7 @@ jobs:
         env:
           COASTAL_SCREENSHOTS: output/ledger-coastal
       - name: Verify reference A actions and mobile workflows
-        run: node --test tests/ledger-reference-a.browser.mjs
+        run: node --test tests/ledger-reference-a.browser.mjs tests/ledger-mobile-polish.browser.mjs
         env:
           COASTAL_SCREENSHOTS: output/ledger-coastal
       - uses: actions/upload-artifact@v4
