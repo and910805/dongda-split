@@ -19,7 +19,7 @@ css = css.replace(/url\((['"]?)(\/[^)'"?]+)\1\)/g, (match, quote, path) => {
   const type = path.endsWith('.svg') ? 'image/svg+xml' : path.endsWith('.webp') ? 'image/webp' : 'image/png';
   return `url(data:${type};base64,${readFileSync(file).toString('base64')})`;
 });
-const brandData = 'data:image/svg+xml;base64,' + readFileSync(join(dist,'triptab-mark.svg')).toString('base64');
+const brandAssets = Object.fromEntries(['triptab-mark.svg','triptab-logo.svg','triptab-logo-light.svg'].map(name => [`/${name}`, 'data:image/svg+xml;base64,' + readFileSync(join(dist,name)).toString('base64')]));
 const members = [{id: 'you', displayName: 'Andy'}, ...Array.from({length: 14}, (_, i) => ({id: `m${i}`, displayName: i === 12 ? '姓名較長的同行成員' : `旅伴 ${i + 1}`}))];
 const fixture = {
   id: 'coast', name: '宜筆勾銷', description: '一起記下每筆共同花費，最後輕鬆結清', currency: 'TWD', ledgerVersion: 1,
@@ -64,7 +64,7 @@ async function page(browser, width, height, mode = 'settled', data = fixture) {
   const {frameTree} = await send('Page.getFrameTree');
   await send('Page.setDocumentContent', {frameId: frameTree.frame.id, html: `<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="root"></div></body></html>`});
   const evaluate = async expression => {const result = await send('Runtime.evaluate', {expression, returnByValue: true, awaitPromise: true});assert.ok(!result.exceptionDetails, result.exceptionDetails?.exception?.description);return result.result.value;};
-  const mock = `const brand=${JSON.stringify(brandData)};new MutationObserver(()=>document.querySelectorAll('img[src="/triptab-mark.svg"]').forEach(img=>img.src=brand)).observe(document.documentElement,{childList:true,subtree:true});const group=${JSON.stringify(data)};const mode=${JSON.stringify(mode)};
+  const mock = `const brands=${JSON.stringify(brandAssets)};new MutationObserver(()=>document.querySelectorAll('img[src^="/triptab-"]').forEach(img=>{const asset=brands[img.getAttribute('src').split('?')[0]];if(asset)img.src=asset;})).observe(document.documentElement,{childList:true,subtree:true});const group=${JSON.stringify(data)};const mode=${JSON.stringify(mode)};
     if(mode==='empty'){group.expenses=[];group.settlementHistory=[];group.totalExpenseCents=0;}
     if(mode==='payable'){group.settlements=[{from:group.members[0],to:group.members[1],amountCents:5000,bankAccountAccess:{shared:false}}];group.balances[0].balanceCents=-5000;group.balances[1].balanceCents=5000;}
     window.__qa={requests:[],errors:[]};window.addEventListener('error',e=>__qa.errors.push(e.message));window.addEventListener('unhandledrejection',e=>__qa.errors.push(String(e.reason)));

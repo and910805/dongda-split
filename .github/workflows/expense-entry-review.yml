@@ -8,6 +8,7 @@ on:
       - 'tests/**'
       - 'public/ledger-coast*.webp'
       - 'public/coastal-*.svg'
+      - 'public/triptab-*'
       - 'index.html'
       - 'currency.mjs'
       - 'finance.mjs'
@@ -35,6 +36,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      - name: Verify handwritten branding across all surfaces
+        run: node --test tests/brand-logo.browser.mjs
+        env:
+          BRAND_SCREENSHOTS: output/ledger-coastal/brand
       - name: Verify expense modal with the real app navigation
         run: node --test tests/expense-mobile-layering.browser.mjs
         env:
