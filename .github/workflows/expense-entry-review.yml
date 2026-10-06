@@ -33,6 +33,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Package reproducible review inputs
+        run: tar -czf /tmp/reference-a-review-inputs.tar.gz src tests public node_modules *.mjs package.json pnpm-lock.yaml pnpm-workspace.yaml index.html Dockerfile
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-a-review-inputs
+          path: /tmp/reference-a-review-inputs.tar.gz
+          retention-days: 1
       - run: pnpm test
       - run: pnpm build
       - name: Verify expense modal with the real app navigation
