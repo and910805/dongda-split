@@ -141,3 +141,9 @@
  .real-app:has(.real-dashboard) .expense-head-actions > .expense-member-filter { grid-column: 2; grid-row: 2; width: 100%; }
  .real-app:has(.real-dashboard) .expense-head-actions > .expense-search { grid-row: 1; }
 }
+/* Keep short Chinese action labels on one line, even on 320px phones */
+@media (max-width:760px) {
+ .overlay .expense-single-modal .es-reset { white-space: nowrap; min-width: 64px; max-width: none; }
+ .expense-single-modal .es-header-actions { flex-shrink: 0; }
+ .real-app:has(.real-dashboard) .ledger-row-more svg { width: 20px; height: 20px; }
+}

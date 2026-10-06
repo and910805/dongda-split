@@ -36,3 +36,11 @@ test('Reference A actions use one settlement balance entry and a non-modal row m
  assert.doesNotMatch(menu,/[。]/u);
  assert.ok(source.includes('setExpenseDateFilter(\'all\')'));
 });
+test('Mobile keeps short action labels intact and separates the selected view',()=>{
+ const css=readFileSync(new URL('../src/ledger-reference-a.css',import.meta.url),'utf8');
+ assert.match(css,/\.es-reset \{ white-space: nowrap; min-width: 64px; max-width: none;/);
+ assert.match(css,/data-mobile-view="overview"/);
+ assert.match(css,/safe-area-inset-bottom/);
+ assert.match(css,/\.expense-date-filter \{ grid-column: 1; grid-row: 2;/);
+ assert.match(css,/\.expense-member-filter \{ grid-column: 2; grid-row: 2;/);
+});
