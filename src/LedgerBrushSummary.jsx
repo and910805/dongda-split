@@ -1,17 +1,43 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {ReceiptText, Users, WalletCards} from './ui-icons.jsx';
 import './ledger-brush-summary.css';
 
 // These labels are supplied by the existing ledger calculations, not by the artwork.
 // expenseDates uses the same descending, validated calendar dates as the date filter.
 export function LedgerBrushSummary({name, memberCount, expenseCount, settlementCount, totalLabel, balanceLabel, balanceCents, isMember, expenseDates=[]}) {
+  const sectionRef = useRef(null);
+  // Keep the scenery behind the full header/summary when text or amounts wrap.
+  // This changes only a decorative absolute layer, never the layout or data.
+  useEffect(() => {
+    const section = sectionRef.current;
+    const workspace = section?.closest('.real-workspace');
+    if (!section || !workspace || typeof ResizeObserver === 'undefined') return;
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!section.getClientRects().length) {
+          workspace.style.removeProperty('--ledger-art-height');
+          return;
+        }
+        const height = Math.ceil(section.getBoundingClientRect().bottom - workspace.getBoundingClientRect().top + 8);
+        const value = `${height}px`;
+        if (workspace.style.getPropertyValue('--ledger-art-height') !== value) workspace.style.setProperty('--ledger-art-height', value);
+      });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(workspace);
+    observer.observe(section);
+    measure();
+    return () => {observer.disconnect();cancelAnimationFrame(frame);workspace.style.removeProperty('--ledger-art-height');};
+  }, []);
   const firstDate = expenseDates.at(-1);
   const lastDate = expenseDates[0];
   const displayDate = value => value.split('-').map(Number).join('.');
   const balanceTitle = !isMember ? '帳本檢視' : balanceCents < 0 ? '你尚需支付' : balanceCents > 0 ? '你尚可收回' : '我的餘額';
   const settlementHint = !expenseCount ? '從第一筆花費開始' : settlementCount ? '應收應付請見結算明細' : '目前沒有待結算款項';
 
-  return <section className="mobile-summary-cluster ledger-brush-summary" aria-label="帳本摘要">
+  return <section ref={sectionRef} className="mobile-summary-cluster ledger-brush-summary" aria-label="帳本摘要">
     <dl className="ledger-brush-metrics">
       <div className="ledger-brush-metric" data-summary-metric="members">
         <dt><Users className="ledger-brush-icon" aria-hidden="true"/>同行成員</dt><dd className="ledger-brush-value">{memberCount}<span>位</span></dd><dd className="ledger-brush-caption">一起記下共同花費</dd>

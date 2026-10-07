@@ -1,0 +1,48 @@
+// Read-only public deployment check: no login, cookies, production API or writes.
+import {readFile, writeFile, appendFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
+
+const origin = 'https://trip-tap.kuanlin.online';
+const files = ['ledger-coast-reference-v2.webp', 'ledger-summary-drybrush-v2.webp', 'ledger-summary-note-v2.webp'];
+const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+const expected = Object.fromEntries(await Promise.all(files.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
+const revision = process.env.GITHUB_SHA || 'local';
+const report = {origin, revision, verified: false, checkedAt: '', attempts: []};
+
+async function get(path) {
+  const url = new URL(path, origin);
+  if (url.origin !== origin) throw new Error('Refusing a cross-origin deployment resource');
+  url.searchParams.set('art-check', revision);
+  const res = await fetch(url, {redirect: 'error', signal: AbortSignal.timeout(10000), headers: {'cache-control': 'no-cache', 'pragma': 'no-cache'}});
+  if (!res.ok) throw new Error(`${url.pathname}: HTTP ${res.status}`);
+  return res;
+}
+
+for (let attempt = 1; attempt <= 12; attempt++) {
+  try {
+    const html = await (await get('/')).text();
+    const styles = [...html.matchAll(/<link\b[^>]*href=["']([^"']+\.css(?:\?[^"']*)?)["']/gi)].map(match => match[1]);
+    if (!styles.length) throw new Error('The public page does not expose a built stylesheet');
+    const css = (await Promise.all(styles.map(async path => (await get(path)).text()))).join('\n');
+    for (const name of files) if (!css.includes(name)) throw new Error(`The published stylesheet is still missing ${name}`);
+    const entry = html.match(/<script\b[^>]*src=["']([^"']+\.js(?:\?[^"']*)?)["']/i)?.[1];
+    if (!entry || !(await (await get(entry)).text()).includes('--ledger-art-height')) throw new Error('The published app bundle is not the responsive artwork revision');
+    const actual = {};
+    for (const name of files) {
+      actual[name] = sha256(Buffer.from(await (await get(`/${name}`)).arrayBuffer()));
+      if (actual[name] !== expected[name]) throw new Error(`Published asset fingerprint mismatch: ${name}`);
+    }
+    Object.assign(report, {verified: true, checkedAt: new Date().toISOString(), styles, entry, assets: actual});
+    console.log(`VERIFIED ${origin} serves the new app bundle, stylesheet and all three exact artwork files`);
+    break;
+  } catch (error) {
+    const detail = error.cause?.code || error.message;
+    report.attempts.push({attempt, at: new Date().toISOString(), detail});
+    console.log(`Attempt ${attempt}/12: ${detail}`);
+    if (attempt < 12) await delay(20000);
+  }
+}
+await writeFile('ledger-deployment-report.json', JSON.stringify(report, null, 2));
+if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Ledger artwork deployment\n\n${report.verified ? 'VERIFIED: the public website serves the new app, CSS and matching artwork fingerprints' : 'NOT VERIFIED: inspect ledger-deployment-report.json for the last public HTTP check'}\n\nRevision: \`${revision}\`\n`);
+if (!report.verified) process.exitCode = 1;

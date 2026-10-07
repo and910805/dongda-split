@@ -1,0 +1,54 @@
+name: Assemble checked ledger artwork
+on:
+  push:
+    branches: [fix/ledger-reference-artwork-live]
+    paths: ['.github/workflows/assemble-ledger-art-once.yml']
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ledger-reference-artwork-live
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Assemble only the checksum-verified decorative image
+        env:
+          GH_ART_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --input-type=module <<'JS'
+          import {writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import assert from 'node:assert/strict';
+          const fragments = ['534043f76af818192341f65c51bb0f6a52a327b3','39d6fb69e16dbbb9eeefed93de3508a761dfa53c','71f088655340ab53668257c9e0550f8a2bab5c90','eac626c046b79b557d8e61cd677ed2cbdd6c1951','f0c5b6215ddfa15dc0ecbfbaabf858910162fa12','dc17b7f71dda87c7a09e49a23c364d36aed76a88'];
+          const gitHash = bytes => createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+          const parts = [];
+          for (const sha of fragments) {
+            const response = await fetch(`https://api.github.com/repos/and910805/dongda-split/git/blobs/${sha}`, {headers:{authorization:`Bearer ${process.env.GH_ART_TOKEN}`,accept:'application/vnd.github+json'},signal:AbortSignal.timeout(15000)});
+            assert.equal(response.status,200);
+            const blob = await response.json();
+            assert.equal(blob.encoding,'base64');
+            const bytes = Buffer.from(blob.content,'base64');
+            assert.equal(gitHash(bytes),sha);
+            parts.push(bytes);
+          }
+          const image = Buffer.concat(parts);
+          assert.equal(image.length,57422);
+          assert.equal(gitHash(image),'eb0c0ba37308de310a5065d6d7e7328b65244c51');
+          assert.equal(image.subarray(8,12).toString(),'WEBP');
+          writeFileSync('public/ledger-coast-reference-v2.webp',image);
+          console.log('Verified decorative image: 57422 bytes');
+          JS
+      - name: Commit only the checked image on the task branch
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- public/ledger-coast-reference-v2.webp
+          git commit -m 'fix(ledger): add checksum-verified reference scenery'
+          git push origin HEAD:fix/ledger-reference-artwork-live

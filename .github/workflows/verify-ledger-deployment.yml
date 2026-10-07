@@ -1,0 +1,37 @@
+name: Verify live ledger artwork
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/ledger-*-v2.webp'
+      - 'src/ledger-fidelity.css'
+      - 'src/LedgerBrushSummary.jsx'
+      - 'src/coastal-main.jsx'
+      - 'scripts/verify-ledger-art-deployment.mjs'
+      - '.github/workflows/verify-ledger-deployment.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-live-ledger-artwork
+  cancel-in-progress: true
+jobs:
+  verify-public-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for the production site to serve the exact new assets
+        run: node scripts/verify-ledger-art-deployment.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ledger-deployment-report
+          path: ledger-deployment-report.json
+          if-no-files-found: warn
+          retention-days: 3
