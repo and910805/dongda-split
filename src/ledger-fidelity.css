@@ -1,0 +1,56 @@
+/* Reference-derived artwork is separate from the real, responsive controls */
+@media (min-width: 901px) {
+  .real-app:has(.real-dashboard) .real-side { width: 214px; }
+  .real-app:has(.real-dashboard) .real-workspace { margin-left: 214px; width: calc(100% - 214px); }
+  .real-app:has(.real-dashboard) .real-workspace::before {
+    height: var(--ledger-art-height, 465px);
+    background-image: url('/ledger-coast-reference-v2.webp');
+    background-position: center top;
+    background-size: cover;
+    mask-image: none;
+    opacity: 1;
+  }
+  .real-app:has(.real-dashboard) .real-dashboard { padding-inline: 20px; }
+  .real-app:has(.real-dashboard) .group-hero { min-height: 246px; margin-bottom: 0; padding-inline: 20px; }
+  .real-app:has(.real-dashboard) .group-meta { margin-top: 52px; margin-bottom: 19px; }
+  .real-app:has(.real-dashboard) .mobile-summary-cluster.ledger-brush-summary {
+    grid-template-columns: minmax(0, 2.55fr) minmax(260px, 1fr);
+    gap: 32px;
+    margin-bottom: 20px;
+  }
+  .real-app:has(.real-dashboard) .ledger-brush-metrics { min-height: 126px; padding: 26px 54px; gap: 24px; }
+  .real-app:has(.real-dashboard) .ledger-brush-metrics::before {
+    inset: -4px -12px;
+    background-image: url('/ledger-summary-drybrush-v2.webp');
+    background-size: 100% 100%;
+  }
+  .real-app:has(.real-dashboard) .ledger-brush-metric { padding-left: 54px; }
+  .real-app:has(.real-dashboard) .ledger-brush-value { font-size: clamp(22px, 1.75vw, 29px); }
+  .real-app:has(.real-dashboard) .ledger-summary-note { padding: 28px 30px 20px; margin-right: 44px; }
+  .real-app:has(.real-dashboard) .ledger-summary-note::before {
+    inset: 0 -14px -6px;
+    background-image: url('/ledger-summary-note-v2.webp');
+    background-size: 100% 100%;
+    transform: none;
+  }
+  .real-app:has(.real-dashboard) .ledger-summary-date { margin-top: 5px; }
+  .real-app:has(.real-dashboard) .ledger-summary-date > span:first-child { display: inline; margin-right: 6px; }
+  .real-app:has(.real-dashboard) .ledger-summary-balance { margin-top: 7px; }
+  .real-app:has(.real-dashboard) .ledger-summary-note::after { bottom: 7px; }
+}
+@media (min-width: 901px) and (max-width: 1400px) {
+  .real-app:has(.real-dashboard) .mobile-summary-cluster.ledger-brush-summary {
+    grid-template-columns: minmax(0, 2.4fr) minmax(210px, 1fr);
+    gap: 14px;
+  }
+  .real-app:has(.real-dashboard) .ledger-brush-metrics { padding: 24px; gap: 14px; }
+  .real-app:has(.real-dashboard) .ledger-brush-metric { padding-left: 0; }
+  .real-app:has(.real-dashboard) .ledger-summary-note { padding: 24px 18px; margin-right: 8px; }
+  .real-app:has(.real-dashboard) .ledger-summary-date > span:first-child { display: block; }
+  .real-app:has(.real-dashboard) .ledger-summary-note::before { inset-inline: -8px; }
+}
+@media (forced-colors: active) {
+  .real-app:has(.real-dashboard) .real-workspace::before,
+  .real-app:has(.real-dashboard) .ledger-brush-metrics::before,
+  .real-app:has(.real-dashboard) .ledger-summary-note::before { display: none; }
+}

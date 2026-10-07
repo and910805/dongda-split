@@ -17,7 +17,7 @@ test('Coastal ledger: complete app layout and unchanged controls', {timeout: 120
           }
           if (width === 1672) {
             const geometry = await p.evaluate("(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {side:r('.real-side'),stats:r('.ledger-brush-metrics'),list:r('.activity-column'),settlement:r('.settlements')}})()");
-            assert.equal(geometry.side.width, 244);
+            assert.equal(geometry.side.width, 214);
             assert.ok(Math.abs(geometry.list.y-geometry.settlement.y)<2, 'Panels must align');
             assert.ok(geometry.stats.y > 280 && geometry.stats.y < 430);
             assert.ok(geometry.list.width > geometry.settlement.width);

@@ -26,7 +26,7 @@ test('Brush summary: real ledger data, screenshot layout and unchanged mobile fl
           const style=await p.evaluate(`(()=>{const e=document.querySelector('.ledger-brush-metric'),c=getComputedStyle(e);return {background:c.backgroundColor,shadow:c.boxShadow,radius:c.borderRadius,font:getComputedStyle(document.querySelector('.ledger-brush-value')).fontFamily,brush:getComputedStyle(document.querySelector('.ledger-brush-metrics'),'::before').backgroundImage}})()`);
           assert.equal(style.background,'rgba(0, 0, 0, 0)');assert.equal(style.shadow,'none');assert.equal(style.radius,'0px');
           assert.match(style.font,/sans-serif/);assert.doesNotMatch(style.font,/DFKai|BiauKai|Noto Serif|標楷/);
-          assert.match(style.brush,/data:image\/svg\+xml/);
+          assert.match(style.brush,/data:image\/webp/);
           assert.equal(await p.evaluate(text(summary)).then(value=>value.includes('\u3002')),false);
           await p.click('.header-ledger-settings summary');assert.equal(await p.evaluate(hits('.group-currency-action')),true);
           await p.click('.header-ledger-settings summary');
@@ -37,6 +37,23 @@ test('Brush summary: real ledger data, screenshot layout and unchanged mobile fl
         } finally {await p.close();}
       });
     }
+    await t.test('Scenery follows wrapped summary height and releases its observer on mobile', async () => {
+      const data = structuredClone(fixture);
+      data.name = '名稱很長但不得蓋住操作的共同帳本'.repeat(9);
+      const p = await page(browser,1024,1200,'settled',data);
+      try {
+        await delay(150);
+        const covers = await p.evaluate(`(()=>{const w=document.querySelector('.real-workspace'),s=document.querySelector('.ledger-brush-summary');return parseFloat(getComputedStyle(w,'::before').height)>=s.getBoundingClientRect().bottom-w.getBoundingClientRect().top})()`);
+        assert.equal(covers,true);
+        await p.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
+        await delay(150);
+        assert.equal(await p.evaluate(visible(summary)),false);
+        assert.equal(await p.evaluate("document.querySelector('.real-workspace').style.getPropertyValue('--ledger-art-height')"),'');
+        await p.click('.mobile-bottom-add');
+        assert.equal(await p.evaluate(hits('.es-save')),true);
+        assert.deepEqual(await p.evaluate('__qa.errors'),[]);
+      } finally {await p.close();}
+    });
     for (const [mode,expected] of [['empty','從第一筆'],['payable','你尚需支付'],['settled','我的餘額']]) {
       await t.test(`${mode}: no fabricated balance or trip dates`, async () => {
         const p=await page(browser,1672,941,mode);
