@@ -7,6 +7,7 @@ const origin = 'https://trip-tap.kuanlin.online';
 const files = ['ledger-coast-reference-v2.webp', 'ledger-summary-drybrush-v2.webp', 'ledger-summary-note-v2.webp'];
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const expected = Object.fromEntries(await Promise.all(files.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
+const layoutRevision = 'mobile-polish-1';
 const revision = process.env.GITHUB_SHA || 'local';
 const report = {origin, revision, verified: false, checkedAt: '', attempts: []};
 
@@ -24,17 +25,20 @@ for (let attempt = 1; attempt <= 12; attempt++) {
     const html = await (await get('/')).text();
     const styles = [...html.matchAll(/<link\b[^>]*href=["']([^"']+\.css(?:\?[^"']*)?)["']/gi)].map(match => match[1]);
     if (!styles.length) throw new Error('The public page does not expose a built stylesheet');
-    const css = (await Promise.all(styles.map(async path => (await get(path)).text()))).join('\n');
+    const styleSources = await Promise.all(styles.map(async path => (await get(path)).text()));
+    const css = styleSources.join('\n');
+    if (!css.replaceAll(/\s/g, '').includes(`--ledger-layout-revision:${layoutRevision}`)) throw new Error('The published stylesheet is still missing the mobile layout polish');
     for (const name of files) if (!css.includes(name)) throw new Error(`The published stylesheet is still missing ${name}`);
     const entry = html.match(/<script\b[^>]*src=["']([^"']+\.js(?:\?[^"']*)?)["']/i)?.[1];
-    if (!entry || !(await (await get(entry)).text()).includes('--ledger-art-height')) throw new Error('The published app bundle is not the responsive artwork revision');
+    const entrySource = entry ? await (await get(entry)).text() : '';
+    if (!entry || !entrySource.includes('--ledger-art-height')) throw new Error('The published app bundle is not the responsive artwork revision');
     const actual = {};
     for (const name of files) {
       actual[name] = sha256(Buffer.from(await (await get(`/${name}`)).arrayBuffer()));
       if (actual[name] !== expected[name]) throw new Error(`Published asset fingerprint mismatch: ${name}`);
     }
-    Object.assign(report, {verified: true, checkedAt: new Date().toISOString(), styles, entry, assets: actual});
-    console.log(`VERIFIED ${origin} serves the new app bundle, stylesheet and all three exact artwork files`);
+    Object.assign(report, {verified: true, checkedAt: new Date().toISOString(), styles, entry, layoutRevision, bundleHashes: {styles: Object.fromEntries(styles.map((path, index) => [path, sha256(Buffer.from(styleSources[index]))])), entry: sha256(Buffer.from(entrySource))}, assets: actual});
+    console.log(`VERIFIED ${origin} serves ${layoutRevision}, the app bundle and all three exact artwork files`);
     break;
   } catch (error) {
     const detail = error.cause?.code || error.message;

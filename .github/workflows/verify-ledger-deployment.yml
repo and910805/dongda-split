@@ -5,6 +5,7 @@ on:
     paths:
       - 'public/ledger-*-v2.webp'
       - 'src/ledger-fidelity.css'
+      - 'src/ledger-layout-polish.css'
       - 'src/LedgerBrushSummary.jsx'
       - 'src/coastal-main.jsx'
       - 'scripts/verify-ledger-art-deployment.mjs'

@@ -1,0 +1,120 @@
+.real-app:has(.real-dashboard) { --ledger-layout-revision: mobile-polish-1; }
+
+/* Requested decoration cleanup only; keep the coastline and settled-state artwork */
+.real-app:has(.real-dashboard) .side-footer::before {
+  content: none;
+  display: none;
+}
+.real-app:has(.real-dashboard) .settlement-heading {
+  background-image: none;
+  min-height: 0;
+  padding: 20px;
+}
+
+@media (max-width: 900px) {
+  /* Match the filter gutters, without reducing the 44px sorting touch targets */
+  .real-app:has(.real-dashboard) .expense-panel > .section-head { padding-bottom: 6px; }
+  .real-app:has(.real-dashboard) .mobile-expense-sort {
+    padding: 4px 12px 8px;
+    gap: 6px;
+  }
+  .real-app:has(.real-dashboard) .mobile-expense-sort .expense-sort-button {
+    min-width: 0;
+    min-height: 44px;
+    padding-inline: 4px;
+  }
+  .real-app:has(.real-dashboard) .expense-record-table { margin-top: 0; }
+
+  /* Remove three nested gutters; put metadata and actions on the same last row */
+  .real-app:has(.real-dashboard) .repayment-panel { padding: 0; }
+  .real-app:has(.real-dashboard) .repayment-panel > .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 0;
+    padding: 12px 14px;
+    gap: 12px;
+  }
+  .real-app:has(.real-dashboard) .history-refresh { flex: 0 0 44px; }
+  .real-app:has(.real-dashboard) .repayment-log { margin: 0; padding: 0; }
+  .real-app:has(.real-dashboard) .repayment-log article {
+    grid-template-columns: minmax(0, 1fr) minmax(148px, 1.15fr);
+    grid-template-areas: "payer amount" "receiver amount" "date date" "meta actions";
+    align-items: center;
+    gap: 4px 10px;
+    padding: 12px 14px;
+    min-height: 0;
+  }
+  .real-app:has(.real-dashboard) .repayment-log :is(.repayment-payer, .repayment-receiver, .repayment-meta) {
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+  .real-app:has(.real-dashboard) .repayment-log .repayment-amount {
+    min-width: 0;
+    max-width: 100%;
+    align-self: start;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .real-app:has(.real-dashboard) .repayment-log article > .repayment-meta {
+    padding: 0;
+    border: 0;
+    line-height: 1.5;
+  }
+  .real-app:has(.real-dashboard) .repayment-log article > .repayment-status-actions {
+    min-width: 0;
+    padding: 0;
+    gap: 4px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .real-app:has(.real-dashboard) .repayment-void-button {
+    min-height: 44px;
+    padding-inline: 6px;
+  }
+
+  /* The old max-width:48% applied inside a grid track, leaving a second empty gap */
+  .real-app:has(.real-dashboard) .mobile-recent-list .mobile-expense-row {
+    grid-template-columns: 34px minmax(0, 1fr) minmax(0, .9fr);
+    column-gap: 10px;
+    padding-inline: 12px;
+  }
+  .real-app:has(.real-dashboard) .mobile-expense-category { width: 34px; }
+  .real-app:has(.real-dashboard) .mobile-recent-list .mobile-expense-share {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    justify-self: end;
+    align-items: flex-end;
+    text-align: right;
+  }
+  .real-app:has(.real-dashboard) .mobile-expense-share :is(b, small) {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .real-app:has(.real-dashboard) .mobile-expense-share b {
+    font-variant-numeric: lining-nums tabular-nums;
+    line-height: 1.4;
+  }
+
+  .real-app:has(.real-dashboard) .settlement-heading { padding: 16px; }
+
+  /* Move the amount focus cue to the existing outer field, not a brown inner box */
+  .overlay .expense-single-modal .es-amount-block:focus-within {
+    border-color: #377454;
+    box-shadow: 0 0 0 2px #37745426;
+  }
+  .overlay .expense-single-modal .es-amount-line input:focus {
+    outline: none;
+    box-shadow: none;
+  }
+}
+@media (max-width: 900px) and (forced-colors: active) {
+  .overlay .expense-single-modal .es-amount-block:focus-within {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
