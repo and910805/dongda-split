@@ -50,7 +50,7 @@ jobs:
         env:
           COASTAL_SCREENSHOTS: output/ledger-coastal
       - name: Verify reference A actions and mobile workflows
-        run: node --test tests/ledger-reference-a.browser.mjs tests/ledger-mobile-polish.browser.mjs tests/ledger-header.browser.mjs tests/ledger-brush-summary.browser.mjs
+        run: node --test tests/ledger-reference-a.browser.mjs tests/ledger-mobile-polish.browser.mjs tests/ledger-header.browser.mjs tests/ledger-brush-summary.browser.mjs tests/ledger-layout-polish.browser.mjs
         env:
           COASTAL_SCREENSHOTS: output/ledger-coastal
       - uses: actions/upload-artifact@v4
