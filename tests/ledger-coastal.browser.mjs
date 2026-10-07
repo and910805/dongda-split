@@ -10,13 +10,13 @@ test('Coastal ledger: complete app layout and unchanged controls', {timeout: 120
         try {
           assert.equal(await p.evaluate('document.body.scrollWidth <= innerWidth+1'), true, 'Body must not scroll sideways');
           if (width > 900) {
-            assert.equal(await p.evaluate("[...document.querySelectorAll('.real-stats .stat-card')].filter(e=>e.getClientRects().length).length"), 4);
+            assert.equal(await p.evaluate("[...document.querySelectorAll('.ledger-brush-metric')].filter(e=>e.getClientRects().length).length"), 3);
             assert.equal(await p.evaluate("document.querySelectorAll('.group-member-avatar').length"), 13);
             assert.equal(await p.evaluate("getComputedStyle(document.querySelector('.real-workspace'),'::before').backgroundImage.includes('data:image/webp')"), true);
             assert.ok(await p.evaluate("document.querySelector('.shortcut-balances').getClientRects().length"));
           }
           if (width === 1672) {
-            const geometry = await p.evaluate("(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {side:r('.real-side'),stats:r('.real-stats'),list:r('.activity-column'),settlement:r('.settlements')}})()");
+            const geometry = await p.evaluate("(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {side:r('.real-side'),stats:r('.ledger-brush-metrics'),list:r('.activity-column'),settlement:r('.settlements')}})()");
             assert.equal(geometry.side.width, 244);
             assert.ok(Math.abs(geometry.list.y-geometry.settlement.y)<2, 'Panels must align');
             assert.ok(geometry.stats.y > 280 && geometry.stats.y < 430);

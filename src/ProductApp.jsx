@@ -2,6 +2,7 @@ import React,{useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} fr
 import {createPortal} from 'react-dom';
 import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,BarChart3,Check,ChevronDown,ChevronLeft,ChevronRight,CircleHelp,Clipboard,Clock3,DoorOpen,FlaskConical,History,Home,Info,Link2,LoaderCircle,LogOut,MessageCircle,MoreHorizontal,Pencil,Plus,ReceiptText,RefreshCcw,Search,Settings2,ShieldCheck,Trash2,UserRound,Users,WalletCards,X} from './ui-icons.jsx';
 import {LedgerExpenseActions} from './LedgerExpenseActions.jsx';
+import {LedgerBrushSummary} from './LedgerBrushSummary.jsx';
 import './ledger-header.css';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
@@ -526,16 +527,7 @@ function GroupDashboard({settingsHost,group,me,currencies,addExpense,editExpense
         </div>
       </section>
     </div>
-    <div className="mobile-summary-cluster">
-      <section className={`real-stats ${openAdmin?'has-admin':''}`} aria-label="帳本摘要">
-        <article className="stat-card balance-stat"><div><small>我的餘額</small><h3 className={mine>=0?'positive':'negative'}><span className="balance-direction">{mine>=0?'應收':'應付'}</span><span className="balance-value">{groupMoney(Math.abs(mine))}</span></h3><p>{mine===0?'目前沒有待結算款項':mine>0?'其他成員需要付給你':'你需要付給其他成員'}</p></div></article>
-        <article className="stat-card"><span className="mobile-stat-icon is-total" aria-hidden="true"><BarChart3/></span><div><small>帳本總支出</small><h3>{groupMoney(total)}</h3><p>共 {group.expenses.length} 筆共同花費</p></div></article>
-        <article className="stat-card settlement-stat"><span className="mobile-stat-icon is-pending" aria-hidden="true"><WalletCards/></span><div><small>待結算</small><h3>{group.settlements.length} 筆</h3><p>{!group.expenses.length?'從第一筆花費開始':group.settlements.length?'查看右側結算明細':'目前沒有待結算款項'}</p></div></article>
-        <article className="stat-card mobile-summary-stat"><span className="mobile-stat-icon is-members" aria-hidden="true"><Users/></span><div><small>同行成員</small><h3>{memberCount} 位</h3><p>一起創造了珍貴的回憶</p></div></article>
-        {openAdmin&&<button type="button" className="stat-card mobile-summary-stat mobile-admin-stat" onClick={openAdmin}><span className="mobile-stat-icon is-admin" aria-hidden="true"><ShieldCheck/></span><span><small>管理中心</small><strong>成員應收應付與設定</strong></span></button>}
-      </section>
-
-    </div>
+    <LedgerBrushSummary name={group.name} memberCount={memberCount} expenseCount={group.expenses.length} settlementCount={group.settlements.length} totalLabel={groupMoney(total)} balanceLabel={groupMoney(Math.abs(mine))} balanceCents={mine} isMember={currentUserIsMember} expenseDates={availableExpenseDates}/>
     <div className="real-grid">
       <div className="activity-column">
         <nav className="activity-tabs" role="tablist" aria-label="帳目紀錄">

@@ -58,14 +58,14 @@ test('Reference A: touch layouts, controls and preserved workflows',{timeout:180
   await t.test('Date/search/member filters compose, clear correctly and leave ledger totals unchanged',async()=>{
    const p=await page(b,1672,941);
    try {
-    const total=await p.evaluate("document.querySelector('.real-stats .stat-card:nth-child(2) h3').innerText");
+    const total=await p.evaluate("document.querySelector('[data-summary-metric=total] .ledger-brush-value').innerText");
     await p.setValue('.expense-date-filter select','2026-07-25',true);
     await p.setValue('.expense-search input','不存在');
     assert.match(await p.evaluate("document.querySelector('.expense-panel').innerText"),/沒有符合/);
     await p.click('.expense-panel .empty-primary');
     assert.equal(await p.evaluate("document.querySelector('.expense-date-filter select').value"),'all');
     assert.equal(await p.evaluate("document.querySelector('.expense-member-filter select').value"),'all');
-    assert.equal(await p.evaluate("document.querySelector('.real-stats .stat-card:nth-child(2) h3').innerText"),total);
+    assert.equal(await p.evaluate("document.querySelector('[data-summary-metric=total] .ledger-brush-value').innerText"),total);
     assert.equal(await p.evaluate("__qa.requests.filter(r=>r.method!=='GET').length"),0);
    }finally{await p.close();}
   });
