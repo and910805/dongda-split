@@ -53,6 +53,10 @@ jobs:
         run: node --test tests/ledger-reference-a.browser.mjs tests/ledger-mobile-polish.browser.mjs tests/ledger-header.browser.mjs tests/ledger-brush-summary.browser.mjs tests/ledger-layout-polish.browser.mjs
         env:
           COASTAL_SCREENSHOTS: output/ledger-coastal
+      - name: Verify mobile ledger switching and direct expense actions
+        run: node --test tests/ledger-navigation-polish.browser.mjs
+        env:
+          COASTAL_SCREENSHOTS: output/ledger-coastal/navigation
       - uses: actions/upload-artifact@v4
         if: always()
         with:
