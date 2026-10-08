@@ -1,0 +1,31 @@
+name: Font review inputs
+on:
+  push:
+    branches: [style/gensen-rounded-tw]
+    paths: ['.github/workflows/font-review-once.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Capture allowlisted sources only
+        run: |
+          tar -czf /tmp/font-review-source.tar.gz src tests public scripts *.mjs package.json pnpm-lock.yaml pnpm-workspace.yaml index.html Dockerfile server.js .github/workflows/expense-entry-review.yml .github/workflows/verify-ledger-deployment.yml
+      - name: Inspect public TW webfont CSS
+        run: |
+          curl -fLsS --max-time 40 https://font.emtech.cc/css/GenSenRoundedTW -o /tmp/gensen-provider.css
+          wc -c /tmp/gensen-provider.css
+          head -c 2400 /tmp/gensen-provider.css
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: font-review-inputs
+          path: |
+            /tmp/font-review-source.tar.gz
+            /tmp/gensen-provider.css
+          retention-days: 1
