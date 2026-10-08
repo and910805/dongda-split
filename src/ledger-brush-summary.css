@@ -7,7 +7,7 @@
   margin: 0 0 20px;
   padding: 0;
   color: #163e42;
-  font-family: 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  font-family: 'GenSenRoundedTW', 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
 }
 .real-app:has(.real-dashboard) .ledger-brush-metrics {
   position: relative;

@@ -10,7 +10,7 @@
   --coast-line: #e3eae3;
   background: var(--coast-bg);
   color: var(--coast-ink);
-  font-family: 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  font-family: 'GenSenRoundedTW', 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
 }
 .real-app:has(.real-dashboard) .real-side {
   width: 244px; padding: 20px 16px 25px; background: #fffefa;
@@ -137,7 +137,7 @@
 .real-app:has(.real-dashboard) .settlements .all-clear > b { position: relative; font-size: 17px; line-height: 1.5; margin: 0; font-weight: 750; }
 .real-app:has(.real-dashboard) .settlements .all-clear > p { position: relative; max-width: 340px; color: #7d9085; font-size: 12px; line-height: 1.8; margin: 8px 0 0; }
 /* Decorative travel caption, never a substitute for the calculated settlement state */
-.real-app:has(.real-dashboard) .settlements .all-clear:not(:has(.empty-primary))::after { content: '旅程很棒，\A 也感謝一起分擔的你們'; white-space: pre-line; font-family: inherit; color: #849789; font-size: 23px; line-height: 1.7; letter-spacing: .08em; margin-top: 25px; transform: rotate(-5deg); pointer-events: none; }
+.real-app:has(.real-dashboard) .settlements .all-clear:not(:has(.empty-primary))::after { content: '旅程很棒，\A 也感謝一起分擔的你們'; white-space: pre-line; font-family:'GenSenRoundedTW',  inherit; color: #849789; font-size: 23px; line-height: 1.7; letter-spacing: .08em; margin-top: 25px; transform: rotate(-5deg); pointer-events: none; }
 .real-app:has(.real-dashboard) .settlement-list { padding: 16px; }
 .real-app:has(.real-dashboard) .repayment-panel { padding: 24px; }
 .real-app:has(.real-dashboard) :is(button, a, summary, input, select):focus-visible { outline: 3px solid #a47e36; outline-offset: 3px; }

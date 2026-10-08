@@ -61,14 +61,14 @@ app.use(helmet({
       defaultSrc:["'self'"],
       baseUri:["'self'"],
       connectSrc:["'self'"],
-      fontSrc:["'self'",'https://fonts.gstatic.com','data:'],
+      fontSrc:["'self'",'https://font.emtech.cc','data:'],
       formAction:["'self'"],
       frameAncestors:["'none'"],
       imgSrc:["'self'",'data:','https:'],
       objectSrc:["'none'"],
       scriptSrc:["'self'"],
       scriptSrcAttr:["'none'"],
-      styleSrc:["'self'","'unsafe-inline'",'https://fonts.googleapis.com'],
+      styleSrc:["'self'","'unsafe-inline'",'https://font.emtech.cc'],
       upgradeInsecureRequests:isProduction?[]:null
     }
   },

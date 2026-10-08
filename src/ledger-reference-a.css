@@ -67,7 +67,7 @@
 .real-app:has(.real-dashboard) .settlement-repayment-note.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; clip-path: inset(50%); overflow: hidden; }
 .real-app:has(.real-dashboard) :is(.expense-date-filter,.expense-member-filter):focus-within { outline: 2px solid #087b57; outline-offset: 2px; }
 .real-app:has(.real-dashboard) button:focus-visible { outline: 3px solid #8d7040; outline-offset: 2px; }
-.ledger-row-menu { position: fixed; z-index: var(--z-overlay,60); width: min(218px,calc(100vw - 16px)); padding: 6px; border: 1px solid #dce7df; border-radius: 10px; background: #fffefa; box-shadow: 0 8px 26px #163e3c22; color: #244b47; font-family: 'Noto Sans TC','Noto Sans CJK TC',sans-serif; max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; }
+.ledger-row-menu { position: fixed; z-index: var(--z-overlay,60); width: min(218px,calc(100vw - 16px)); padding: 6px; border: 1px solid #dce7df; border-radius: 10px; background: #fffefa; box-shadow: 0 8px 26px #163e3c22; color: #244b47; font-family: 'GenSenRoundedTW', 'Noto Sans TC','Noto Sans CJK TC',sans-serif; max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; }
 .ledger-row-menu button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 10px; background: transparent; border: 0; border-radius: 7px; text-align: left; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .ledger-row-menu button:hover,.ledger-row-menu button:focus-visible { background: #e7f3eb; outline: 2px solid #087b57; outline-offset: -2px; }
 .ledger-row-menu svg { width: 17px; height: 17px; }

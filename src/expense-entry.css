@@ -26,7 +26,7 @@
   background: #faf9f4;
   color: var(--entry-ink);
   box-shadow: 0 24px 90px #10291e30;
-  font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  font-family: 'GenSenRoundedTW', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
 }
 .expense-entry-dialog [hidden] { display: none !important; }
 .expense-entry-dialog *, .expense-entry-dialog *::before, .expense-entry-dialog *::after { box-sizing: border-box; }

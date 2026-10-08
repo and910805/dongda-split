@@ -4753,7 +4753,7 @@
   border-top: 1px solid var(--border);
   color: var(--text-soft);
   background: var(--surface-subtle);
-  font: 11px/1.7 'Noto Sans TC',sans-serif;
+  font: 11px/1.7 'GenSenRoundedTW','Noto Sans TC',sans-serif;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: text;
