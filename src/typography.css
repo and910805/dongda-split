@@ -1,8 +1,8 @@
-@import './gensen-font-faces.css';
+@import './taipei-font-faces.css';
 
 :root {
-  --font-ui: 'GenSen Rounded TW', 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', 'Segoe UI', sans-serif;
-  --font-revision: gensen-tw-2100;
+  --font-ui: 'Taipei Sans TC', 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+  --font-revision: taipei-sans-tc-beta-1;
 }
 
 /* One intentional family-only override covers the legacy font shorthands,

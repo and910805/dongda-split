@@ -3,16 +3,16 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 const read=path=>readFileSync(new URL(`../${path}`,import.meta.url));
-const directory='public/fonts/gensen-tw-2.1.0/';
+const directory='public/fonts/taipei-sans-tc-beta/';
 const manifest=JSON.parse(read(directory+'manifest.json'));
 
-test('TW font assets retain all six upstream weights and complete non-overlapping cmap coverage',()=>{
-  assert.equal(manifest.family,'GenSen Rounded TW');
-  assert.equal(manifest.sourceCommit,'d347d3fffcb45e08857052433a0b432ed4f7ace8');
-  assert.deepEqual([...new Set(manifest.assets.map(a=>a.weight))],[250,300,400,500,700,900]);
-  const css=read('src/gensen-font-faces.css').toString();
-  let previous;
-  for(const weight of [250,300,400,500,700,900]){
+test('Taipei font assets retain all three upstream weights and complete non-overlapping cmap coverage',()=>{
+  assert.equal(manifest.family,'Taipei Sans TC');
+  assert.match(manifest.officialSource, /jtfoundry/);
+  assert.equal(manifest.sources.length,3);
+  assert.deepEqual([...new Set(manifest.assets.map(a=>a.weight))],[300,400,700]);
+  const css=read('src/taipei-font-faces.css').toString();
+  for(const weight of [300,400,700]){
     const points=new Set();
     for(const asset of manifest.assets.filter(a=>a.weight===weight)){
       const bytes=read(directory+asset.file);
@@ -25,9 +25,8 @@ test('TW font assets retain all six upstream weights and complete non-overlappin
         for(let cp=low;cp<=high;cp++){assert.ok(!points.has(cp),`Overlapping range at ${weight}:${cp}`);points.add(cp);}
       }
     }
-    assert.ok(points.size>30000);
-    if(previous)assert.deepEqual(points,previous);
-    previous=points;
+    assert.ok(points.size>20000);
+    assert.equal(points.size,manifest.sources.find(source=>source.weight===weight).codepoints);
   }
   assert.equal((css.match(/font-display: swap/g)||[]).length,manifest.assets.length);
   assert.doesNotMatch(css,/https?:|local\(/);

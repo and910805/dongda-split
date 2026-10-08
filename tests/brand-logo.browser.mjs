@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, mkdirSync, writeFileSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
-import {createFontFixture, assertRenderedGenSen} from './helpers/font-fixture.mjs';
+import {createFontFixture, assertRenderedTaipei} from './helpers/font-fixture.mjs';
 import {launch, fixture} from './helpers/ledger-browser.mjs';
 
 const dist = resolve(process.env.ENTRY_TEST_DIST || new URL('../dist', import.meta.url).pathname);
@@ -75,7 +75,7 @@ async function openPage(browser, width, height, guest = false) {
 async function assertLogos(p) {
   await p.evaluate('document.fonts.ready');
   const selector=await p.evaluate("document.querySelector('.site h1')?'.site h1':document.querySelector('.admin-workspace h1')?'.admin-workspace h1':document.querySelector('.mobile-ledger-heading h1')?.getClientRects().length?'.mobile-ledger-heading h1':'.group-title-row h1'");
-  await assertRenderedGenSen(p,selector);
+  await assertRenderedTaipei(p,selector);
   await p.wait('[...document.querySelectorAll(".brand-lockup,.brand-signature-mark img")].every(i=>i.complete&&i.naturalWidth>0)');
   const logos=await p.evaluate(`([...document.querySelectorAll('.brand-lockup,.brand-signature-mark img')].filter(i=>i.getClientRects().length).map(i=>{const r=i.getBoundingClientRect();return{src:i.dataset.brandAsset,ratio:parseFloat(getComputedStyle(i).width)/parseFloat(getComputedStyle(i).height),expected:i.naturalWidth/i.naturalHeight,right:r.right,left:r.left}}))`);
   assert.ok(logos.length > 0);
