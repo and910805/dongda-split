@@ -13,19 +13,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Capture allowlisted sources only
+      - name: Inspect TW regular-weight delivery
         run: |
-          tar -czf /tmp/font-review-source.tar.gz src tests public scripts *.mjs package.json pnpm-lock.yaml pnpm-workspace.yaml index.html Dockerfile server.js .github/workflows/expense-entry-review.yml .github/workflows/verify-ledger-deployment.yml
-      - name: Inspect public TW webfont CSS
-        run: |
-          curl -fLsS --max-time 40 https://font.emtech.cc/css/GenSenRoundedTW -o /tmp/gensen-provider.css
-          wc -c /tmp/gensen-provider.css
-          head -c 2400 /tmp/gensen-provider.css
+          curl -fLsS --max-time 40 https://font.emtech.cc/css/GenSenRoundedTW/400 -o /tmp/gensen-400.css
+          wc -c /tmp/gensen-400.css
+          head -c 3500 /tmp/gensen-400.css
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: font-review-inputs
-          path: |
-            /tmp/font-review-source.tar.gz
-            /tmp/gensen-provider.css
+          name: font-css-review
+          path: /tmp/gensen-400.css
           retention-days: 1
