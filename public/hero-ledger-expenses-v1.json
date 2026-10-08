@@ -1,0 +1,18 @@
+{
+  "description": "Real ProductApp expense page rendered with synthetic public-demo data",
+  "ledgerName": "宜筆勾銷",
+  "currency": "TWD",
+  "memberCount": 15,
+  "expenseCount": 3,
+  "totalExpenseCents": 1098000,
+  "viewport": {
+    "width": 390,
+    "height": 756,
+    "deviceScaleFactor": 2
+  },
+  "pixelWidth": 780,
+  "pixelHeight": 1512,
+  "font": "Taipei Sans TC",
+  "imageSha256": "a0230b4e3a91b032f38d91353b0b0f9e03c0acdf1997fa9fab3750bf6c9fbff8",
+  "productSourceSha256": "15ac81d1caa69e76a2ff120a3087e7a9f38d850ebfdc6a43cc1c04edfc1346cf"
+}

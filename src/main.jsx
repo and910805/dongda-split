@@ -10,6 +10,7 @@ import './mobile-refinement.css';
 import './ledger-usability.css';
 import ProductApp from './ProductApp.jsx';
 import {BrandLogo as Brand} from './BrandLogo.jsx';
+import {HeroLedgerPreview} from './HeroLedgerPreview.jsx';
 
 const people=[{name:'小羅',img:'/xiaoluo-avatar.png',color:'#1f9d69'},{name:'安安',initial:'安',color:'#ef8b5a'},{name:'阿哲',initial:'哲',color:'#6c72d9'}];
 const seed=[
@@ -66,9 +67,9 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
     <section className={`hero ${heroReady?'hero-ready':'hero-loading'}`}>
       <div className="hero-stage">
       <div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> 旅行分帳，終於可以很簡單</span><h1>旅程一起享受<br/><em>帳目各自清楚</em></h1><p>旅帳幫你記錄每一筆共同花費，自動計算每個人該付多少、該收多少<br/>不用整理試算表，也不用在群組裡反覆對帳</p><div className="hero-actions"><button className="primary" onClick={enter}>免費建立帳本 <ArrowRight size={18}/></button><span><Check size={17}/> 使用 LINE 快速登入・免下載 App</span></div><div className="social"><div className="stack">{people.map((p,i)=><Avatar p={p} key={i} size={40}/>)}</div><b>和旅伴一起，把每筆帳記清楚<br/><small>從第一筆支出到最後一次結清，都交給旅帳</small></b></div></div>
-      <div className="hero-visual" role="img" aria-label="旅帳 TripTab 的日本行程 iPhone 分帳畫面預覽">
+      <div className="hero-visual hero-ledger-preview">
         <HeroAirplane/>
-        <div className="ticket"><span>TOKYO · FUJI</span><b>東京富士五日遊</b><small>3 位旅伴 · JPY</small><i aria-hidden="true"></i></div>
+        <div className="ticket"><span>TRIP LEDGER</span><b>宜筆勾銷</b><small>15 位旅伴 · TWD</small><i aria-hidden="true"></i></div>
         <div className="phone">
           <span className="phone-side phone-silent" aria-hidden="true"></span>
           <span className="phone-side phone-volume-up" aria-hidden="true"></span>
@@ -81,19 +82,11 @@ function Home({enter}){const [heroReady,setHeroReady]=useState(false);useEffect(
               <span className="dynamic-island"><i></i></span>
               <IosStatusIcons/>
             </div>
-            <div className="phone-content">
-              <div className="phone-head"><Brand/><Avatar p={people[0]} size={34}/></div>
-              <p className="muted">東京五日行程結算</p>
-              <h2>你應收 <strong>¥ 12,600(日幣)</strong></h2>
-              <div className="mini-card"><span className="mini-type food" aria-hidden="true">食</span><div><b>築地市場早餐</b><small>安安先付</small></div><strong>¥ 8,400</strong></div>
-              <div className="mini-card"><span className="mini-type stay" aria-hidden="true">住</span><div><b>新宿飯店住宿</b><small>阿哲先付</small></div><strong>¥ 62,000</strong></div>
-              <div className="mini-card"><span className="mini-type ride" aria-hidden="true">行</span><div><b>富士山一日遊</b><small>你先付</small></div><strong>¥ 36,000</strong></div>
-              <div className="phone-add" aria-hidden="true"><Plus/> 新增共同支出</div>
-            </div>
+            <HeroLedgerPreview/>
             <span className="home-indicator" aria-hidden="true"></span>
           </div>
         </div>
-        <div className="float-note"><CircleDollarSign/><div><small>已自動簡化轉帳</small><b>只需要轉帳 2 次</b></div></div>
+        <div className="float-note"><ReceiptText aria-hidden="true"/><div><small>宜筆勾銷 · 示範資料</small><b>實際支出介面預覽</b></div></div>
       </div>
       </div>
       <HeroWaves/>
