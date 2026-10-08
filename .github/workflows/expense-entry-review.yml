@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'public/ledger-signpost-*.svg'
       - 'tests/**'
       - 'public/ledger-coast*.webp'
       - 'public/ledger-summary-*.svg'
@@ -42,6 +43,10 @@ jobs:
         run: node --test tests/typography.browser.mjs
         env:
           COASTAL_SCREENSHOTS: output/ledger-coastal/taipei
+      - name: Verify Version 6 signpost and unchanged mobile layout
+        run: node --test tests/ledger-signpost.browser.mjs
+        env:
+          COASTAL_SCREENSHOTS: output/ledger-coastal/signpost
       - name: Verify handwritten branding across all surfaces
         run: node --test tests/brand-logo.browser.mjs
         env:

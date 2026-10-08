@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 
 const origin = 'https://trip-tap.kuanlin.online';
-const files = ['ledger-coast-reference-v2.webp', 'ledger-summary-drybrush-v2.webp', 'ledger-summary-note-v2.webp'];
+const files = ['ledger-coast-reference-v2.webp', 'ledger-summary-drybrush-v2.webp', 'ledger-summary-note-v2.webp', 'ledger-signpost-v6.svg'];
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const expected = Object.fromEntries(await Promise.all(files.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
 const layoutRevision = 'mobile-polish-2';
@@ -56,7 +56,7 @@ for (let attempt = 1; attempt <= 12; attempt++) {
     }
     Object.assign(report, {fontRevision, fontFamily:fontManifest.family, fontAssetCount:Object.keys(fonts).length, fontManifestSha256:sha256(deployedManifest), fonts});
     Object.assign(report, {verified: true, checkedAt: new Date().toISOString(), styles, entry, layoutRevision, bundleHashes: {styles: Object.fromEntries(styles.map((path, index) => [path, sha256(Buffer.from(styleSources[index]))])), entry: sha256(Buffer.from(entrySource))}, assets: actual});
-    console.log(`VERIFIED ${origin} serves ${layoutRevision}, the app bundle and all three exact artwork files`);
+    console.log(`VERIFIED ${origin} serves ${layoutRevision}, the app bundle and all ${files.length} exact artwork files`);
     break;
   } catch (error) {
     const detail = error.cause?.code || error.message;
