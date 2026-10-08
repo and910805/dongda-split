@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'public/ledger-coast*.webp'
+      - 'public/ledger-signpost-*.webp'
       - 'public/ledger-summary-*.svg'
       - 'public/coastal-*.svg'
       - 'public/triptab-*'
@@ -38,6 +39,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      - name: Verify Version 6 artwork and responsive controls
+        run: node --test tests/ledger-signpost.browser.mjs
+        env:
+          COASTAL_SCREENSHOTS: output/ledger-coastal/signpost-v6
       - name: Verify rendered Taipei Sans TC fonts and font-only layout invariants
         run: node --test tests/typography.browser.mjs
         env:
