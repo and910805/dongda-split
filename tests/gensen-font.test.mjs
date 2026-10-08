@@ -6,6 +6,7 @@ const read=name=>readFileSync(new URL(`../${name}`,import.meta.url),'utf8');
 test('Every explicit UI font stack starts with the selected TW rounded face',()=>{
   for(const name of readdirSync(new URL('../src',import.meta.url)).filter(n=>n.endsWith('.css'))){
     const source=read(`src/${name}`);
+    assert.doesNotMatch(source, /font-family[^;}]*,[^;}]*\binherit\b/, 'CSS-wide inherit cannot be a font list item');
     for(const match of source.matchAll(/font-family\s*:\s*([^;}]+)/g)){
       assert.ok(match[1]==='inherit'||match[1].startsWith("'GenSenRoundedTW'"),`${name}: ${match[0]}`);
     }

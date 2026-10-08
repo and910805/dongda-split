@@ -19,7 +19,7 @@
 }
 .expense-single-modal *, .expense-single-modal *::before, .expense-single-modal *::after { box-sizing: border-box; }
 .expense-single-modal [hidden] { display: none !important; }
-.overlay .expense-single-modal :is(button, input, select) { font-family:'GenSenRoundedTW',  inherit; color: inherit; font-size: inherit; touch-action: manipulation; }
+.overlay .expense-single-modal :is(button, input, select) { font-family: inherit; color: inherit; font-size: inherit; touch-action: manipulation; }
 .overlay .expense-single-modal button { cursor: pointer; min-height: 44px; margin: 0; letter-spacing: normal; line-height: 1.4; }
 .overlay .expense-single-modal button:disabled { opacity: .55; cursor: default; }
 .overlay .expense-single-modal :is(label, input, select) { margin: 0; }

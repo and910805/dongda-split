@@ -10,7 +10,6 @@
 使用 emfont 的純 CSS Webfont，不載入第三方 JavaScript、不傳送帳本或成員文字給動態切字 API
 
 服務說明：https://font.emtech.cc/docs/css
-字型頁：https://font.emtech.cc/fonts/GenSenRoundedTW
 
 400、500、700、900 字重並行載入，採 WOFF2、unicode-range 按需分片和 font-display:swap，保留原有字重值，由瀏覽器匹配實際 face
 

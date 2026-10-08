@@ -43,8 +43,9 @@ async function open(browser,width,height,blocked=false){
  await wait(guest?'!!document.querySelector(".site")':'!!document.querySelector(".real-dashboard")');
  const fonts=async()=>{
   if(blocked)return;
-  await evaluate(`window.__loadedFonts=false;document.fonts.ready.then(()=>window.__loadedFonts=true);void 0`);
+  await evaluate(`window.__loadedFonts=false;window.__fontLoadError=null;Promise.all([document.fonts.ready,document.fonts.load('400 16px GenSenRoundedTW','旅帳金額NT$123')]).then(()=>window.__loadedFonts=true).catch(e=>{window.__fontLoadError=String(e);window.__loadedFonts=true});void 0`);
   await wait('window.__loadedFonts');
+  assert.equal(await evaluate('window.__fontLoadError'),null);
   assert.equal(await evaluate('document.fonts.check("400 16px GenSenRoundedTW", "旅帳金額NT$123")'),true);
  };
  const click=async selector=>{await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`);await delay(80);const point=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;return{x,y,hit:e.contains(document.elementFromPoint(x,y))}})()`);assert.ok(point.hit,selector);await send('Input.dispatchMouseEvent',{type:'mousePressed',x:point.x,y:point.y,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:point.x,y:point.y,button:'left',clickCount:1});await delay(100);};
