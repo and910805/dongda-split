@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'public/ledger-*-v2.webp'
+      - 'public/ledger-signpost-*.webp'
       - 'src/ledger-fidelity.css'
       - 'src/ledger-layout-polish.css'
       - 'src/LedgerBrushSummary.jsx'

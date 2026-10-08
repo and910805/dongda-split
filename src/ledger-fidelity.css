@@ -4,7 +4,8 @@
   .real-app:has(.real-dashboard) .real-workspace { margin-left: 214px; width: calc(100% - 214px); }
   .real-app:has(.real-dashboard) .real-workspace::before {
     height: var(--ledger-art-height, 465px);
-    background-image: url('/ledger-coast-reference-v2.webp');
+    /* Version 6 is a transparent, same-size sign-face patch; scenery stays intact */
+    background-image: url('/ledger-signpost-v6.webp'), url('/ledger-coast-reference-v2.webp');
     background-position: center top;
     background-size: cover;
     mask-image: none;
