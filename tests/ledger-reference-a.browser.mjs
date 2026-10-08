@@ -24,9 +24,9 @@ test('Reference A: touch layouts, controls and preserved workflows',{timeout:180
      assert.ok(rows.length&&rows.every(value=>value==='2026-07-25'));
      const filters=await p.evaluate("(()=>{const a=document.querySelector('.expense-date-filter').getBoundingClientRect(),b=document.querySelector('.expense-member-filter').getBoundingClientRect();return {same:Math.abs(a.top-b.top)<1,apart:a.right<=b.left,width:a.width}})()");
      assert.ok(filters.same&&filters.apart&&filters.width>100);
-     await p.click('.mobile-expense-record-more');
+     await p.click('.mobile-expense-record-detail');
      assert.deepEqual(await p.evaluate(overlayCheck),{count:1,within:true,overflow:false});
-     await p.click('.mobile-expense-action-list button:nth-child(2)');
+     await p.click('.expense-detail-actions button:first-child');
      await p.wait(visible('.expense-single-modal'));
      assert.equal(await p.evaluate(hit('.es-save')),true);
      assert.equal(await p.evaluate("document.querySelector('.expense-single-modal').lang"),'zh-TW');

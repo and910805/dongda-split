@@ -1,4 +1,4 @@
-.real-app:has(.real-dashboard) { --ledger-layout-revision: mobile-polish-1; }
+.real-app:has(.real-dashboard) { --ledger-layout-revision: mobile-polish-2; }
 
 /* Requested decoration cleanup only; keep the coastline and settled-state artwork */
 .real-app:has(.real-dashboard) .side-footer::before {
@@ -102,7 +102,9 @@
 
   .real-app:has(.real-dashboard) .settlement-heading { padding: 16px; }
 
-  /* Move the amount focus cue to the existing outer field, not a brown inner box */
+}
+
+/* Move the amount focus cue to the existing outer field, not a brown inner box */
   .overlay .expense-single-modal .es-amount-block:focus-within {
     border-color: #377454;
     box-shadow: 0 0 0 2px #37745426;
@@ -111,10 +113,27 @@
     outline: none;
     box-shadow: none;
   }
-}
-@media (max-width: 900px) and (forced-colors: active) {
+
+@media (forced-colors: active) {
   .overlay .expense-single-modal .es-amount-block:focus-within {
     outline: 2px solid Highlight;
     outline-offset: 2px;
   }
+}
+
+/* Single tap opens expense details and its permitted actions on mobile. */
+.expense-detail-actions { display: none; }
+@media (max-width: 900px) {
+  .real-app:has(.real-dashboard) .mobile-expense-record { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .real-app:has(.real-dashboard) .mobile-expense-record-detail { width: 100%; padding-right: 12px; }
+  .overlay .expense-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+  .overlay .expense-detail-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 9px 14px; border: 1px solid #d4e3db; border-radius: 9px; background: #f5faf7; color: #245b46; font-size: 14px; }
+  .overlay .expense-detail-actions button svg { width: 17px; height: 17px; }
+  .overlay .expense-detail-actions .is-danger { background: transparent; color: #9b433b; border-color: #e9d8d4; }
+  .overlay .expense-detail-actions button:focus-visible { outline: 2px solid #377454; outline-offset: 2px; }
+  .real-app:has(.real-dashboard) .mobile-overview-v2 .mobile-ledger-metrics { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 10px 20px; margin: 16px 0 12px; padding: 0 4px 16px; border-bottom: 1px solid #dfe5de; }
+  .real-app:has(.real-dashboard) .mobile-ledger-total { flex: 1 1 170px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .real-app:has(.real-dashboard) .mobile-ledger-total > strong { font-size: 22px; line-height: 1.35; font-weight: 700; overflow-wrap: anywhere; }
+  .real-app:has(.real-dashboard) .mobile-ledger-count { flex: 0 1 auto; max-width: 100%; margin-left: auto; padding-bottom: 2px; font-size: 12px; color: #647b70; overflow-wrap: anywhere; }
+  .real-app:has(.real-dashboard) .mobile-ledger-count > strong { font: inherit; color: #264e42; font-weight: 600; }
 }

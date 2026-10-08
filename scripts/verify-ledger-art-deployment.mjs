@@ -7,7 +7,7 @@ const origin = 'https://trip-tap.kuanlin.online';
 const files = ['ledger-coast-reference-v2.webp', 'ledger-summary-drybrush-v2.webp', 'ledger-summary-note-v2.webp'];
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const expected = Object.fromEntries(await Promise.all(files.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
-const layoutRevision = 'mobile-polish-1';
+const layoutRevision = 'mobile-polish-2';
 const revision = process.env.GITHUB_SHA || 'local';
 const report = {origin, revision, verified: false, checkedAt: '', attempts: []};
 

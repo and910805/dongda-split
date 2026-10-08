@@ -53,7 +53,7 @@ async function launch() {
   const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {const id = ++serial;const timer = setTimeout(() => {waiting.delete(id);reject(new Error(`CDP timeout: ${method}`));}, 10000);waiting.set(id, {resolve, reject, timer});ws.send(JSON.stringify({id, method, params, ...(sessionId ? {sessionId} : {})}));});
   return {send, async close() {for (const item of waiting.values()) {clearTimeout(item.timer);item.reject(new Error('Browser closed'));}waiting.clear();ws.close();child.kill();await delay(100);rmSync(profile, {recursive: true, force: true, maxRetries: 5, retryDelay: 100});}};
 }
-async function page(browser, width, height, mode = 'settled', data = fixture) {
+async function page(browser, width, height, mode = 'settled', data = fixture, options = {}) {
   const {targetId} = await browser.send('Target.createTarget', {url: 'about:blank'});
   const {sessionId} = await browser.send('Target.attachToTarget', {targetId, flatten: true});
   const send = (method, params) => browser.send(method, params, sessionId);
@@ -64,14 +64,16 @@ async function page(browser, width, height, mode = 'settled', data = fixture) {
   const {frameTree} = await send('Page.getFrameTree');
   await send('Page.setDocumentContent', {frameId: frameTree.frame.id, html: `<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="root"></div></body></html>`});
   const evaluate = async expression => {const result = await send('Runtime.evaluate', {expression, returnByValue: true, awaitPromise: true});assert.ok(!result.exceptionDetails, result.exceptionDetails?.exception?.description);return result.result.value;};
-  const mock = `const brands=${JSON.stringify(brandAssets)};new MutationObserver(()=>document.querySelectorAll('img[src^="/triptab-"]').forEach(img=>{const asset=brands[img.getAttribute('src').split('?')[0]];if(asset)img.src=asset;})).observe(document.documentElement,{childList:true,subtree:true});const group=${JSON.stringify(data)};const mode=${JSON.stringify(mode)};
+  const mock = `const brands=${JSON.stringify(brandAssets)};new MutationObserver(()=>document.querySelectorAll('img[src^="/triptab-"]').forEach(img=>{const asset=brands[img.getAttribute('src').split('?')[0]];if(asset)img.src=asset;})).observe(document.documentElement,{childList:true,subtree:true});const group=${JSON.stringify(data)};const mode=${JSON.stringify(mode)};const qaOptions=${JSON.stringify(options)};
     if(mode==='empty'){group.expenses=[];group.settlementHistory=[];group.totalExpenseCents=0;}
     if(mode==='payable'){group.settlements=[{from:group.members[0],to:group.members[1],amountCents:5000,bankAccountAccess:{shared:false}}];group.balances[0].balanceCents=-5000;group.balances[1].balanceCents=5000;}
     window.__qa={requests:[],errors:[]};window.addEventListener('error',e=>__qa.errors.push(e.message));window.addEventListener('unhandledrejection',e=>__qa.errors.push(String(e.reason)));
     for(const key of ['localStorage','sessionStorage']){const store=new Map();Object.defineProperty(window,key,{configurable:true,value:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k)}});}
     window.fetch=async(url,options={})=>{const path=String(url);__qa.requests.push({path,method:options.method||'GET',body:options.body?JSON.parse(options.body):null});const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});
-      if(path==='/api/me')return json({...group.members[0],isSuperuser:true,bankAccount:{configured:false}});
-      if(path==='/api/groups')return json([group]);if(path==='/api/groups/coast')return json(group);
+      if(path==='/api/me')return json(qaOptions.me||{...group.members[0],isSuperuser:true,bankAccount:{configured:false}});
+      const ledgers=qaOptions.groups||[group];
+      if(path==='/api/groups')return json(ledgers);
+      const ledger=ledgers.find(item=>path==='/api/groups/'+item.id);if(ledger&&(!options.method||options.method==='GET'))return json(ledger);
       if(path==='/api/currencies')return json({currencies:[]});
       if(path.endsWith('/expenses')&&options.method==='POST')return json({id:'new-fixture'});
       if(path.includes('/invite'))return json({token:'local-fixture',url:'https://example.invalid/invite/local'});

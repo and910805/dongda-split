@@ -14,7 +14,7 @@
   height: min(860px, calc(min(var(--es-viewport-height, 100dvh), 100dvh) - 48px));
   max-height: none; min-height: 0; margin: 0; padding: 0; overflow: hidden;
   display: flex; flex-direction: column; box-shadow: 0 24px 90px #14281f35;
-  font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-size: 14px; line-height: 1.6;
+  font-family: 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6;
   scrollbar-gutter: auto;
 }
 .expense-single-modal *, .expense-single-modal *::before, .expense-single-modal *::after { box-sizing: border-box; }
