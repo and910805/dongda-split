@@ -1,0 +1,16 @@
+@import './gensen-font-faces.css';
+
+:root {
+  --font-ui: 'GenSen Rounded TW', 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+  --font-revision: gensen-tw-2100;
+}
+
+/* One intentional family-only override covers the legacy font shorthands,
+   native form controls, and dialogs portalled outside #root. Keep the existing
+   sizes, weights, line heights, letter spacing, colors and geometry untouched. */
+:where(html, body, body *),
+:where(body, body *)::before,
+:where(body, body *)::after,
+input::placeholder, textarea::placeholder, input::file-selector-button {
+  font-family: var(--font-ui) !important;
+}
