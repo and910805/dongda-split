@@ -20,8 +20,8 @@ export function MobileLedgerOverview({group,me,mine,isMember,openSettlements,ope
       <button type="button" className="balance-link" onClick={empty&&addExpense?addExpense:openSettlements}>{empty&&addExpense?'記下第一筆':'查看結算'}<ArrowRight aria-hidden="true"/></button>
     </article>
     <div className="mobile-ledger-metrics" aria-label="帳本摘要">
-      <article><small>帳本總支出</small><strong>{money(total)}</strong></article>
-      <article><small>已記錄支出</small><strong>{group.expenses.length} 筆</strong></article>
+      <div className="mobile-ledger-total"><small>帳本總支出</small><strong>{money(total)}</strong></div>
+      <span className="mobile-ledger-count">已記錄 <strong>{group.expenses.length}</strong> 筆</span>
     </div>
     <div className="mobile-recent-heading"><h2>最近支出</h2><button type="button" onClick={openExpenses}>查看全部<ChevronRight aria-hidden="true"/></button></div>
     {recent.length?<div className="mobile-recent-list">{recent.map(expense=>{

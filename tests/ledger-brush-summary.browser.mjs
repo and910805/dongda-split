@@ -42,9 +42,8 @@ test('Brush summary: real ledger data, screenshot layout and unchanged mobile fl
       data.name = '名稱很長但不得蓋住操作的共同帳本'.repeat(9);
       const p = await page(browser,1024,1200,'settled',data);
       try {
-        await delay(150);
-        const covers = await p.evaluate(`(()=>{const w=document.querySelector('.real-workspace'),s=document.querySelector('.ledger-brush-summary');return parseFloat(getComputedStyle(w,'::before').height)>=s.getBoundingClientRect().bottom-w.getBoundingClientRect().top})()`);
-        assert.equal(covers,true);
+        // Wait for the observable layout, not a fixed delay under parallel CI load.
+        await p.wait(`(()=>{const w=document.querySelector('.real-workspace'),s=document.querySelector('.ledger-brush-summary');return parseFloat(getComputedStyle(w,'::before').height)>=s.getBoundingClientRect().bottom-w.getBoundingClientRect().top})()`);
         await p.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
         await delay(150);
         assert.equal(await p.evaluate(visible(summary)),false);

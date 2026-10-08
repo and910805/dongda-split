@@ -4,6 +4,7 @@ import {AlertCircle,ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,BarChart3,Check,Che
 import {LedgerExpenseActions} from './LedgerExpenseActions.jsx';
 import {LedgerBrushSummary} from './LedgerBrushSummary.jsx';
 import './ledger-header.css';
+import './mobile-ledger-switcher.css';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
@@ -62,13 +63,11 @@ function ExpenseShareAvatars({expense,members,onOpen}){
     <ExpenseShareAvatarStack rows={rows}/>
   </button>;
 }
-function MobileExpenseRecord({expense,members,currency,participantShare,participantLabel,participantName,canManage,deleting,onDetails,onEdit,onDelete,onHistory}){
-  const [actionsOpen,setActionsOpen]=useState(false),moreRef=useRef(null);
+function MobileExpenseRecord({expense,members,currency,participantShare,participantLabel,participantName,onDetails}){
   const rows=expenseShareRows(expense,members),isRefund=Number(expense.amountCents)<0;
   const amountLabel=isRefund?(participantLabel==='你分攤'?'退回給你':participantName?`退回給 ${participantName}`:'退款分配'):participantLabel;
   const shareAmount=participantShare?money(Math.abs(participantShare.amountCents),currency):'未參與',totalAmount=money(Math.abs(expense.amountCents),currency),totalLabel=isRefund?'退款總額':'總額';
   const fullDate=formatExpenseDate(expense);
-  const runAction=action=>{setActionsOpen(false);requestAnimationFrame(()=>{moreRef.current?.focus({preventScroll:true});action()})};
   return <div className="mobile-expense-record" role="cell">
     <button type="button" className="mobile-expense-record-detail" onClick={()=>onDetails(expense)} aria-label={`查看「${expense.title}」明細，${amountLabel} ${shareAmount}，${totalLabel} ${totalAmount}，${fullDate}，${expense.payerName} ${isRefund?'經手退款':'先付'}，共 ${rows.length} 位${isRefund?'退款':'分攤'}成員${expense.isLocked?'，已鎖定':''}`} aria-haspopup="dialog">
       <span className="mobile-expense-record-copy">
@@ -78,17 +77,48 @@ function MobileExpenseRecord({expense,members,currency,participantShare,particip
       </span>
       <span className={`mobile-expense-record-amount ${participantShare?'':'is-muted'}`}><strong>{shareAmount}</strong><small>{amountLabel}</small><small className="mobile-expense-record-total">{totalLabel} {totalAmount}</small></span>
     </button>
-    <button type="button" className="mobile-expense-record-more" ref={moreRef} onClick={()=>setActionsOpen(true)} aria-label={`「${expense.title}」的更多操作`} aria-haspopup="dialog" aria-expanded={actionsOpen}><MoreHorizontal aria-hidden="true"/></button>
-    {actionsOpen&&<Modal close={()=>setActionsOpen(false)} label={`「${expense.title}」的支出操作`} className="mobile-expense-actions-modal">
-      <div className="mobile-expense-actions-content"><span className="eyebrow">支出操作</span><h2>{expense.title}</h2><div className="mobile-expense-action-list">
-        <button type="button" onClick={()=>runAction(()=>onDetails(expense))}><Users/>{isRefund?'查看退款明細':'查看分攤明細'}</button>
-        {canManage&&(expense.isLocked?<button type="button" onClick={()=>runAction(onHistory)}><History/>查看還款紀錄</button>:<>
-          <button type="button" onClick={()=>runAction(()=>onEdit(expense))} disabled={deleting}><Pencil/>修改支出</button>
-          <button type="button" className="is-danger" onClick={()=>runAction(()=>onDelete(expense))} disabled={deleting}>{deleting?<LoaderCircle/>:<Trash2/>}刪除支出</button>
-        </>)}
-      </div></div>
-    </Modal>}
   </div>;
+}
+function MobileLedgerSwitcher({groups,activeId,loading,onSelect}){
+  const [open,setOpen]=useState(false),[query,setQuery]=useState('');
+  const current=groups.find(item=>String(item.id)===String(activeId));
+  const close=()=>{setOpen(false);setQuery('')};
+  const normalize=value=>String(value||'').normalize('NFKC').trim().toLocaleLowerCase('zh-TW');
+  const term=normalize(query);
+  const filtered=groups.filter(item=>normalize(`${item.name} ${item.currency||'TWD'}`).includes(term));
+  useEffect(()=>{
+    if(!open)return;
+    const desktop=window.matchMedia('(min-width: 901px)');
+    const release=()=>{if(desktop.matches){setOpen(false);setQuery('')}};
+    release();desktop.addEventListener('change',release);
+    return()=>desktop.removeEventListener('change',release);
+  },[open]);
+  const choose=item=>{
+    if(loading)return;
+    close();
+    onSelect(item.id);
+  };
+  return <>
+    <button type="button" className={`mobile-group-picker ${loading?'is-loading':''}`} aria-label={`切換目前帳本：${current?.name||'選擇帳本'}`} aria-haspopup="dialog" aria-expanded={open} aria-busy={loading||undefined} disabled={loading||!groups.length} onClick={()=>setOpen(true)}>
+      <span className="mobile-group-picker-copy"><small>目前帳本</small><b>{current?.name||'選擇帳本'}</b></span>
+      <span className="mobile-group-picker-caret" aria-hidden="true">{loading?<LoaderCircle/>:<ChevronDown/>}</span>
+    </button>
+    {open&&<Modal close={close} label="切換帳本" className="ledger-switcher-modal">
+      <div className="ledger-switcher-heading"><h2>切換帳本</h2><p>{groups.length} 個帳本</p></div>
+      {groups.length>6&&<label className="ledger-switcher-search"><Search aria-hidden="true"/><input type="search" aria-label="搜尋帳本名稱或幣別" placeholder="搜尋帳本名稱或幣別" value={query} onChange={event=>setQuery(event.target.value)} autoComplete="off"/></label>}
+      <ul className="ledger-switcher-list" aria-label="我的帳本" aria-busy={loading||undefined}>
+        {filtered.map(item=>{
+          const selected=String(item.id)===String(activeId);
+          return <li key={item.id}><button type="button" className={`ledger-switcher-item ${selected?'is-current':''}`} aria-pressed={selected} disabled={loading} onClick={()=>choose(item)}>
+            <span className="ledger-switcher-icon" aria-hidden="true"><ReceiptText/></span>
+            <span className="ledger-switcher-copy"><b>{item.name}</b><small>{item.memberCount??item.members?.filter(member=>!member.isFund).length??'—'} 位成員 · {item.currency||'TWD'}{item.adminOnly?' · 管理檢視':''}</small></span>
+            {selected?<span className="ledger-switcher-current"><Check aria-hidden="true"/><span>目前</span></span>:<ChevronRight className="ledger-switcher-next" aria-hidden="true"/>}
+          </button></li>;
+        })}
+      </ul>
+      {!filtered.length&&<p className="ledger-switcher-empty" role="status">沒有符合的帳本</p>}
+    </Modal>}
+  </>;
 }
 function RecordPagination({page,totalItems,pageSize,onPageChange,label,compact=false}){
   const totalPages=Math.ceil(totalItems/pageSize);
@@ -233,7 +263,6 @@ export default function ProductApp({Home}){
   if(!me)return <><Home enter={enterPublic}/>{isLocalDevelopment&&<DevAccessBar login={devLogin} loading={devLoginLoading} error={devLoginError}/>}<Notice notice={notice} dismiss={()=>setNotice(null)}/></>;
   if(adminMode&&me.isSuperuser)return <><AdminConsole me={me} onExit={()=>setAdminMode(false)} onLogout={logout} onOpenGroup={openAdminGroup}/><Notice notice={notice} dismiss={()=>setNotice(null)}/></>;
   const adminViewing=Boolean(me.isSuperuser&&group&&adminViewingId===group.id);
-  const activeGroupOption=groups.find(item=>String(item.id)===String(activeId));
   return <div className={`real-app ${me.simulation?.active?'is-simulating':''}`}>
     {me.simulation?.active&&<aside className="simulation-banner" aria-label="帳戶模擬狀態"><div><FlaskConical/><span><b>帳戶模擬中：{me.displayName}</b><small>操作會記錄在這個虛擬帳號，且只能使用隔離的測試帳本</small></span></div><button type="button" onClick={endSimulation} disabled={endingSimulation} aria-label={`結束模擬，返回 ${me.simulation.actor.displayName}`} title={`返回 ${me.simulation.actor.displayName}`}>{endingSimulation?<LoaderCircle/>:<ArrowRight/>}<span className="simulation-exit-full">{endingSimulation?'正在返回…':`結束模擬，返回 ${me.simulation.actor.displayName}`}</span><span className="simulation-exit-short">{endingSimulation?'返回中…':'結束模擬'}</span></button></aside>}
     <aside className="real-side" aria-label="主要導覽">
@@ -251,11 +280,7 @@ export default function ProductApp({Home}){
       <header>
         <BrandMark className="mobile-header-mark"/>
         <div className="desktop-group-title"><small>{adminViewing?'管理者　/　帳本檢視':'我的帳本'}</small><h2>{group?.name||'旅帳'}</h2></div>
-        <label className={`mobile-group-picker ${groupLoading?'is-loading':''}`} aria-busy={groupLoading||undefined}>
-          <span className="mobile-group-picker-copy"><small>目前帳本</small><b>{activeGroupOption?.name||'選擇帳本'}</b></span>
-          <span className="mobile-group-picker-caret" aria-hidden="true">{groupLoading?<LoaderCircle/>:<ChevronDown/>}</span>
-          <select aria-label="切換目前帳本" value={activeId||''} onChange={e=>selectGroup(e.target.value)} disabled={groupLoading}>{groups.map(item=><option key={item.id} value={item.id}>{item.name}（{item.currency||'TWD'}）</option>)}</select>
-        </label>
+        <MobileLedgerSwitcher groups={groups} activeId={activeId} loading={groupLoading} onSelect={selectGroup}/>
         <button type="button" className="mobile-new-group" onClick={()=>setShowCreate(true)} aria-label="建立新帳本" title="建立新帳本"><Plus/></button>
         <div className="real-header-actions">
           <button type="button" className="header-user-avatar" onClick={()=>setShowProfile(true)} aria-label="開啟個人資料"><Person person={me} size={36}/></button>
@@ -466,6 +491,13 @@ function GroupDashboard({settingsHost,group,me,currencies,addExpense,editExpense
     }catch(error){setConfirmationError(error.message)}
     finally{setDeletingGroup(false)}
   };
+  const detailExpense=selectedExpenseShares&&group.expenses.find(item=>String(item.id)===String(selectedExpenseShares.id));
+  const detailCanManage=Boolean(detailExpense&&(detailExpense.createdBy===me.id||group.ownerId===me.id||me.isSuperuser));
+  const openDetailAction=action=>{
+    if(!detailExpense||detailExpense.isLocked||!detailCanManage||deleting)return;
+    setSelectedExpenseShares(null);
+    requestAnimationFrame(()=>action(detailExpense));
+  };
   const confirmation=pendingAction?.type==='expense'
     ?expenseDeletionConfirmation(pendingAction.expense.title)
     :pendingAction?.type==='group'
@@ -562,7 +594,7 @@ function GroupDashboard({settingsHost,group,me,currencies,addExpense,editExpense
                 <span className="record-category" role="cell">{e.amountCents<0?'退款':e.category||'其他'}</span>
                 <span className={`record-status ${e.isLocked?'is-locked':''}`} role="cell">{e.isLocked?<ShieldCheck/>:<Check/>}{e.isLocked?'已鎖定':'已記錄'}</span>
                 <div className="expense-row-actions" role="cell"><LedgerExpenseActions expense={e} canManage={e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser} busy={deleting===e.id} onDetails={setSelectedExpenseShares} onEdit={editExpense} onDelete={requestRemoveExpense}/></div>
-                <MobileExpenseRecord expense={e} members={group.members} currency={currencyCode} participantShare={participantShare} participantLabel={expenseParticipantLabel} participantName={selectedExpenseMember?.displayName||(currentUserIsMember?me.displayName:'')} canManage={e.createdBy===me.id||group.ownerId===me.id||me.isSuperuser} deleting={deleting===e.id} onDetails={setSelectedExpenseShares} onEdit={editExpense} onDelete={requestRemoveExpense} onHistory={openRepaymentHistory}/>
+                <MobileExpenseRecord expense={e} members={group.members} currency={currencyCode} participantShare={participantShare} participantLabel={expenseParticipantLabel} participantName={selectedExpenseMember?.displayName||(currentUserIsMember?me.displayName:'')} onDetails={setSelectedExpenseShares}/>
               </article>})}</div>
             </div>
             <RecordPagination page={currentExpensePage} totalItems={visibleExpenses.length} pageSize={TABLE_PAGE_SIZE} onPageChange={setExpensePage} label="最近支出"/>
@@ -618,7 +650,7 @@ function GroupDashboard({settingsHost,group,me,currencies,addExpense,editExpense
         {(String(group.ownerId)===String(me.id)||adminViewing)&&<button type="button" className="mobile-tools-delete" onClick={()=>openMobileTool(requestDeleteCurrentGroup)} disabled={deletingGroup}><Trash2/>刪除帳本</button>}
       </div>
     </Modal>}
-    {showCurrencyChange&&<CurrencyConversionModal group={group} currencies={currencies} close={()=>setShowCurrencyChange(false)} done={currencyChanged}/>} {showSettlementHelp&&<SettlementHelp group={group} close={()=>setShowSettlementHelp(false)}/>} {showBalances&&<BalanceChart group={group} close={()=>setShowBalances(false)}/>} {selectedExpenseShares&&<ExpenseSharesModal expense={selectedExpenseShares} members={group.members} currency={currencyCode} currentUserId={me.id} close={()=>setSelectedExpenseShares(null)} onHistory={()=>{setSelectedExpenseShares(null);requestAnimationFrame(openRepaymentHistory)}} onRefund={addExpense&&(selectedExpenseShares.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)?()=>{setSelectedExpenseShares(null);requestAnimationFrame(()=>addExpense('refund'))}:null}/>} {selectedMember&&<MemberInfoModal member={selectedMember} group={group} me={me} close={()=>setSelectedMemberId(null)}/>} {pendingSettlement&&<TransferConfirmationModal group={group} settlement={pendingSettlement} reportedBy={me} busy={paying===settlementKey(pendingSettlement)} error={transferError} close={closeTransferReport} confirm={()=>markPaid(pendingSettlement)}/>}
+    {showCurrencyChange&&<CurrencyConversionModal group={group} currencies={currencies} close={()=>setShowCurrencyChange(false)} done={currencyChanged}/>} {showSettlementHelp&&<SettlementHelp group={group} close={()=>setShowSettlementHelp(false)}/>} {showBalances&&<BalanceChart group={group} close={()=>setShowBalances(false)}/>} {selectedExpenseShares&&<ExpenseSharesModal expense={selectedExpenseShares} members={group.members} currency={currencyCode} currentUserId={me.id} onEdit={detailCanManage&&!detailExpense.isLocked?()=>openDetailAction(editExpense):null} onDelete={detailCanManage&&!detailExpense.isLocked?()=>openDetailAction(requestRemoveExpense):null} busy={Boolean(deleting)} close={()=>setSelectedExpenseShares(null)} onHistory={()=>{setSelectedExpenseShares(null);requestAnimationFrame(openRepaymentHistory)}} onRefund={addExpense&&(selectedExpenseShares.createdBy===me.id||group.ownerId===me.id||me.isSuperuser)?()=>{setSelectedExpenseShares(null);requestAnimationFrame(()=>addExpense('refund'))}:null}/>} {selectedMember&&<MemberInfoModal member={selectedMember} group={group} me={me} close={()=>setSelectedMemberId(null)}/>} {pendingSettlement&&<TransferConfirmationModal group={group} settlement={pendingSettlement} reportedBy={me} busy={paying===settlementKey(pendingSettlement)} error={transferError} close={closeTransferReport} confirm={()=>markPaid(pendingSettlement)}/>}
     {confirmation&&<ConfirmModal {...confirmation} busy={confirmationBusy} error={confirmationError} onCancel={closeConfirmation} onConfirm={confirmPendingAction}/>}
   </main>
 }
@@ -729,7 +761,7 @@ function MemberInfoModal({member,group,me,close}){
   </div>
  </Modal>;
 }
-function ExpenseSharesModal({expense,members,currency='TWD',currentUserId,close,onHistory,onRefund}){
+function ExpenseSharesModal({expense,members,currency='TWD',currentUserId,close,onHistory,onRefund,onEdit,onDelete,busy=false}){
  const rows=expenseShareRows(expense,members),isRefund=Number(expense.amountCents)<0,kindLabel=isRefund?'退款':'分攤';
  const inputCurrency=expense.currencyMeta?.inputCurrency||currency;
  const splitLabel={equal:'平均分攤',exact:'指定金額',hybrid:'指定金額＋其餘均分',weights:'依比例或份數分攤'}[expense.splitMode]||'自訂分攤';
@@ -738,6 +770,10 @@ function ExpenseSharesModal({expense,members,currency='TWD',currentUserId,close,
    <span className="eyebrow"><Users/> {isRefund?'退款分配':'支出分攤'}</span>
    <h2>{expense.title}</h2>
    <div className="expense-detail-total"><small>{isRefund?'本筆退款總額':'本筆支出總額'}</small><strong>{money(Math.abs(expense.amountCents),currency)}</strong>{inputCurrency!==currency&&<span>原幣 {money(Math.abs(Number(expense.currencyMeta?.inputAmountCents??expense.amountCents)),inputCurrency)}</span>}</div>
+   {!expense.isLocked&&(onEdit||onDelete)&&<div className="expense-detail-actions" aria-label="支出操作">
+    {onEdit&&<button type="button" onClick={onEdit} disabled={busy}><Pencil aria-hidden="true"/>修改支出</button>}
+    {onDelete&&<button type="button" className="is-danger" onClick={onDelete} disabled={busy}><Trash2 aria-hidden="true"/>刪除支出</button>}
+   </div>}
    <dl className="expense-detail-meta"><div><dt>{isRefund?'退款經手人':'先付款的人'}</dt><dd>{expense.payerName}</dd></div><div><dt>消費日期</dt><dd>{formatExpenseDate(expense)}</dd></div><div><dt>分攤方式</dt><dd>{splitLabel}</dd></div>{expense.category&&<div><dt>分類</dt><dd>{expense.category}</dd></div>}<div><dt>記帳時間</dt><dd>{new Date(expense.createdAt).toLocaleString('zh-TW')}</dd></div></dl>
    {expense.isLocked&&<section className="expense-lock-notice" aria-label="支出鎖定說明"><div><ShieldCheck aria-hidden="true"/><b>已鎖定，不能直接修改</b></div><p>這筆支出已有後續轉帳回報，為保留帳務紀錄而鎖定，不代表這筆款項已付清</p><p>金額需要更正時，請新增調整或退款紀錄，只有轉帳回報本身錯誤時才撤銷回報</p><div className="expense-lock-actions">{onRefund&&<button type="button" className="secondary-button" onClick={onRefund}><Plus/>新增退款紀錄</button>}{onHistory&&<button type="button" className="secondary-button" onClick={onHistory}><History/>查看還款紀錄</button>}</div></section>}
    <p className="modal-copy">{isRefund?`這筆退款將依下列金額退回給 ${rows.length} 位成員`:`這筆支出由以下 ${rows.length} 位成員共同分攤`}</p>
