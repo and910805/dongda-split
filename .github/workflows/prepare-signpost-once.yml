@@ -1,0 +1,58 @@
+name: Prepare checked Version 6 artwork
+on:
+  push:
+    branches: [style/signpost-version-six]
+    paths: ['.github/workflows/prepare-signpost-once.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/style/signpost-version-six'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: style/signpost-version-six
+      - name: Validate the transferred image against its reviewed fingerprint
+        shell: python
+        run: |
+          from urllib.request import Request, urlopen
+          from pathlib import Path
+          from hashlib import sha256
+          import json, base64
+          url = 'https://api.github.com/repos/and910805/dongda-split/git/blobs/8005b3c4aeb728cca6c787a0d36a72044e858fe7'
+          with urlopen(Request(url, headers={'User-Agent':'TripTab-artwork-review'}), timeout=30) as response:
+              payload = json.load(response)
+          encoded = ''.join(payload['content'].split())
+          Path('/tmp/signpost-transfer.txt').write_text(encoded)
+          fixed = encoded.replace('E2vTdZZzb', 'E2vTdZzb')
+          candidates = [encoded, fixed]
+          candidates += [fixed.rstrip('=') + suffix for suffix in ['', 'A', 'EA', 'AEA']]
+          expected = '985a90d578f281003ab0f45f876529ae9d7b65c4a96ad82dcfe7a1ee21f27208'
+          for candidate in candidates:
+              try:
+                  data = base64.b64decode(candidate + '=' * ((-len(candidate)) % 4))
+              except Exception:
+                  continue
+              if sha256(data).hexdigest() == expected:
+                  assert len(data) == 8268 and data[:4] == b'RIFF' and data[8:12] == b'WEBP'
+                  Path('public/ledger-signpost-v6.webp').write_bytes(data)
+                  print('Verified the exact locally reviewed Version 6 artwork')
+                  break
+          else:
+              raise ValueError('Transfer checksum mismatch; no artwork will be committed')
+      - name: Commit only the verified decorative asset
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/ledger-signpost-v6.webp
+          git commit -m 'style(artwork): add the selected Version 6 sign lettering'
+          git push origin HEAD:style/signpost-version-six
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: signpost-transfer-review
+          path: /tmp/signpost-transfer.txt
+          retention-days: 1
