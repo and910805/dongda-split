@@ -1,0 +1,48 @@
+name: Prepare checked Taipei Sans TC fonts
+on:
+  push:
+    branches: [style/taipei-sans-tc]
+    paths: ['scripts/prepare-taipei-fonts.py', '.github/workflows/prepare-taipei-once.yml']
+permissions:
+  contents: write
+concurrency:
+  group: prepare-taipei-once
+  cancel-in-progress: true
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/style/taipei-sans-tc'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: style/taipei-sans-tc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Snapshot exact review sources without credentials or account data
+        run: tar -czf /tmp/taipei-baseline.tar.gz src tests public scripts *.mjs package.json pnpm-lock.yaml pnpm-workspace.yaml index.html server.js Dockerfile .github/workflows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taipei-baseline
+          path: /tmp/taipei-baseline.tar.gz
+          retention-days: 1
+      - name: Install disposable font tools, not application dependencies
+        run: python -m pip install fonttools==4.60.1 brotli==1.1.0
+      - name: Generate verified on-demand webfonts
+        run: python scripts/prepare-taipei-fonts.py
+      - name: Commit only font resources to the task branch
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/fonts/taipei-sans-tc-beta src/taipei-font-faces.css
+          git commit -m 'feat(fonts): package verified Taipei Sans TC webfonts'
+          git push origin HEAD:style/taipei-sans-tc
+      - name: Package review inputs
+        run: tar -czf /tmp/taipei-font-review.tar.gz src tests public scripts *.mjs package.json pnpm-lock.yaml pnpm-workspace.yaml index.html server.js Dockerfile .github/workflows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taipei-font-review
+          path: /tmp/taipei-font-review.tar.gz
+          retention-days: 1
