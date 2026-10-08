@@ -8,8 +8,10 @@ import {tmpdir} from 'node:os';
 import {resolve, join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 
+import {createFontFixture} from './helpers/font-fixture.mjs';
 const root = resolve(import.meta.dirname, '..');
 const dist = process.env.ENTRY_TEST_DIST || join(root, 'dist');
+const fontFixture = await createFontFixture(dist);
 const index = readFileSync(join(dist, 'index.html'), 'utf8');
 const jsPath = index.match(/<script[^>]+src="([^"]+\.js)"/)[1];
 const cssPath = index.match(/<link[^>]+href="([^"]+\.css)"/)[1];
@@ -51,7 +53,7 @@ window.fetch = async (url, options = {}) => {
   throw new Error('Unexpected mock request: '+path);
 };
 `;
-const html = `<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${styles}</style></head><body><div id="root"></div><script>${mock}\n${script}</script></body></html>`;
+const html = `<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${fontFixture.styles(styles)}</style></head><body><div id="root"></div><script>${mock}\n${script}</script></body></html>`;
 
 async function launch() {
   const executable = [process.env.CHROME_PATH, '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find(path => path && existsSync(path));
@@ -77,9 +79,10 @@ async function page(browser,width,height,initial='') {
   await send('Page.enable');await send('Runtime.enable');
   // Mock fetch does not intercept CSS imports or images. Keep those offline too.
   await send('Network.enable');
-  await send('Network.setBlockedURLs',{urls:['http://*','https://*']});
+  await send('Network.setBlockedURLs',{urls:['https://*']});
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await fontFixture.navigate(send);
   const {frameTree}=await send('Page.getFrameTree');
   await send('Page.setDocumentContent',{frameId:frameTree.frame.id,html:html.slice(0, html.indexOf('<script>')) + '</body></html>'});
   const startup=await send('Runtime.evaluate',{expression:mock+initial+'\n'+script,awaitPromise:true});
@@ -95,6 +98,7 @@ async function page(browser,width,height,initial='') {
   };
   const input=async(selector,value)=>{await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await delay(30);};
   await wait('!!document.querySelector(".real-dashboard")');
+  await evaluate('document.fonts.ready');
   return {send,evaluate,wait,click,input,close:()=>browser.send('Target.closeTarget',{targetId}),async screenshot(name){if(!screenshotDir)return;mkdirSync(screenshotDir,{recursive:true});const {data}=await send('Page.captureScreenshot',{format:'png'});writeFileSync(join(screenshotDir,`${name}.png`),Buffer.from(data,'base64'));}};
 }
 const saveIsVisible = `(()=>{

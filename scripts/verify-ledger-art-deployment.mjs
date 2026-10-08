@@ -8,6 +8,10 @@ const files = ['ledger-coast-reference-v2.webp', 'ledger-summary-drybrush-v2.web
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const expected = Object.fromEntries(await Promise.all(files.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
 const layoutRevision = 'mobile-polish-2';
+const fontRevision = 'gensen-tw-2100';
+const fontRoot = '/fonts/gensen-tw-2.1.0/';
+const fontManifestBytes = await readFile(new URL(`../public${fontRoot}manifest.json`, import.meta.url));
+const fontManifest = JSON.parse(fontManifestBytes);
 const revision = process.env.GITHUB_SHA || 'local';
 const report = {origin, revision, verified: false, checkedAt: '', attempts: []};
 
@@ -28,6 +32,7 @@ for (let attempt = 1; attempt <= 12; attempt++) {
     const styleSources = await Promise.all(styles.map(async path => (await get(path)).text()));
     const css = styleSources.join('\n');
     if (!css.replaceAll(/\s/g, '').includes(`--ledger-layout-revision:${layoutRevision}`)) throw new Error('The published stylesheet is still missing the mobile layout polish');
+    if (!css.replaceAll(/\s/g, '').includes(`--font-revision:${fontRevision}`)) throw new Error('The published stylesheet is still missing GenSen Rounded TW');
     for (const name of files) if (!css.includes(name)) throw new Error(`The published stylesheet is still missing ${name}`);
     const entry = html.match(/<script\b[^>]*src=["']([^"']+\.js(?:\?[^"']*)?)["']/i)?.[1];
     const entrySource = entry ? await (await get(entry)).text() : '';
@@ -37,6 +42,19 @@ for (let attempt = 1; attempt <= 12; attempt++) {
       actual[name] = sha256(Buffer.from(await (await get(`/${name}`)).arrayBuffer()));
       if (actual[name] !== expected[name]) throw new Error(`Published asset fingerprint mismatch: ${name}`);
     }
+    const deployedManifest = Buffer.from(await (await get(fontRoot+'manifest.json')).arrayBuffer());
+    if (sha256(deployedManifest) !== sha256(fontManifestBytes)) throw new Error('The published font manifest does not match this revision');
+    const fonts = {};
+    // Bounded read-only concurrency, static filenames only, no rendered user text.
+    for (let start = 0; start < fontManifest.assets.length; start += 6) {
+      await Promise.all(fontManifest.assets.slice(start, start+6).map(async asset => {
+        if (!/^[\w.-]+\.woff2$/.test(asset.file)) throw new Error('Invalid font filename');
+        const bytes = Buffer.from(await (await get(fontRoot+asset.file)).arrayBuffer());
+        if (bytes.subarray(0,4).toString() !== 'wOF2' || bytes.length !== asset.bytes || sha256(bytes) !== asset.sha256) throw new Error(`Published font fingerprint mismatch: ${asset.file}`);
+        fonts[asset.file] = asset.sha256;
+      }));
+    }
+    Object.assign(report, {fontRevision, fontFamily:fontManifest.family, fontAssetCount:Object.keys(fonts).length, fontManifestSha256:sha256(deployedManifest), fonts});
     Object.assign(report, {verified: true, checkedAt: new Date().toISOString(), styles, entry, layoutRevision, bundleHashes: {styles: Object.fromEntries(styles.map((path, index) => [path, sha256(Buffer.from(styleSources[index]))])), entry: sha256(Buffer.from(entrySource))}, assets: actual});
     console.log(`VERIFIED ${origin} serves ${layoutRevision}, the app bundle and all three exact artwork files`);
     break;

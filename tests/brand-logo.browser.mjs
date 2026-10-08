@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 import {readFileSync, mkdirSync, writeFileSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
+import {createFontFixture, assertRenderedGenSen} from './helpers/font-fixture.mjs';
 import {launch, fixture} from './helpers/ledger-browser.mjs';
 
 const dist = resolve(process.env.ENTRY_TEST_DIST || new URL('../dist', import.meta.url).pathname);
+const fontFixture = await createFontFixture(dist);
 const index = readFileSync(join(dist,'index.html'),'utf8');
 const builtScript = readFileSync(join(dist,index.match(/<script[^>]+src="([^"]+\.js)"/)[1]),'utf8');
 const assetData = name => {
@@ -14,7 +16,7 @@ const assetData = name => {
   return `data:${type};base64,${readFileSync(join(dist,name)).toString('base64')}`;
 };
 const builtCss = readFileSync(join(dist,index.match(/<link[^>]+href="([^"]+\.css)"/)[1]),'utf8')
-  .replace(/url\((['"]?)(\/[^)'"?]+)(?:\?[^)'" ]+)?\1\)/g,(m,q,path)=>`url(${assetData(path.slice(1))})`);
+  .replace(/url\((['"]?)(\/[^)'"?]+)(?:\?[^)'" ]+)?\1\)/g,(m,q,path)=>/\.(svg|webp|png)$/.test(path)?`url(${assetData(path.slice(1))})`:m);
 const brands = Object.fromEntries(['triptab-logo.svg','triptab-logo-light.svg','triptab-mark.svg'].map(n=>[`/${n}`,assetData(n)]));
 
 async function openPage(browser, width, height, guest = false) {
@@ -22,7 +24,7 @@ async function openPage(browser, width, height, guest = false) {
   const {sessionId} = await browser.send('Target.attachToTarget', {targetId, flatten:true});
   const send = (method, params) => browser.send(method, params, sessionId);
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
-  await send('Network.setBlockedURLs',{urls:['http://*','https://*']});
+  await send('Network.setBlockedURLs',{urls:['https://*']});
   await send('Emulation.setDeviceMetricsOverride', {width, height, deviceScaleFactor:1, mobile:false});
   const mock = `const brands=${JSON.stringify(brands)};
     new MutationObserver(()=>document.querySelectorAll('img[src^="/triptab-"]').forEach(i=>{const original=i.getAttribute('src'),asset=brands[original.split('?')[0]];if(asset){i.dataset.brandAsset=original;i.src=asset;}})).observe(document.documentElement,{childList:true,subtree:true});
@@ -40,8 +42,9 @@ async function openPage(browser, width, height, guest = false) {
       if(path==='/api/admin/overview')return json({stats:{userCount:1,superuserCount:1,groupCount:1,expenseCount:21},users:[],groups:[],simulatedAccounts:[],auditLogs:[]});
       throw Error('Unexpected fixture request: '+path);
     };`;
+  await fontFixture.navigate(send);
   const {frameTree}=await send('Page.getFrameTree');
-  await send('Page.setDocumentContent',{frameId:frameTree.frame.id,html:`<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="icon" href="${assetData('triptab-mark.svg')}"><link rel="apple-touch-icon" href="${assetData('triptab-apple-touch-icon.png')}"><style>${builtCss}</style></head><body><div id="root"></div></body></html>`});
+  await send('Page.setDocumentContent',{frameId:frameTree.frame.id,html:`<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="icon" href="${assetData('triptab-mark.svg')}"><link rel="apple-touch-icon" href="${assetData('triptab-apple-touch-icon.png')}"><style>${fontFixture.styles(builtCss)}</style></head><body><div id="root"></div></body></html>`});
   const evaluate = async expression => {
     const r = await send('Runtime.evaluate', {expression, returnByValue:true, awaitPromise:true});
     assert.ok(!r.exceptionDetails, r.exceptionDetails?.exception?.description);
@@ -50,6 +53,7 @@ async function openPage(browser, width, height, guest = false) {
   await evaluate(mock+'\n'+builtScript);
   const wait = async expression => {for(let i=0;i<120;i++){if(await evaluate(expression))return;await delay(35);}throw Error(`Not ready: ${expression}; ${await evaluate("JSON.stringify({text:document.body?.innerText,errors:window.__brandQA?.errors,url:location.href})")}`);};
   await wait(guest ? '!!document.querySelector(".site")' : '!!document.querySelector(".real-dashboard")');
+  await evaluate('document.fonts.ready');
   const click = async selector => {
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`); await delay(50);
     const p = await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;return{x,y,hit:e.contains(document.elementFromPoint(x,y))}})()`);
@@ -69,6 +73,9 @@ async function openPage(browser, width, height, guest = false) {
 }
 
 async function assertLogos(p) {
+  await p.evaluate('document.fonts.ready');
+  const selector=await p.evaluate("document.querySelector('.site h1')?'.site h1':document.querySelector('.admin-workspace h1')?'.admin-workspace h1':document.querySelector('.mobile-ledger-heading h1')?.getClientRects().length?'.mobile-ledger-heading h1':'.group-title-row h1'");
+  await assertRenderedGenSen(p,selector);
   await p.wait('[...document.querySelectorAll(".brand-lockup,.brand-signature-mark img")].every(i=>i.complete&&i.naturalWidth>0)');
   const logos=await p.evaluate(`([...document.querySelectorAll('.brand-lockup,.brand-signature-mark img')].filter(i=>i.getClientRects().length).map(i=>{const r=i.getBoundingClientRect();return{src:i.dataset.brandAsset,ratio:parseFloat(getComputedStyle(i).width)/parseFloat(getComputedStyle(i).height),expected:i.naturalWidth/i.naturalHeight,right:r.right,left:r.left}}))`);
   assert.ok(logos.length > 0);
