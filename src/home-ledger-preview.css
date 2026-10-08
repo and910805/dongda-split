@@ -1,0 +1,49 @@
+/* The preview is generated from ProductApp, with no CSS overrides inside it. */
+.site .hero-ledger-preview { --home-preview-revision: real-expenses-1; min-height: 756px; height: 756px; }
+.site .hero-ledger-preview .phone-screen { background: #fffdf6; }
+.site .hero-ledger-preview .phone-content-real {
+  position: absolute;
+  inset: 40px 0 20px;
+  display: block;
+  height: auto;
+  padding: 0;
+  overflow: hidden;
+}
+.site .hero-ledger-preview .hero-ledger-screenshot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+/* Decorative cards must never cover the captured filters, rows or bottom bar. */
+.site .hero-ledger-preview .ticket { z-index: 1; }
+.site .hero-ledger-preview .float-note {
+  top: auto;
+  bottom: 8px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  min-width: 0;
+  max-width: calc(100% - 24px);
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+.site .hero-ledger-preview .hero-preview-fallback {
+  display: flex;
+  height: 100%;
+  padding: 24px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  color: #345c4c;
+  text-align: center;
+  font-size: 14px;
+}
+.site .hero-ledger-preview .hero-preview-fallback small { line-height: 1.7; }
+@media (max-width: 600px) {
+  .site .hero-ledger-preview { height: 635px; min-height: 635px; }
+  .site .hero-ledger-preview .phone { transform: translateX(-50%) rotate(2deg); }
+  .site .hero-ledger-preview .phone-content-real { inset: 34px 0 18px; }
+  .site .hero-ledger-preview .ticket { display: none; }
+}
