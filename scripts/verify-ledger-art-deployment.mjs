@@ -8,8 +8,8 @@ const files = ['ledger-coast-reference-v2.webp', 'ledger-summary-drybrush-v2.web
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const expected = Object.fromEntries(await Promise.all(files.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
 const layoutRevision = 'mobile-polish-2';
-const fontRevision = 'gensen-tw-2100';
-const fontRoot = '/fonts/gensen-tw-2.1.0/';
+const fontRevision = 'taipei-sans-tc-beta-1';
+const fontRoot = '/fonts/taipei-sans-tc-beta/';
 const fontManifestBytes = await readFile(new URL(`../public${fontRoot}manifest.json`, import.meta.url));
 const fontManifest = JSON.parse(fontManifestBytes);
 const revision = process.env.GITHUB_SHA || 'local';
@@ -32,7 +32,7 @@ for (let attempt = 1; attempt <= 12; attempt++) {
     const styleSources = await Promise.all(styles.map(async path => (await get(path)).text()));
     const css = styleSources.join('\n');
     if (!css.replaceAll(/\s/g, '').includes(`--ledger-layout-revision:${layoutRevision}`)) throw new Error('The published stylesheet is still missing the mobile layout polish');
-    if (!css.replaceAll(/\s/g, '').includes(`--font-revision:${fontRevision}`)) throw new Error('The published stylesheet is still missing GenSen Rounded TW');
+    if (!css.replaceAll(/\s/g, '').includes(`--font-revision:${fontRevision}`)) throw new Error('The published stylesheet is still missing Taipei Sans TC');
     for (const name of files) if (!css.includes(name)) throw new Error(`The published stylesheet is still missing ${name}`);
     const entry = html.match(/<script\b[^>]*src=["']([^"']+\.js(?:\?[^"']*)?)["']/i)?.[1];
     const entrySource = entry ? await (await get(entry)).text() : '';
