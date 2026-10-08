@@ -1,26 +1,59 @@
-name: Font review inputs
+name: Apply checked font-only changes
 on:
   push:
     branches: [style/gensen-rounded-tw]
     paths: ['.github/workflows/font-review-once.yml']
 permissions:
-  contents: read
+  contents: write
 jobs:
-  inspect:
+  apply:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
-      - name: Inspect TW regular-weight delivery
+          ref: style/gensen-rounded-tw
+      - name: Change only the reviewed font families and font CSP origins
         run: |
-          curl -fLsS --max-time 40 https://font.emtech.cc/css/GenSenRoundedTW/400 -o /tmp/gensen-400.css
-          wc -c /tmp/gensen-400.css
-          head -c 3500 /tmp/gensen-400.css
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: font-css-review
-          path: /tmp/gensen-400.css
-          retention-days: 1
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --input-type=module <<'JS'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import assert from 'node:assert/strict';
+          const expected={
+            'src/ledger-coastal.css':'1bf043598753507b12235679b7bc6e387ba47d4f',
+            'src/ledger-reference-a.css':'adfab0ac3eaf8c5157c75ca9c0cc136c01baf5d4',
+            'src/style.css':'6e30bf5f1dbab7d0cad9c0421b039f0146c5374a',
+            'src/expense-single-modal.css':'73c0333d3e8f635965dcf314f8b8ac6d84d0973d',
+            'src/expense-entry.css':'70afcc027bbf6fecae78bb6bfa349e47c79dc8be',
+            'src/ledger-brush-summary.css':'04ab3fd764681f210d1ef2ac4c1d7e87539d5236',
+            'src/operation.css':'a63e249d87473ece0b52a14e76c3de67404a699d',
+            'src/mobile-ledger-switcher.css':'1999f08901273249374612b06f023c4f873d9f89',
+            'index.html':'d45e3fe49e013d0cf7c45f544bb55312412fbaef',
+            'server.js':'397fc9f81381311cb2bf8cbc4744fbba6c047fa6'
+          };
+          for(const [name,hash] of Object.entries(expected)){
+            const source=readFileSync(name,'utf8');
+            assert.equal(createHash('sha1').update(`blob ${Buffer.byteLength(source)}\0`).update(source).digest('hex'),hash,`Unexpected baseline ${name}`);
+            let next=source;
+            if(name.endsWith('.css')){
+              next=source.replace(/(font-family\s*:\s*)(?!inherit\b)([^;}]+)/g,(_,prefix,value)=>prefix+"'GenSenRoundedTW', "+value);
+              next=next.replace("font: 11px/1.7 'Noto Sans TC',sans-serif", "font: 11px/1.7 'GenSenRoundedTW','Noto Sans TC',sans-serif");
+              if(name==='src/style.css'){
+                next=next.replace("@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap');\n",'');
+                next+="\n/* The same face on native fields, code samples and portal-hosted UI */\n:root { --site-font-revision: gensen-tw-1; }\n:where(input, textarea, select, optgroup, option, pre, code, kbd, samp) { font-family: inherit; }\n";
+              }
+            }else if(name==='index.html'){
+              const links='    <link rel="preconnect" href="https://font.emtech.cc" crossorigin />\n'+[400,500,700,900].map(w=>`    <link rel="stylesheet" href="https://font.emtech.cc/css/GenSenRoundedTW/${w}" referrerpolicy="no-referrer" />\n`).join('');
+              next=source.replace('    <title>',links+'    <title>');
+            }else if(name==='server.js'){
+              next=source.replace("'https://fonts.gstatic.com'","'https://font.emtech.cc'").replace("'https://fonts.googleapis.com'","'https://font.emtech.cc'");
+            }
+            assert.notEqual(next,source,name);writeFileSync(name,next);
+          }
+          JS
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/ledger-coastal.css src/ledger-reference-a.css src/style.css src/expense-single-modal.css src/expense-entry.css src/ledger-brush-summary.css src/operation.css src/mobile-ledger-switcher.css index.html server.js
+          git commit -m 'style: apply GenSen Rounded TW across all site text'
+          git push origin HEAD:style/gensen-rounded-tw

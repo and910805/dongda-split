@@ -22,11 +22,31 @@ async function get(path) {
 
 for (let attempt = 1; attempt <= 12; attempt++) {
   try {
-    const html = await (await get('/')).text();
+    const htmlResponse = await get('/');
+    const html = await htmlResponse.text();
     const styles = [...html.matchAll(/<link\b[^>]*href=["']([^"']+\.css(?:\?[^"']*)?)["']/gi)].map(match => match[1]);
     if (!styles.length) throw new Error('The public page does not expose a built stylesheet');
     const styleSources = await Promise.all(styles.map(async path => (await get(path)).text()));
     const css = styleSources.join('\n');
+    if (!css.replaceAll(/\s/g, '').includes('--site-font-revision:gensen-tw-1') || !css.includes('GenSenRoundedTW')) throw new Error('The published stylesheet is not the rounded TW font revision');
+    const policy = htmlResponse.headers.get('content-security-policy') || '';
+    for (const directive of ['font-src', 'style-src']) if (!policy.split(';').some(part => part.trim().startsWith(directive+' ') && part.includes('https://font.emtech.cc'))) throw new Error('Published CSP has not enabled the font origin');
+    const fontDelivery = {};
+    for (const weight of [400,500,700,900]) {
+      const url = `https://font.emtech.cc/css/GenSenRoundedTW/${weight}`;
+      if (!html.includes(url)) throw new Error(`Published HTML is missing TW font weight ${weight}`);
+      const response = await fetch(url, {redirect:'error', signal:AbortSignal.timeout(15000)});
+      if (!response.ok) throw new Error(`Font CSS ${weight}: HTTP ${response.status}`);
+      const source = await response.text();
+      if (!source.includes('GenSenRoundedTW') || !source.includes('font-display: swap') || !source.includes('unicode-range:')) throw new Error(`Invalid font stylesheet for ${weight}`);
+      const file = source.match(/src:\s*url\(['"](https:\/\/font\.emtech\.cc\/file\/[^'"]+\.woff2)['"]\)/)?.[1];
+      if (!file) throw new Error(`No WOFF2 subset for ${weight}`);
+      const subset = await fetch(file, {redirect:'error', signal:AbortSignal.timeout(15000)});
+      const bytes = Buffer.from(await subset.arrayBuffer());
+      if (!subset.ok || bytes.subarray(0,4).toString() !== 'wOF2') throw new Error(`Font file ${weight} is not available`);
+      fontDelivery[weight] = {css:url, sample:file, sha256:sha256(bytes)};
+    }
+    Object.assign(report, {fontRevision:'gensen-tw-1', fontDelivery});
     if (!css.replaceAll(/\s/g, '').includes(`--ledger-layout-revision:${layoutRevision}`)) throw new Error('The published stylesheet is still missing the mobile layout polish');
     for (const name of files) if (!css.includes(name)) throw new Error(`The published stylesheet is still missing ${name}`);
     const entry = html.match(/<script\b[^>]*src=["']([^"']+\.js(?:\?[^"']*)?)["']/i)?.[1];
