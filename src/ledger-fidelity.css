@@ -4,7 +4,8 @@
   .real-app:has(.real-dashboard) .real-workspace { margin-left: 214px; width: calc(100% - 214px); }
   .real-app:has(.real-dashboard) .real-workspace::before {
     height: var(--ledger-art-height, 465px);
-    background-image: url('/ledger-coast-reference-v2.webp');
+    /* Both layers share the same 1458 x 465 scene coordinates and cover transform */
+    background-image: url('/ledger-signpost-v6.svg'), url('/ledger-coast-reference-v2.webp');
     background-position: center top;
     background-size: cover;
     mask-image: none;
