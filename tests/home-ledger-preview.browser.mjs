@@ -48,6 +48,10 @@ async function openHome(browser, width, height) {
     };\n${script}`);
   const wait = async expression => {for (let n = 0; n < 120; n++) {if (await evaluate(expression)) return;await delay(30);}throw Error(`Not ready: ${expression}`);};
   await wait('!!document.querySelector(".hero-ledger-screenshot")?.naturalWidth');
+  await wait('document.querySelectorAll(".hero-ledger-avatar-overlay image").length===4');
+  const decoded = await evaluate(`Promise.all([...document.querySelectorAll('.hero-ledger-avatar-overlay image')].map(async node=>{
+    const image=new Image();image.src=node.href.baseVal;await image.decode();return {width:image.naturalWidth,height:image.naturalHeight};}))`);
+  assert.ok(decoded.every(image=>image.width===38&&image.height===38));
   await evaluate('document.fonts.ready'); await delay(100);
   return {send, evaluate, wait, close: () => browser.send('Target.closeTarget', {targetId}),
     async screenshot(name) {
@@ -73,6 +77,8 @@ test('Homepage phone uses the genuine expense capture without clipped or overlap
         assert.ok(shape.phoneLeft >= 0 && shape.phoneRight <= width, JSON.stringify(shape));
         assert.ok(shape.noteGap >= 8, JSON.stringify(shape));
         assert.ok(shape.noteBottom <= shape.heroBottom - 1, JSON.stringify(shape));
+        const layer = await p.evaluate(`(()=>{const a=document.querySelector('.hero-ledger-avatar-overlay'),i=document.querySelector('.hero-ledger-screenshot'),r=a.getBoundingClientRect(),b=i.getBoundingClientRect();return {aligned:['left','top','width','height'].every(key=>Math.abs(r[key]-b[key])<.1),viewBox:a.getAttribute('viewBox'),fit:a.getAttribute('preserveAspectRatio'),count:a.querySelectorAll('[data-avatar-instance]').length,badges:a.querySelectorAll('mask circle').length,revision:a.dataset.avatarRevision,pointer:getComputedStyle(a).pointerEvents,references:[...a.querySelectorAll('use')].every(u=>!!document.getElementById(u.href.baseVal.slice(1)))}})()`);
+        assert.deepEqual(layer, {aligned:true,viewBox:'0 0 780 1512',fit:'xMidYMid meet',count:12,badges:2,revision:'authorized-photos-1',pointer:'none',references:true});
         assert.match(await p.evaluate('document.querySelector(".hero-ledger-preview").innerText'), /宜筆勾銷 · 示範資料/);
         assert.doesNotMatch(await p.evaluate('document.querySelector(".hero-ledger-preview").innerText'), /JPY|12,600|只需要轉帳/);
         assert.equal(await p.evaluate("getComputedStyle(document.querySelector('.hero-ledger-preview .ticket')).display==='none'||Number(getComputedStyle(document.querySelector('.hero-ledger-preview .ticket')).zIndex)<Number(getComputedStyle(document.querySelector('.phone')).zIndex)"), true);
@@ -85,15 +91,16 @@ test('Homepage phone uses the genuine expense capture without clipped or overlap
         }
       } finally {await p.close();}
     });
-    await t.test('Image failure remains understandable and does not disable starting a ledger', async () => {
+    for(const selector of ['.hero-ledger-screenshot','.hero-ledger-avatar-overlay image']) await t.test(`Image failure remains understandable: ${selector}`, async () => {
       const p = await openHome(browser, 390, 900);
       try {
-        await p.evaluate('document.querySelector(".hero-ledger-screenshot").dispatchEvent(new Event("error"))');
+        await p.evaluate(`document.querySelector(${JSON.stringify(selector)}).dispatchEvent(new Event('error'))`);
         await p.wait('!!document.querySelector(".hero-preview-fallback")');
         assert.match(await p.evaluate('document.querySelector(".hero-preview-fallback").innerText'), /暫時無法載入/);
         assert.equal(await p.evaluate('document.querySelector(".hero-actions .primary").disabled'), false);
         assert.equal(await p.evaluate('__homeQA.requests.some(r=>r.method!=="GET")'), false);
         assert.equal(await p.evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
+        assert.equal(await p.evaluate('document.querySelectorAll(".hero-ledger-avatar-overlay").length'), 0);
       } finally {await p.close();}
     });
   } finally {await browser.close();}
