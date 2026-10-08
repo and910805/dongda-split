@@ -7,11 +7,14 @@ import {readFileSync, existsSync, mkdtempSync, rmSync, mkdirSync, writeFileSync}
 import {tmpdir} from 'node:os';
 import {resolve, join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
+import {createFontFixture} from './font-fixture.mjs';
 const root = resolve(import.meta.dirname, '../..');
 const dist = process.env.ENTRY_TEST_DIST || join(root, 'dist');
+const fontFixture = await createFontFixture(dist);
 const index = readFileSync(join(dist, 'index.html'), 'utf8');
 const script = readFileSync(join(dist, index.match(/<script[^>]+src="([^"]+\.js)"/)[1].replace(/^\//, '')), 'utf8');
 let css = readFileSync(join(dist, index.match(/<link[^>]+href="([^"]+\.css)"/)[1].replace(/^\//, '')), 'utf8');
+css = fontFixture.styles(css);
 // Embed only same-build decorative files in the offline fixture
 css = css.replace(/url\((['"]?)(\/[^)'"?]+)\1\)/g, (match, quote, path) => {
   const file = join(dist, path.slice(1));
@@ -58,9 +61,10 @@ async function page(browser, width, height, mode = 'settled', data = fixture, op
   const {sessionId} = await browser.send('Target.attachToTarget', {targetId, flatten: true});
   const send = (method, params) => browser.send(method, params, sessionId);
   await send('Page.enable');await send('Runtime.enable');await send('Network.enable');
-  await send('Network.setBlockedURLs', {urls: ['http://*', 'https://*']});
+  await send('Network.setBlockedURLs', {urls: ['https://*', ...(options.blockFonts ? ['*.woff2'] : [])]});
   await send('Emulation.setDeviceMetricsOverride', {width, height, deviceScaleFactor: 1, mobile: false});
   await send('Emulation.setEmulatedMedia', {features: [{name: 'prefers-reduced-motion', value: 'reduce'}]});
+  await fontFixture.navigate(send);
   const {frameTree} = await send('Page.getFrameTree');
   await send('Page.setDocumentContent', {frameId: frameTree.frame.id, html: `<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="root"></div></body></html>`});
   const evaluate = async expression => {const result = await send('Runtime.evaluate', {expression, returnByValue: true, awaitPromise: true});assert.ok(!result.exceptionDetails, result.exceptionDetails?.exception?.description);return result.result.value;};
@@ -84,6 +88,7 @@ async function page(browser, width, height, mode = 'settled', data = fixture, op
   const click = async selector => {await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`);await delay(50);const point = await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)}),r=el.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;return {x,y,hit:el.contains(document.elementFromPoint(x,y))}})()`);assert.ok(point.hit, `Obstructed: ${selector}`);await send('Input.dispatchMouseEvent', {type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1});await send('Input.dispatchMouseEvent', {type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1});await delay(50);};
   const setValue = async (selector, value, select = false) => {await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(${select ? 'HTMLSelectElement' : 'HTMLInputElement'}.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('${select ? 'change' : 'input'}',{bubbles:true}));})()`);await delay(70);};
   await wait('!!document.querySelector(".real-dashboard")');
+  await evaluate('document.fonts.ready');
   return {send, evaluate, wait, click, setValue, close: () => browser.send('Target.closeTarget', {targetId}), async screenshot(name) {const dir = process.env.COASTAL_SCREENSHOTS;if (!dir) return;mkdirSync(dir, {recursive: true});await evaluate('document.fonts.ready');const {data} = await send('Page.captureScreenshot', {format: 'png'});writeFileSync(join(dir, `${name}.png`), Buffer.from(data, 'base64'));}};
 }
 
