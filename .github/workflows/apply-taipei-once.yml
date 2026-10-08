@@ -1,0 +1,69 @@
+name: Apply validated Taipei typography
+on:
+  push:
+    branches: [style/taipei-sans-tc]
+    paths: ['.github/workflows/apply-taipei-once.yml']
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/style/taipei-sans-tc'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: style/taipei-sans-tc
+      - name: Apply exact verified font references, without touching UI rules
+        shell: python
+        run: |
+          from pathlib import Path
+          from hashlib import sha256
+          import shutil
+          hashes = {
+              'src/typography.css': '02dcf35f7c8c075913eab3192a1cd8970b9bbf6873e275b9879302ed333e2197',
+              'scripts/verify-ledger-art-deployment.mjs': 'b111f8c55cbbed3399d498ae4d446c422ff8f887fe8de7ccb6de87508ee2276d',
+              'tests/typography.test.mjs': 'edc4f793dd4e7576cc43da73100b5b0cf00d017ccb1ad0b2ca9350b41ca5a63c',
+              'tests/typography.browser.mjs': 'fe212c9c78be1ad7889241de37b6d07ad3f09c37d3ca2b89f1de2ae4d2bfa9e2',
+              'tests/helpers/font-fixture.mjs': '519c602fa20e41492b39b5e6d00a9c872cf9caba7c899a2f1f92ad0b8c4c618c',
+              'tests/brand-logo.browser.mjs': '8a0f657bff71177ea7fd4c8f8672a1b60260faf9da2af9631d347271be4fc516',
+              '.github/workflows/expense-entry-review.yml': '10536932e06b314119912f11d250bd327b1112a74d726551a6f91938e409c0cb',
+              '.github/workflows/verify-ledger-deployment.yml': 'a5544316360b5d459b9fe218ec7909e9ea8d50996491e21c2c7911e5f772ccf4',
+          }
+          for name, expected in hashes.items():
+              assert sha256(Path(name).read_bytes()).hexdigest() == expected, name
+          for name in hashes:
+              f = Path(name)
+              t = f.read_text()
+              t = t.replace('GenSen Rounded TW','Taipei Sans TC').replace('assertRenderedGenSen','assertRenderedTaipei')
+              t = t.replace('gensen-font-faces','taipei-font-faces').replace('gensen-tw-2100','taipei-sans-tc-beta-1')
+              t = t.replace('gensen-tw-2.1.0','taipei-sans-tc-beta').replace(r'gensen-tw-2\.1\.0','taipei-sans-tc-beta')
+              t = t.replace('GenSen TW','Taipei Sans TC').replace('gensen','taipei').replace('downloaded GenSen','downloaded Taipei')
+              if name.endswith('typography.test.mjs'):
+                  t = t.replace('all six upstream weights','all three upstream weights').replace('TW font assets','Taipei font assets')
+                  t = t.replace("assert.equal(manifest.sourceCommit,'d347d3fffcb45e08857052433a0b432ed4f7ace8');", "assert.match(manifest.officialSource, /jtfoundry/);\n  assert.equal(manifest.sources.length,3);")
+                  t = t.replace('[250,300,400,500,700,900]','[300,400,700]').replace('  let previous;\n','')
+                  t = t.replace('assert.ok(points.size>30000);\n    if(previous)assert.deepEqual(points,previous);\n    previous=points;', 'assert.ok(points.size>20000);\n    assert.equal(points.size,manifest.sources.find(source=>source.weight===weight).codepoints);')
+              if name.endswith('typography.browser.mjs'):
+                  t = t.replace('render TW glyphs','render Taipei glyphs').replace('Six real weights','Three real weights')
+                  t = t.replace("const suffixes={250:'EL',300:'L',400:'R',500:'M',700:'B',900:'H'};", "const suffixes={300:'Light',400:'Regular',700:'Bold'};")
+                  t = t.replace('[250,300,400,500,700,900]','[300,400,700]').replace('測試源泉圓體 TW','測試台北黑體')
+              if name.endswith('font-fixture.mjs'):
+                  t = t.replace('GenSenRounded2TW|GenSenRounded2 TW','TaipeiSansTCBeta|Taipei Sans TC Beta')
+              f.write_text(t)
+          assert Path('public/fonts/taipei-sans-tc-beta/OFL.txt').exists()
+          shutil.rmtree('public/fonts/gensen-tw-2.1.0')
+          Path('src/gensen-font-faces.css').unlink()
+          Path('scripts/prepare-gensen-fonts.py').unlink()
+          Path('.github/workflows/prepare-taipei-once.yml').unlink()
+          Path('.github/workflows/apply-taipei-once.yml').unlink()
+      - name: Commit scoped replacements and remove temporary workflows
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git diff --check
+          test -z "$(git diff --name-only -- 'src/*.jsx' server.js package.json pnpm-lock.yaml)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u -- src/typography.css src/gensen-font-faces.css public/fonts/gensen-tw-2.1.0 scripts/prepare-gensen-fonts.py scripts/verify-ledger-art-deployment.mjs tests/typography.test.mjs tests/typography.browser.mjs tests/helpers/font-fixture.mjs tests/brand-logo.browser.mjs .github/workflows/expense-entry-review.yml .github/workflows/verify-ledger-deployment.yml .github/workflows/prepare-taipei-once.yml .github/workflows/apply-taipei-once.yml
+          git commit -m 'style(typography): switch the entire UI to Taipei Sans TC'
+          git push origin HEAD:style/taipei-sans-tc
