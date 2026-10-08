@@ -7,6 +7,9 @@ const origin = 'https://trip-tap.kuanlin.online';
 const files = ['ledger-coast-reference-v2.webp', 'ledger-summary-drybrush-v2.webp', 'ledger-summary-note-v2.webp', 'ledger-signpost-v6.svg'];
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const expected = Object.fromEntries(await Promise.all(files.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
+const previewFiles = ['hero-ledger-expenses-v1.webp', 'hero-ledger-expenses-v1.json'];
+const expectedPreview = Object.fromEntries(await Promise.all(previewFiles.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
+const homePreviewRevision = 'real-expenses-1';
 const layoutRevision = 'mobile-polish-2';
 const fontRevision = 'taipei-sans-tc-beta-1';
 const fontRoot = '/fonts/taipei-sans-tc-beta/';
@@ -31,16 +34,22 @@ for (let attempt = 1; attempt <= 12; attempt++) {
     if (!styles.length) throw new Error('The public page does not expose a built stylesheet');
     const styleSources = await Promise.all(styles.map(async path => (await get(path)).text()));
     const css = styleSources.join('\n');
+    if (!css.replaceAll(/\s/g, '').includes(`--home-preview-revision:${homePreviewRevision}`)) throw new Error('The published stylesheet is still missing the genuine expense preview');
     if (!css.replaceAll(/\s/g, '').includes(`--ledger-layout-revision:${layoutRevision}`)) throw new Error('The published stylesheet is still missing the mobile layout polish');
     if (!css.replaceAll(/\s/g, '').includes(`--font-revision:${fontRevision}`)) throw new Error('The published stylesheet is still missing Taipei Sans TC');
     for (const name of files) if (!css.includes(name)) throw new Error(`The published stylesheet is still missing ${name}`);
     const entry = html.match(/<script\b[^>]*src=["']([^"']+\.js(?:\?[^"']*)?)["']/i)?.[1];
     const entrySource = entry ? await (await get(entry)).text() : '';
     if (!entry || !entrySource.includes('--ledger-art-height')) throw new Error('The published app bundle is not the responsive artwork revision');
+    if (!entrySource.includes('hero-ledger-expenses-v1.webp')) throw new Error('The published app still uses the old homepage phone');
     const actual = {};
     for (const name of files) {
       actual[name] = sha256(Buffer.from(await (await get(`/${name}`)).arrayBuffer()));
       if (actual[name] !== expected[name]) throw new Error(`Published asset fingerprint mismatch: ${name}`);
+    }
+    for (const name of previewFiles) {
+      actual[name] = sha256(Buffer.from(await (await get(`/${name}`)).arrayBuffer()));
+      if (actual[name] !== expectedPreview[name]) throw new Error(`Published preview fingerprint mismatch: ${name}`);
     }
     const deployedManifest = Buffer.from(await (await get(fontRoot+'manifest.json')).arrayBuffer());
     if (sha256(deployedManifest) !== sha256(fontManifestBytes)) throw new Error('The published font manifest does not match this revision');
@@ -54,9 +63,9 @@ for (let attempt = 1; attempt <= 12; attempt++) {
         fonts[asset.file] = asset.sha256;
       }));
     }
-    Object.assign(report, {fontRevision, fontFamily:fontManifest.family, fontAssetCount:Object.keys(fonts).length, fontManifestSha256:sha256(deployedManifest), fonts});
+    Object.assign(report, {homePreviewRevision, fontRevision, fontFamily:fontManifest.family, fontAssetCount:Object.keys(fonts).length, fontManifestSha256:sha256(deployedManifest), fonts});
     Object.assign(report, {verified: true, checkedAt: new Date().toISOString(), styles, entry, layoutRevision, bundleHashes: {styles: Object.fromEntries(styles.map((path, index) => [path, sha256(Buffer.from(styleSources[index]))])), entry: sha256(Buffer.from(entrySource))}, assets: actual});
-    console.log(`VERIFIED ${origin} serves ${layoutRevision}, the app bundle and all ${files.length} exact artwork files`);
+    console.log(`VERIFIED ${origin} serves ${homePreviewRevision}, the app bundle and all ${Object.keys(actual).length} exact static files`);
     break;
   } catch (error) {
     const detail = error.cause?.code || error.message;

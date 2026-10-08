@@ -3,6 +3,10 @@ on:
   push:
     branches: [main]
     paths:
+      - 'public/hero-ledger-expenses-*'
+      - 'src/main.jsx'
+      - 'src/HeroLedgerPreview.jsx'
+      - 'src/home-ledger-preview.css'
       - 'public/ledger-*-v2.webp'
       - 'src/ledger-fidelity.css'
       - 'public/ledger-signpost-*.svg'
