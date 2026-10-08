@@ -10,6 +10,7 @@ const expected = Object.fromEntries(await Promise.all(files.map(async name => [n
 const previewFiles = ['hero-ledger-expenses-v1.webp', 'hero-ledger-expenses-v1.json'];
 const expectedPreview = Object.fromEntries(await Promise.all(previewFiles.map(async name => [name, sha256(await readFile(new URL(`../public/${name}`, import.meta.url)))])));
 const homePreviewRevision = 'real-expenses-1';
+const avatarRevision = 'authorized-photos-1';
 const layoutRevision = 'mobile-polish-2';
 const fontRevision = 'taipei-sans-tc-beta-1';
 const fontRoot = '/fonts/taipei-sans-tc-beta/';
@@ -42,6 +43,7 @@ for (let attempt = 1; attempt <= 12; attempt++) {
     const entrySource = entry ? await (await get(entry)).text() : '';
     if (!entry || !entrySource.includes('--ledger-art-height')) throw new Error('The published app bundle is not the responsive artwork revision');
     if (!entrySource.includes('hero-ledger-expenses-v1.webp')) throw new Error('The published app still uses the old homepage phone');
+    if (!entrySource.includes(avatarRevision)) throw new Error('The published app is still missing the authorized avatar photos');
     const actual = {};
     for (const name of files) {
       actual[name] = sha256(Buffer.from(await (await get(`/${name}`)).arrayBuffer()));
@@ -63,9 +65,9 @@ for (let attempt = 1; attempt <= 12; attempt++) {
         fonts[asset.file] = asset.sha256;
       }));
     }
-    Object.assign(report, {homePreviewRevision, fontRevision, fontFamily:fontManifest.family, fontAssetCount:Object.keys(fonts).length, fontManifestSha256:sha256(deployedManifest), fonts});
+    Object.assign(report, {avatarRevision, homePreviewRevision, fontRevision, fontFamily:fontManifest.family, fontAssetCount:Object.keys(fonts).length, fontManifestSha256:sha256(deployedManifest), fonts});
     Object.assign(report, {verified: true, checkedAt: new Date().toISOString(), styles, entry, layoutRevision, bundleHashes: {styles: Object.fromEntries(styles.map((path, index) => [path, sha256(Buffer.from(styleSources[index]))])), entry: sha256(Buffer.from(entrySource))}, assets: actual});
-    console.log(`VERIFIED ${origin} serves ${homePreviewRevision}, the app bundle and all ${Object.keys(actual).length} exact static files`);
+    console.log(`VERIFIED ${origin} serves ${avatarRevision}, the app bundle and all ${Object.keys(actual).length} exact static files`);
     break;
   } catch (error) {
     const detail = error.cause?.code || error.message;
