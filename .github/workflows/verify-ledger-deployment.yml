@@ -8,6 +8,9 @@ on:
       - 'src/ledger-layout-polish.css'
       - 'src/LedgerBrushSummary.jsx'
       - 'src/coastal-main.jsx'
+      - 'src/typography.css'
+      - 'src/gensen-font-faces.css'
+      - 'public/fonts/gensen-tw-2.1.0/**'
       - 'scripts/verify-ledger-art-deployment.mjs'
       - '.github/workflows/verify-ledger-deployment.yml'
   workflow_dispatch:

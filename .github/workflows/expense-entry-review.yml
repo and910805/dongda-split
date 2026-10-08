@@ -10,6 +10,7 @@ on:
       - 'public/ledger-summary-*.svg'
       - 'public/coastal-*.svg'
       - 'public/triptab-*'
+      - 'public/fonts/gensen-tw-2.1.0/**'
       - 'index.html'
       - 'currency.mjs'
       - 'finance.mjs'
@@ -37,6 +38,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      - name: Verify rendered GenSen TW fonts and font-only layout invariants
+        run: node --test tests/typography.browser.mjs
+        env:
+          COASTAL_SCREENSHOTS: output/ledger-coastal/gensen
       - name: Verify handwritten branding across all surfaces
         run: node --test tests/brand-logo.browser.mjs
         env:
