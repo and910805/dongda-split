@@ -29,10 +29,10 @@ test('All four authorized thumbnails retain their verified bytes without private
   }
 });
 
-test('The photo layer remains registered to the unchanged real expense-page capture', () => {
+test('The photo layer remains registered to the real expense-page capture', () => {
   const component = read('src/HeroPreviewAvatars.jsx').toString();
   const screenshot = read('public/hero-ledger-expenses-v1.webp');
-  assert.equal(hash(screenshot), 'a0230b4e3a91b032f38d91353b0b0f9e03c0acdf1997fa9fab3750bf6c9fbff8');
+  assert.equal(hash(screenshot), '4ed2cadda3890eacd6d3ffc21440643863065e48556fcc69935d0c2965a899db');
   assert.match(component, new RegExp(hash(screenshot)));
   assert.match(component, /viewBox="0 0 780 1512"/);
   assert.match(component, /preserveAspectRatio="xMidYMid meet"/);

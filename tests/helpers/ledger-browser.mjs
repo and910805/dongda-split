@@ -73,13 +73,18 @@ async function page(browser, width, height, mode = 'settled', data = fixture, op
     if(mode==='payable'){group.settlements=[{from:group.members[0],to:group.members[1],amountCents:5000,bankAccountAccess:{shared:false}}];group.balances[0].balanceCents=-5000;group.balances[1].balanceCents=5000;}
     window.__qa={requests:[],errors:[]};window.addEventListener('error',e=>__qa.errors.push(e.message));window.addEventListener('unhandledrejection',e=>__qa.errors.push(String(e.reason)));
     for(const key of ['localStorage','sessionStorage']){const store=new Map();Object.defineProperty(window,key,{configurable:true,value:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k)}});}
+    const ledgers=qaOptions.groups||[group];
     window.fetch=async(url,options={})=>{const path=String(url);__qa.requests.push({path,method:options.method||'GET',body:options.body?JSON.parse(options.body):null});const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});
       if(path==='/api/me')return json(qaOptions.me||{...group.members[0],isSuperuser:true,bankAccount:{configured:false}});
-      const ledgers=qaOptions.groups||[group];
       if(path==='/api/groups')return json(ledgers);
       const ledger=ledgers.find(item=>path==='/api/groups/'+item.id);if(ledger&&(!options.method||options.method==='GET'))return json(ledger);
       if(path==='/api/currencies')return json({currencies:[]});
       if(path.endsWith('/expenses')&&options.method==='POST')return json({id:'new-fixture'});
+      if(/^\\/api\\/invites\\/[A-Za-z0-9_-]+\\/join$/.test(path)&&options.method==='POST'){
+        if(!qaOptions.joinGroup)return json({error:'邀請連結無效'},404);
+        if(!ledgers.some(item=>item.id===qaOptions.joinGroup.id))ledgers.push(qaOptions.joinGroup);
+        return json({groupId:qaOptions.joinGroup.id});
+      }
       if(path.includes('/invite'))return json({token:'local-fixture',url:'https://example.invalid/invite/local'});
       throw new Error('Unexpected fixture request: '+path);
     };`;
@@ -87,7 +92,7 @@ async function page(browser, width, height, mode = 'settled', data = fixture, op
   const wait = async expression => {for (let i = 0; i < 100; i++) {if (await evaluate(expression)) return;await delay(30);}throw new Error(`Not ready: ${expression}`);};
   const click = async selector => {await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`);await delay(50);const point = await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)}),r=el.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;return {x,y,hit:el.contains(document.elementFromPoint(x,y))}})()`);assert.ok(point.hit, `Obstructed: ${selector}`);await send('Input.dispatchMouseEvent', {type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1});await send('Input.dispatchMouseEvent', {type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1});await delay(50);};
   const setValue = async (selector, value, select = false) => {await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(${select ? 'HTMLSelectElement' : 'HTMLInputElement'}.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('${select ? 'change' : 'input'}',{bubbles:true}));})()`);await delay(70);};
-  await wait('!!document.querySelector(".real-dashboard")');
+  await wait('!!document.querySelector(".real-dashboard,.empty-groups")');
   await evaluate('document.fonts.ready');
   return {send, evaluate, wait, click, setValue, close: () => browser.send('Target.closeTarget', {targetId}), async screenshot(name) {const dir = process.env.COASTAL_SCREENSHOTS;if (!dir) return;mkdirSync(dir, {recursive: true});await evaluate('document.fonts.ready');const {data} = await send('Page.captureScreenshot', {format: 'png'});writeFileSync(join(dir, `${name}.png`), Buffer.from(data, 'base64'));}};
 }

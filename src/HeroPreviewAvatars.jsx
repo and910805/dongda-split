@@ -1,9 +1,9 @@
 import React, {useId} from 'react';
 import photos from './hero-ledger-avatar-photos.json';
 
-// Coordinates are measured from the unchanged 780x1512 ProductApp capture.
+// Coordinates are measured from the 780x1512 ProductApp capture.
 // Keep the photos registered to that image, not to viewport or device pixels.
-const PREVIEW_IMAGE_SHA256 = 'a0230b4e3a91b032f38d91353b0b0f9e03c0acdf1997fa9fab3750bf6c9fbff8';
+const PREVIEW_IMAGE_SHA256 = '4ed2cadda3890eacd6d3ffc21440643863065e48556fcc69935d0c2965a899db';
 const ROW_TOPS = [847.46875, 1031.46875, 1215.46875];
 const STACK_LEFTS = [56, 92, 128, 164];
 const FRAMES = [

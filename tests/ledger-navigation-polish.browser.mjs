@@ -104,6 +104,8 @@ test('Mobile navigation and details: one entry per expense, ledger sheet and des
     await p.evaluate('document.querySelector(".ledger-switcher-list").scrollTop=1e7');await delay(60);
     assert.equal(await p.evaluate(hit('.ledger-switcher-list li:last-child button')),true);
     await p.evaluate('document.querySelector(".ledger-switcher-list li:last-child button").focus()');await keys(p,'Tab');
+    assert.equal(await p.evaluate('document.activeElement.matches(".ledger-switcher-join")'),true);
+    await keys(p,'Tab');
     assert.equal(await p.evaluate('document.activeElement.matches(".ledger-switcher-modal .modal-x")'),true);
     await p.screenshot('navigation-switcher-long-320');
     await p.send('Emulation.setDeviceMetricsOverride',{width:320,height:350,deviceScaleFactor:1,mobile:false});await delay(100);

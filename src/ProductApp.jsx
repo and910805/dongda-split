@@ -6,10 +6,12 @@ import {LedgerBrushSummary} from './LedgerBrushSummary.jsx';
 import './ledger-header.css';
 import './mobile-ledger-switcher.css';
 import {AdvancedExpenseModal} from './AdvancedExpenseModal.jsx';
+import {parseInviteLink} from './invite-link.mjs';
 import {AdminConsole} from './AdminConsole.jsx';
 import {BrandLogo,BrandMark} from './BrandLogo.jsx';
 import {ConfirmModal} from './ConfirmModal.jsx';
 import {MobileLedgerOverview} from './MobileLedgerOverview.jsx';
+import './invite-join.css';
 import {bankAccountRemovalConfirmation,expenseDeletionConfirmation,groupDeletionConfirmation,settlementVoidConfirmation} from './confirmation-actions.mjs';
 import {DEFAULT_EXPENSE_SORT,expenseDateOptions,filterExpenses,filterExpensesByDate,nextExpenseSort,sortExpenses} from './expense-sort.mjs';
 import {acquireModalEnvironment} from './modal-environment.mjs';
@@ -79,7 +81,7 @@ function MobileExpenseRecord({expense,members,currency,participantShare,particip
     </button>
   </div>;
 }
-function MobileLedgerSwitcher({groups,activeId,loading,onSelect}){
+function MobileLedgerSwitcher({groups,activeId,loading,onSelect,onJoin}){
   const [open,setOpen]=useState(false),[query,setQuery]=useState('');
   const current=groups.find(item=>String(item.id)===String(activeId));
   const close=()=>{setOpen(false);setQuery('')};
@@ -117,6 +119,7 @@ function MobileLedgerSwitcher({groups,activeId,loading,onSelect}){
         })}
       </ul>
       {!filtered.length&&<p className="ledger-switcher-empty" role="status">沒有符合的帳本</p>}
+      <button type="button" className="ledger-switcher-join" onClick={()=>{close();onJoin()}}><Link2 aria-hidden="true"/> 貼上邀請連結加入帳本</button>
     </Modal>}
   </>;
 }
@@ -150,8 +153,34 @@ function Notice({notice,dismiss}){
   return <div className={`toast notice-toast is-${notice.type}`} role={urgent?'alert':'status'} aria-atomic="true"><Icon aria-hidden="true"/><span className="notice-toast-copy">{notice.message}</span><button type="button" onClick={dismiss} aria-label="關閉通知"><X aria-hidden="true"/></button></div>;
 }
 
+function JoinGroupModal({close,joined}){
+  const [link,setLink]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const submit=async event=>{
+    event.preventDefault();
+    if(busy)return;
+    let token;
+    try{token=parseInviteLink(link,location.origin)}catch(validationError){setError(validationError.message);return}
+    setBusy(true);setError('');
+    try{
+      const result=await api(`/api/invites/${encodeURIComponent(token)}/join`,{method:'POST'});
+      await joined(result);
+    }catch(joinError){setError(joinError.message);setBusy(false)}
+  };
+  return <Modal close={close} closeDisabled={busy} label="加入邀請連結" className="join-group-modal">
+    <span className="eyebrow">加入共同帳本</span>
+    <h2>貼上邀請連結</h2>
+    <p id="join-group-help" className="modal-copy">如果 LINE 或瀏覽器沒有打開已安裝的旅帳，可把邀請連結貼在這裡。連結必須來自目前的旅帳網域。</p>
+    <form onSubmit={submit}>
+      <label htmlFor="join-invite-link">邀請連結</label>
+      <input id="join-invite-link" autoFocus type="text" inputMode="url" autoCapitalize="none" autoComplete="off" spellCheck={false} value={link} onChange={event=>{setLink(event.target.value);setError('')}} placeholder={`${location.origin}/invite/...`} aria-describedby="join-group-help" aria-invalid={Boolean(error)}/>
+      {error&&<p className="form-error" role="alert"><AlertCircle aria-hidden="true"/>{error}</p>}
+      <div className="form-actions"><button type="button" className="secondary-button" onClick={close} disabled={busy}>取消</button><button type="submit" className="primary" disabled={busy||!link.trim()}>{busy?<LoaderCircle aria-hidden="true"/>:<Link2 aria-hidden="true"/>}{busy?'加入中…':'加入帳本'}</button></div>
+    </form>
+  </Modal>;
+}
+
 export default function ProductApp({Home}){
-  const [me,setMe]=useState(null),[groups,setGroups]=useState([]),[activeId,setActiveId]=useState(null),[group,setGroup]=useState(null),[loading,setLoading]=useState(true),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[notice,setNotice]=useState(null),[showCreate,setShowCreate]=useState(false),[showExpense,setShowExpense]=useState(false),[editingExpense,setEditingExpense]=useState(null),[showInvite,setShowInvite]=useState(false),[showProfile,setShowProfile]=useState(false),[transferReport,setTransferReport]=useState(null);
+  const [me,setMe]=useState(null),[groups,setGroups]=useState([]),[activeId,setActiveId]=useState(null),[group,setGroup]=useState(null),[loading,setLoading]=useState(true),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[notice,setNotice]=useState(null),[showCreate,setShowCreate]=useState(false),[showJoin,setShowJoin]=useState(false),[showExpense,setShowExpense]=useState(false),[editingExpense,setEditingExpense]=useState(null),[showInvite,setShowInvite]=useState(false),[showProfile,setShowProfile]=useState(false),[transferReport,setTransferReport]=useState(null);
   // The dashboard owns settings state; the header supplies its desktop location.
   const [headerSettingsHost,setHeaderSettingsHost]=useState(null);
   const [initialExpenseKind,setInitialExpenseKind]=useState('expense');
@@ -232,6 +261,15 @@ export default function ProductApp({Home}){
   const logout=async()=>{try{await api('/api/auth/logout',{method:'POST'});groupRequestRef.current+=1;groupsRequestRef.current+=1;selectionVersionRef.current+=1;loadedGroupIdRef.current=null;userRef.current=null;activeIdRef.current=null;adminViewingRef.current=null;setActiveId(null);setAdminMode(false);setAdminViewingId(null);setMe(null);setGroups([]);setGroup(null);setNotice(null);history.replaceState({},'','/')}catch(error){notify(`登出失敗：${error.message}`,'error')}};
   const endSimulation=async()=>{if(endingSimulation)return;setEndingSimulation(true);try{await api('/api/admin/simulation/exit',{method:'POST'});location.assign('/app')}catch(error){notify(error.message,'error');setEndingSimulation(false)}};
   const created=async data=>{setShowCreate(false);adminViewingRef.current=null;setAdminViewingId(null);await refreshGroups({preferredId:data.id,forceMember:true});history.replaceState({},'','/app')};
+  const joined=async data=>{
+    setShowJoin(false);
+    try {
+      await refreshGroups({preferredId:data.groupId,retainCurrent:false,forceMember:true});
+      notify('已加入帳本');
+    } catch {
+      notify('已加入帳本，但清單暫時無法更新，請重新載入','info');
+    }
+  };
   const expenseAdded=async(result={})=>{setShowExpense(false);setEditingExpense(null);notify(result.cancelled?'已結束這次確認，帳本紀錄未變更':result.alreadyApplied?'已確認先前的帳目儲存成功':'帳目已儲存',result.cancelled?'info':'success');try{await refreshGroup()}catch{notify(result.cancelled?'暫時無法更新帳本，請重新載入':'帳目已儲存，但帳本暫時無法更新，請重新載入帳本','info')}};
   const groupDeleted=async target=>{
     const requestedUserId=userRef.current?.id;
@@ -271,6 +309,7 @@ export default function ProductApp({Home}){
       <div className="side-label">我的帳本</div>
       <div className="group-switcher">{groups.map((item,index)=><button className={activeId===item.id?'active':''} aria-current={activeId===item.id?'page':undefined} key={item.id} onClick={()=>selectGroup(item.id)}><span className={`ledger-cover cover-${index%4}`} aria-hidden="true"/><div><b>{item.name}</b><small>{item.memberCount} 位成員 · {item.currency||'TWD'}</small></div></button>)}</div>
       <button className="new-group" onClick={()=>setShowCreate(true)}><Plus/> 建立新帳本</button>
+      <button type="button" className="new-group join-group-trigger" onClick={()=>setShowJoin(true)}><Link2 aria-hidden="true"/> 加入邀請連結</button>
       <div className="side-footer">
         {me.isSuperuser&&<button className="superuser-entry" onClick={()=>setAdminMode(true)}><ShieldCheck/> 管理者模式</button>}
         <button className="logout" onClick={logout}><LogOut/> 登出</button>
@@ -280,7 +319,7 @@ export default function ProductApp({Home}){
       <header>
         <BrandMark className="mobile-header-mark"/>
         <div className="desktop-group-title"><small>{adminViewing?'管理者　/　帳本檢視':'我的帳本'}</small><h2>{group?.name||'旅帳'}</h2></div>
-        <MobileLedgerSwitcher groups={groups} activeId={activeId} loading={groupLoading} onSelect={selectGroup}/>
+        <MobileLedgerSwitcher groups={groups} activeId={activeId} loading={groupLoading} onSelect={selectGroup} onJoin={()=>setShowJoin(true)}/>
         <button type="button" className="mobile-new-group" onClick={()=>setShowCreate(true)} aria-label="建立新帳本" title="建立新帳本"><Plus/></button>
         <div className="real-header-actions">
           <button type="button" className="header-user-avatar" onClick={()=>setShowProfile(true)} aria-label="開啟個人資料"><Person person={me} size={36}/></button>
@@ -291,14 +330,14 @@ export default function ProductApp({Home}){
           <button className="mobile-logout" aria-label="登出" onClick={logout}><LogOut/></button>
         </div>
       </header>
-      {groupError&&!group?<WorkspaceError message={groupError} retry={activeId?refreshGroup:refreshGroups}/>:!groups.length?<EmptyGroups create={()=>setShowCreate(true)}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} settingsHost={headerSettingsHost} group={group} me={me} currencies={currencyData} addExpense={adminViewing?null:openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} currencyChanged={async result=>{await Promise.all([refreshGroups(),refreshGroup()]);notify(result.alreadyApplied?'這次幣別換算先前已完成':`帳本已換算為 ${result.currency}`)}} refreshing={groupLoading} openAdmin={me.isSuperuser?()=>setAdminMode(true):null} openProfile={()=>setShowProfile(true)} onTransferReported={setTransferReport} adminViewing={adminViewing}/>}
+      {groupError&&!group?<WorkspaceError message={groupError} retry={activeId?refreshGroup:refreshGroups}/>:!groups.length?<EmptyGroups create={()=>setShowCreate(true)} join={()=>setShowJoin(true)}/>:!group?<DashboardSkeleton/>:<GroupDashboard key={group.id} settingsHost={headerSettingsHost} group={group} me={me} currencies={currencyData} addExpense={adminViewing?null:openNewExpense} editExpense={expense=>{setEditingExpense(expense);setShowExpense(true)}} invite={()=>setShowInvite(true)} removeGroup={()=>groupDeleted(group)} refresh={refreshGroup} currencyChanged={async result=>{await Promise.all([refreshGroups(),refreshGroup()]);notify(result.alreadyApplied?'這次幣別換算先前已完成':`帳本已換算為 ${result.currency}`)}} refreshing={groupLoading} openAdmin={me.isSuperuser?()=>setAdminMode(true):null} openProfile={()=>setShowProfile(true)} onTransferReported={setTransferReport} adminViewing={adminViewing}/>}
     </section>
     <Notice notice={notice} dismiss={()=>setNotice(null)}/>
-    {showCreate&&<CreateGroup currencies={currencyData.currencies} close={()=>setShowCreate(false)} done={created}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} currencies={currencyData.currencies} expense={editingExpense} initialKind={initialExpenseKind} currentUserId={me.id} onNotice={notify} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>} {showProfile&&<ProfileModal me={me} close={()=>setShowProfile(false)} saved={bankAccount=>{setMe(current=>({...current,bankAccount}));setShowProfile(false);notify(bankAccount.configured?'已更新常用收款帳戶':'已移除常用收款帳戶')}}/>} {transferReport&&<TransferNoticeModal report={transferReport} close={closeTransferReport}/>}
+    {showCreate&&<CreateGroup currencies={currencyData.currencies} close={()=>setShowCreate(false)} done={created}/>} {showJoin&&<JoinGroupModal close={()=>setShowJoin(false)} joined={joined}/>} {showExpense&&group&&<AdvancedExpenseModal group={group} currencies={currencyData.currencies} expense={editingExpense} initialKind={initialExpenseKind} currentUserId={me.id} onNotice={notify} close={()=>{setShowExpense(false);setEditingExpense(null)}} done={expenseAdded}/>} {showInvite&&group&&<InviteModal group={group} close={()=>setShowInvite(false)}/>} {showProfile&&<ProfileModal me={me} close={()=>setShowProfile(false)} saved={bankAccount=>{setMe(current=>({...current,bankAccount}));setShowProfile(false);notify(bankAccount.configured?'已更新常用收款帳戶':'已移除常用收款帳戶')}}/>} {transferReport&&<TransferNoticeModal report={transferReport} close={closeTransferReport}/>}
   </div>
 }
 
-function EmptyGroups({create}){return <main className="empty-groups"><img src="/xiaoluo-avatar.png" alt="旅行成員頭像"/><span className="eyebrow">歡迎加入旅帳 TripTab</span><h1>先建立第一個帳本</h1><p>為這次活動取一個名字，再把邀請連結傳給同行的朋友</p><button className="primary" onClick={create}><Plus/> 建立帳本</button></main>}
+function EmptyGroups({create,join}){return <main className="empty-groups"><img src="/xiaoluo-avatar.png" alt="旅行成員頭像"/><span className="eyebrow">歡迎加入旅帳 TripTab</span><h1>先建立第一個帳本</h1><p>為這次活動取一個名字，再把邀請連結傳給同行的朋友</p><div className="empty-groups-actions"><button className="primary" onClick={create}><Plus/> 建立帳本</button><button type="button" className="secondary-button" onClick={join}><Link2 aria-hidden="true"/> 貼上邀請連結</button></div></main>}
 function DashboardSkeleton(){return <main className="dashboard-skeleton" aria-label="正在載入帳本資料" aria-busy="true"><div className="skeleton skeleton-hero"></div><div className="skeleton-stats">{[0,1,2].map(item=><div className="skeleton" key={item}></div>)}</div><div className="skeleton-grid"><div className="skeleton"></div><div className="skeleton"></div></div><span className="sr-only">正在載入帳本資料</span></main>}
 function WorkspaceError({message,retry}){const [retrying,setRetrying]=useState(false);const handleRetry=async()=>{setRetrying(true);try{await retry()}catch{}finally{setRetrying(false)}};return <main className="workspace-error" role="alert"><span><AlertCircle/></span><h1>帳本資料暫時無法載入</h1><p>{message||'請檢查網路連線後再試一次'}</p><button className="primary" disabled={retrying} onClick={handleRetry}>{retrying?<LoaderCircle/>:<RefreshCcw/>}{retrying?'重新載入中…':'重新載入'}</button></main>}
 function SettlementBankDetails({groupId,settlement}){

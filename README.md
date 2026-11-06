@@ -53,3 +53,12 @@ pnpm test:integration  # 需要本機 server 與測試資料庫的 14 人資料�
 ## Zeabur
 
 Repository 內含多階段 `Dockerfile`，Zeabur 從 GitHub 匯入後會建置 Vite 前端，再由 Node.js 同源提供靜態網站、LINE OAuth callback 與 API，監聽平台提供的 `PORT`（預設 8080），服務啟動時會以安全的 `CREATE TABLE IF NOT EXISTS` 自動建立資料表
+
+## 安裝到手機主畫面
+
+旅帳支援從目前網站直接安裝到手機主畫面，保留同一個網域與既有的 LINE 登入、邀請連結網址。不需要更換網址，也不會建立另一份帳本資料。
+
+- Android：用 Chrome 開啟旅帳網站，從瀏覽器選單選擇「安裝應用程式」或「加到主畫面」。
+- iPhone：用 Safari 開啟旅帳網站，點「分享」後選擇「加入主畫面」。
+
+帳本、登入和記帳都需要網路；離線時只顯示重連提示，不會保存或顯示私人帳目。這是可安裝的網站版本；安裝後的 LINE 回跳與邀請流程仍需手機實測，也尚未代表 iOS／Android 原生 App 已打包。

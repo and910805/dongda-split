@@ -1,0 +1,93 @@
+.join-group-trigger {
+  margin-top: 6px;
+}
+
+.empty-groups-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.empty-groups-actions .secondary-button,
+.empty-groups-actions .primary {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.empty-groups-actions svg {
+  width: 18px;
+  height: 18px;
+}
+
+.overlay .ledger-switcher-join {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #bcd7c7;
+  border-radius: 11px;
+  background: #e9f3eb;
+  color: #247353;
+  font: inherit;
+  font-weight: 700;
+}
+
+.overlay .ledger-switcher-join svg {
+  width: 18px;
+  height: 18px;
+}
+
+.overlay .ledger-switcher-join:focus-visible {
+  outline: 2px solid #247353;
+  outline-offset: 2px;
+}
+
+.overlay .modal.real-modal.join-group-modal {
+  width: min(100%, 500px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+
+.join-group-modal h2 {
+  margin-bottom: 8px;
+}
+
+.join-group-modal .modal-copy {
+  margin-bottom: 14px;
+}
+
+.join-group-modal input {
+  font-size: 16px;
+}
+
+.join-group-modal .form-error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.join-group-modal .form-error svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+@media (max-width: 600px) {
+  .empty-groups-actions {
+    width: min(100%, 300px);
+    flex-direction: column;
+  }
+
+  .empty-groups-actions button {
+    width: 100%;
+  }
+}
