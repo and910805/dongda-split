@@ -1,0 +1,53 @@
+name: iOS Simulator build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/triptab-mobile-install]
+    paths:
+      - '.github/workflows/ios-app.yml'
+      - 'mobile/ios/**'
+  pull_request:
+    paths:
+      - '.github/workflows/ios-app.yml'
+      - 'mobile/ios/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-simulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-simulator:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Generate Xcode project
+        working-directory: mobile/ios
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate
+      - name: Build unsigned iOS Simulator app
+        working-directory: mobile/ios
+        run: |
+          xcodebuild \
+            -project TripTab.xcodeproj \
+            -scheme TripTab \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: triptab-ios-simulator
+          path: mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/TripTab.app
+          if-no-files-found: error
+          retention-days: 3

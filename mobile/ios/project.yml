@@ -14,7 +14,14 @@ settings:
 packages:
   LineSDK:
     url: https://github.com/line/line-sdk-ios-swift
-    from: 5.17.0
+    exactVersion: 5.17.0
+schemes:
+  TripTab:
+    build:
+      targets:
+        TripTab: all
+    management:
+      shared: true
 targets:
   TripTab:
     type: application
