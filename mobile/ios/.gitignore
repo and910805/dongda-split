@@ -1,0 +1,4 @@
+TripTab.xcodeproj/
+.build/
+DerivedData/
+*.xcuserstate

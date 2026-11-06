@@ -1,0 +1,56 @@
+name: TripTab
+options:
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TRIPTAB_LINE_CHANNEL_ID: ""
+packages:
+  LineSDK:
+    url: https://github.com/line/line-sdk-ios-swift
+    from: 5.17.0
+targets:
+  TripTab:
+    type: application
+    platform: iOS
+    sources:
+      - path: TripTab/Sources
+      - path: TripTab/Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: pro.kuanlin.triptab
+        PRODUCT_NAME: TripTab
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: TripTab/Info.plist
+      properties:
+        CFBundleDisplayName: 旅帳
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - line3rdp.$(PRODUCT_BUNDLE_IDENTIFIER)
+        LSApplicationQueriesSchemes:
+          - lineauth2
+        TripTabLineChannelID: $(TRIPTAB_LINE_CHANNEL_ID)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIUserInterfaceStyle: Light
+    entitlements:
+      path: TripTab/TripTab.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - applinks:trip-tap.kuanlin.online
+    dependencies:
+      - package: LineSDK
+        product: LineSDK
