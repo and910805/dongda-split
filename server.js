@@ -34,6 +34,14 @@ import {
 // bank-account.mjs is required at runtime and must be copied into the production image.
 import {createBankAccountCipher,normalizeBankAccount} from './bank-account.mjs';
 import {normalizeSimulatedAccountInput} from './account-simulation.mjs';
+import {
+  makeNativeLineChallenge,
+  createNativeLineLimiter,
+  validNativeIdToken,
+  validNativeLineProfile,
+  NATIVE_LINE_CHALLENGE_COOKIE,
+  NATIVE_LINE_CHALLENGE_TTL_MS
+} from './native-line-auth.mjs';
 
 const {Pool}=pg;
 const app=express();
@@ -78,10 +86,25 @@ app.use(express.json({limit:'64kb'}));
 app.use(cookieParser());
 
 const cookieOptions={httpOnly:true,secure:isProduction,sameSite:'lax',path:'/',maxAge:1000*60*60*24*14};
+const nativeLineCookieOptions={...cookieOptions,sameSite:'strict',maxAge:NATIVE_LINE_CHALLENGE_TTL_MS};
+const nativeLineChannelId=process.env.LINE_IOS_CHANNEL_ID||process.env.LINE_CHANNEL_ID;
+const allowNativeLineRequest=createNativeLineLimiter();
 const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
 function sign(value){const body=encode(value);const sig=crypto.createHmac('sha256',SESSION_SECRET).update(body).digest('base64url');return `${body}.${sig}`}
 function unsign(token,{ignoreExpiry=false}={}){try{const [body,sig]=String(token||'').split('.');if(!body||!sig)return null;const expected=crypto.createHmac('sha256',SESSION_SECRET).update(body).digest();const actual=Buffer.from(sig,'base64url');if(actual.length!==expected.length||!crypto.timingSafeEqual(actual,expected))return null;const data=JSON.parse(Buffer.from(body,'base64url').toString());if(!ignoreExpiry&&data.exp&&Date.now()>data.exp)return null;return data}catch{return null}}
 function safeReturnTo(value){return typeof value==='string'&&value.startsWith('/')&&!value.startsWith('//')?value:'/app'}
+function requireNativeLineOrigin(req,res){
+  if(req.get('origin')!==new URL(APP_URL).origin||req.get('x-triptab-native')!=='1'){
+    res.status(403).json({error:'Invalid app origin'});
+    return false;
+  }
+  if(!allowNativeLineRequest(req.ip)){
+    res.set('Retry-After','60');
+    res.status(429).json({error:'登入要求過於頻繁，請稍後再試'});
+    return false;
+  }
+  return true;
+}
 const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 function attachSignedSession(req,res){
   const session=unsign(req.cookies.dongda_session);
@@ -346,6 +369,14 @@ async function migrate(){
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS native_line_login_challenges (
+      id UUID PRIMARY KEY,
+      nonce TEXT NOT NULL,
+      return_to TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS native_line_login_challenges_expiry
+      ON native_line_login_challenges(expires_at);
     CREATE TABLE IF NOT EXISTS groups (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 60),
@@ -845,6 +876,43 @@ app.post('/api/groups/:id/expense-rate',requireUser,asyncRoute(async(req,res)=>{
     exchangeRateToken,
     expiresAt:new Date(expiresAt).toISOString()
   });
+}));
+app.post('/api/auth/line/native/challenge',asyncRoute(async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  if(!requireNativeLineOrigin(req,res))return;
+  if(!nativeLineChannelId)return res.status(503).json({error:'LINE Login 尚未設定'});
+  const challenge=makeNativeLineChallenge(req.body?.returnTo);
+  await pool.query('DELETE FROM native_line_login_challenges WHERE expires_at<=now()');
+  await pool.query(`INSERT INTO native_line_login_challenges(id,nonce,return_to,expires_at)
+    VALUES($1,$2,$3,$4)`, [challenge.id,challenge.nonce,challenge.returnTo,challenge.expiresAt]);
+  res.cookie(NATIVE_LINE_CHALLENGE_COOKIE,sign({kind:'native-line-login',id:challenge.id,exp:challenge.expiresAt.getTime()}),nativeLineCookieOptions);
+  res.json({nonce:challenge.nonce});
+}));
+app.post('/api/auth/line/native',asyncRoute(async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  if(!requireNativeLineOrigin(req,res))return;
+  const challengeCookie=unsign(req.cookies[NATIVE_LINE_CHALLENGE_COOKIE]);
+  res.clearCookie(NATIVE_LINE_CHALLENGE_COOKIE,{path:'/',secure:isProduction,sameSite:'strict'});
+  if(!nativeLineChannelId||challengeCookie?.kind!=='native-line-login'||!UUID_PATTERN.test(String(challengeCookie.id||'')))
+    return res.status(401).json({error:'登入挑戰已失效，請重試'});
+  if(!validNativeIdToken(req.body?.idToken))return res.status(400).json({error:'LINE 憑證格式錯誤'});
+  const {rows:[challenge]}=await pool.query(`DELETE FROM native_line_login_challenges
+    WHERE id=$1 AND expires_at>now() RETURNING nonce,return_to AS "returnTo"`,[challengeCookie.id]);
+  if(!challenge)return res.status(401).json({error:'登入挑戰已失效，請重試'});
+  const verifyBody=new URLSearchParams({id_token:req.body.idToken,client_id:nativeLineChannelId,nonce:challenge.nonce});
+  const verifyResponse=await fetch('https://api.line.me/oauth2/v2.1/verify',{
+    method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:verifyBody,
+    signal:AbortSignal.timeout(10000)
+  });
+  if(!verifyResponse.ok)return res.status(verifyResponse.status===400?401:502).json({error:'LINE 驗證失敗，請重試'});
+  const profile=await verifyResponse.json();
+  if(!validNativeLineProfile(profile,{channelId:nativeLineChannelId,nonce:challenge.nonce,now:Date.now()}))
+    return res.status(401).json({error:'LINE 身分資料無效'});
+  const {rows:[user]}=await pool.query(`INSERT INTO users(line_user_id,display_name,picture_url) VALUES($1,$2,$3)
+    ON CONFLICT(line_user_id) DO UPDATE SET display_name=excluded.display_name,picture_url=excluded.picture_url,updated_at=now()
+    RETURNING id`,[profile.sub,profile.name||'LINE 使用者',profile.picture||null]);
+  res.cookie('dongda_session',sign({userId:user.id,exp:Date.now()+14*24*60*60*1000}),cookieOptions);
+  res.json({returnTo:challenge.returnTo});
 }));
 app.get('/api/auth/line',(req,res)=>{
   if(!process.env.LINE_CHANNEL_ID||!process.env.LINE_CHANNEL_SECRET)return res.status(503).send('LINE Login 尚未設定');
